@@ -44,14 +44,6 @@ class MultiplayerInterface {
                     <h2 class="text-2xl font-bold text-center mb-6">四人象棋 - 登录</h2>
                     <form id="loginForm" class="space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">用户ID</label>
-                            <input type="text" id="userId" 
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                   placeholder="输入3-20个字符的用户ID" 
-                                   maxlength="20" required>
-                            <p class="text-xs text-gray-500 mt-1">只能包含字母、数字、下划线和连字符</p>
-                        </div>
-                        <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">昵称</label>
                             <input type="text" id="nickname" 
                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -307,11 +299,10 @@ class MultiplayerInterface {
      * 处理登录
      */
     handleLogin() {
-        const userId = document.getElementById('userId').value.trim();
         const nickname = document.getElementById('nickname').value.trim();
         
         try {
-            this.networkController.login(userId, nickname);
+            this.networkController.login(nickname);
         } catch (error) {
             this.showError(error.message, 'loginError');
         }
@@ -339,15 +330,21 @@ class MultiplayerInterface {
      * 处理加入房间
      */
     handleJoinRoom() {
-        const roomId = document.getElementById('roomIdInput').value.trim();
+        const roomIdInput = document.getElementById('roomIdInput');
+        const roomId = roomIdInput ? roomIdInput.value.trim() : '';
+        
         if (!roomId) {
             this.showError('请输入房间ID', 'lobbyError');
             return;
         }
         
+        console.log('尝试加入房间:', roomId);
+        
         try {
-            this.networkController.joinRoom(roomId);
+            const result = this.networkController.joinRoom(roomId);
+            console.log('加入房间成功:', result);
         } catch (error) {
+            console.log('加入房间失败:', error.message);
             this.showError(error.message, 'lobbyError');
         }
     }
@@ -478,19 +475,23 @@ class MultiplayerInterface {
             }
         }
         
-        // 更新开始游戏按钮状态
+        // 更新开始游戏按钮状态（允许少于4人开始）
         const startBtn = document.getElementById('startGameBtn');
-        const canStart = room.playerCount === 4 && this.networkController.roomManager.checkAllPlayersReady();
-        startBtn.disabled = !canStart;
+        if (startBtn) {
+            const canStart = room.playerCount >= 1 && this.networkController.roomManager.checkAllPlayersReady();
+            startBtn.disabled = !canStart;
+        }
         
         // 更新房间状态
         const statusDiv = document.getElementById('roomStatus');
-        if (room.playerCount < 4) {
-            statusDiv.textContent = `等待玩家加入 (${room.playerCount}/4)`;
-        } else if (canStart) {
-            statusDiv.textContent = '所有玩家已准备，可以开始游戏';
-        } else {
-            statusDiv.textContent = '等待所有玩家准备';
+        if (statusDiv) {
+            if (room.playerCount < 1) {
+                statusDiv.textContent = '等待玩家加入';
+            } else if (this.networkController.roomManager.checkAllPlayersReady()) {
+                statusDiv.textContent = `可以开始游戏 (${room.playerCount}/4 人)`;
+            } else {
+                statusDiv.textContent = `等待所有玩家准备 (${room.playerCount}/4 人)`;
+            }
         }
     }
     

@@ -6,21 +6,19 @@ class UserManager {
     }
     
     /**
-     * 用户登录
+     * 用户登录（简化版本，只需要昵称）
      */
-    login(userId, nickname) {
-        if (!userId || !nickname) {
-            throw new Error('用户ID和昵称不能为空');
-        }
-        
-        // 检查ID格式（简单验证）
-        if (userId.length < 3 || userId.length > 20) {
-            throw new Error('用户ID长度应在3-20个字符之间');
+    login(nickname) {
+        if (!nickname) {
+            throw new Error('昵称不能为空');
         }
         
         if (nickname.length < 2 || nickname.length > 10) {
             throw new Error('昵称长度应在2-10个字符之间');
         }
+        
+        // 使用昵称生成唯一ID
+        const userId = this.generateUserId(nickname);
         
         this.currentUser = {
             id: userId,
@@ -34,6 +32,15 @@ class UserManager {
         localStorage.setItem('chess_user', JSON.stringify(this.currentUser));
         
         return this.currentUser;
+    }
+    
+    /**
+     * 生成用户ID（基于昵称和时间戳）
+     */
+    generateUserId(nickname) {
+        const timestamp = Date.now().toString(36);
+        const cleanNickname = nickname.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '').slice(0, 6);
+        return `${cleanNickname}_${timestamp}`;
     }
     
     /**

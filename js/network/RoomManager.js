@@ -21,7 +21,8 @@ class RoomManager {
             playerCount: 1,
             gameState: 'waiting', // waiting, playing, finished
             createTime: new Date(),
-            maxPlayers: 4
+            maxPlayers: 4,
+            minPlayers: 1 // 允许1人即可开始（方便调试）
         };
         
         // 房主占据第一个位置（红方）
@@ -47,13 +48,18 @@ class RoomManager {
      * 加入房间
      */
     joinRoom(roomId, user) {
+        console.log(`尝试加入房间 ${roomId}, 用户:`, user.nickname);
+        
         // 简化版本：从本地存储加载房间
         // 实际项目中应该从服务器获取
         const savedRoom = this.loadRoomFromStorage(roomId);
         
         if (!savedRoom) {
+            console.log(`房间 ${roomId} 不存在`);
             throw new Error('房间不存在或已关闭');
         }
+        
+        console.log(`找到房间 ${roomId}:`, savedRoom);
         
         if (savedRoom.playerCount >= 4) {
             throw new Error('房间已满');
@@ -77,6 +83,7 @@ class RoomManager {
         }
         
         // 加入房间
+        this.roomId = roomId;
         this.currentRoom = savedRoom;
         this.playerSlots[position] = user;
         this.currentRoom.players[user.id] = {
@@ -88,6 +95,8 @@ class RoomManager {
         this.currentRoom.playerCount++;
         
         this.saveRoomToStorage();
+        
+        console.log(`用户 ${user.nickname} 成功加入房间 ${roomId}，位置: ${position}`);
         
         return {
             roomId: this.roomId,
@@ -145,10 +154,10 @@ class RoomManager {
     }
     
     /**
-     * 检查是否所有玩家都准备好
+     * 检查是否所有玩家都准备好（修改为允许少于4人）
      */
     checkAllPlayersReady() {
-        if (!this.currentRoom || this.currentRoom.playerCount < 4) {
+        if (!this.currentRoom || this.currentRoom.playerCount < 1) {
             return false;
         }
         
@@ -197,10 +206,10 @@ class RoomManager {
     }
     
     /**
-     * 生成房间ID
+     * 生成房间ID（四位随机数字）
      */
     generateRoomId() {
-        return Math.random().toString(36).substr(2, 9).toUpperCase();
+        return Math.floor(1000 + Math.random() * 9000).toString();
     }
     
     /**
@@ -224,11 +233,18 @@ class RoomManager {
      */
     loadRoomFromStorage(roomId) {
         try {
-            const roomData = localStorage.getItem(`chess_room_${roomId}`);
+            console.log(`尝试从本地存储加载房间: ${roomId}`);
+            const roomKey = `chess_room_${roomId}`;
+            const roomData = localStorage.getItem(roomKey);
+            
             if (roomData) {
+                console.log(`找到房间数据:`, roomKey);
                 const parsed = JSON.parse(roomData);
                 this.playerSlots = parsed.playerSlots || [null, null, null, null];
                 return parsed;
+            } else {
+                console.log(`房间不存在: ${roomKey}`);
+                console.log('现有房间键:', Object.keys(localStorage).filter(key => key.startsWith('chess_room_')));
             }
         } catch (e) {
             console.error('Failed to load room from storage:', e);

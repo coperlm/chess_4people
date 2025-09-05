@@ -2,7 +2,7 @@
 class GameState {
     constructor() {
         this.board = this.initializeBoard();
-        this.currentPlayer = 0; // 从红方开始
+        this.currentPlayer = 0; // 默认红方开始
         this.gamePhase = 'ready'; // ready, playing, finished
         this.moveHistory = [];
         this.selectedPiece = null;
@@ -126,18 +126,57 @@ class GameState {
     }
     
     /**
-     * 切换到下一个玩家（顺时针轮转）
+     * 轮换到下一个玩家（支持跳过空位玩家）
      */
     nextPlayer() {
         // 顺时针轮转顺序：红(0) → 绿(2) → 蓝(1) → 黑(3)
         const clockwiseOrder = [0, 2, 1, 3];
         const currentIndex = clockwiseOrder.indexOf(this.currentPlayer);
-        const nextIndex = (currentIndex + 1) % 4;
-        this.currentPlayer = clockwiseOrder[nextIndex];
+        
+        // 获取房间中的活跃玩家列表（网络模式）
+        const activePlayers = this.getActivePlayers();
+        
+        if (activePlayers.length === 0) {
+            // 单机模式或无房间信息，按原逻辑进行
+            const nextIndex = (currentIndex + 1) % 4;
+            this.currentPlayer = clockwiseOrder[nextIndex];
+        } else {
+            // 网络模式：跳过没有玩家的位置
+            let attempts = 0;
+            let nextIndex = currentIndex;
+            do {
+                nextIndex = (nextIndex + 1) % 4;
+                attempts++;
+            } while (!activePlayers.includes(clockwiseOrder[nextIndex]) && attempts < 4);
+            
+            this.currentPlayer = clockwiseOrder[nextIndex];
+        }
         
         this.selectedPiece = null;
         this.possibleMoves = [];
         this.turn++;
+    }
+    
+    /**
+     * 获取活跃玩家列表（网络模式下从全局获取）
+     */
+    getActivePlayers() {
+        // 尝试从全局的网络控制器获取活跃玩家
+        if (typeof window !== 'undefined' && window.multiplayerInterface && 
+            window.multiplayerInterface.networkController && 
+            window.multiplayerInterface.networkController.roomManager.currentRoom) {
+            const room = window.multiplayerInterface.networkController.roomManager.currentRoom;
+            const activePlayers = [];
+            
+            for (let playerId in room.players) {
+                const player = room.players[playerId];
+                activePlayers.push(player.position);
+            }
+            
+            return activePlayers.sort(); // 确保顺序一致
+        }
+        
+        return []; // 单机模式或无房间信息时返回空数组
     }
     
     /**
@@ -153,20 +192,64 @@ class GameState {
             return false;
         }
         
+        // 选择棋子
         this.selectedPiece = { x, y, piece };
-        this.possibleMoves = this.calculatePossibleMoves(x, y);
+        
+        // 计算可能的移动
+        if (this.calculatePossibleMoves) {
+            this.possibleMoves = this.calculatePossibleMoves(x, y);
+        }
+        
         return true;
     }
     
     /**
-     * 计算指定位置棋子的可能移动
+     * 清除选择
+     */
+    clearSelection() {
+        this.selectedPiece = null;
+        this.possibleMoves = [];
+    }
+    
+    /**
+     * 尝试移动棋子
+     */
+    makeMove(fromX, fromY, toX, toY) {
+        // 验证移动是否合法
+        if (!this.selectedPiece || 
+            this.selectedPiece.x !== fromX || 
+            this.selectedPiece.y !== fromY) {
+            return false;
+        }
+        
+        // 检查目标位置是否在可能移动列表中
+        const isValidMove = this.possibleMoves.some(move => 
+            move.x === toX && move.y === toY
+        );
+        
+        if (!isValidMove) {
+            return false;
+        }
+        
+        // 执行移动
+        const success = this.movePiece(fromX, fromY, toX, toY);
+        
+        if (success) {
+            this.clearSelection();
+        }
+        
+        return success;
+    }
+    
+    /**
+     * 计算指定棋子的可能移动
      */
     calculatePossibleMoves(x, y) {
         const piece = this.getPiece(x, y);
         if (!piece) return [];
         
-        // 这里会调用规则验证器来计算具体的移动
-        // 暂时返回空数组，后续会在RuleValidator中实现
+        // 这里应该根据不同棋子类型实现具体的移动规则
+        // 目前返回空数组，实际实现中会由GameEngine提供
         return [];
     }
     
@@ -181,29 +264,30 @@ class GameState {
      * 检查游戏是否结束
      */
     checkGameEnd() {
-        // 检查是否有玩家的将/帅被吃掉
-        const kings = [];
-        for (let x = 0; x < Config.BOARD_SIZE; x++) {
-            for (let y = 0; y < Config.BOARD_SIZE; y++) {
-                const piece = this.getPiece(x, y);
-                if (piece && piece.type === Config.PIECE_TYPES.KING) {
-                    kings.push(piece.player);
-                }
-            }
-        }
-        
-        // 找出被消灭的玩家
+        // 检查是否有玩家的王被吃掉
         const eliminatedPlayers = [];
         for (let player = 0; player < 4; player++) {
-            if (!kings.includes(player)) {
+            let hasKing = false;
+            for (let x = 0; x < Config.BOARD_SIZE; x++) {
+                for (let y = 0; y < Config.BOARD_SIZE; y++) {
+                    const piece = this.getPiece(x, y);
+                    if (piece && piece.player === player && piece.type === 'king') {
+                        hasKing = true;
+                        break;
+                    }
+                }
+                if (hasKing) break;
+            }
+            if (!hasKing) {
                 eliminatedPlayers.push(player);
             }
         }
         
-        // 如果有玩家被消灭，检查获胜条件
-        if (eliminatedPlayers.length > 0) {
+        // 如果只剩一个玩家，游戏结束
+        const remainingPlayers = [0, 1, 2, 3].filter(p => !eliminatedPlayers.includes(p));
+        if (remainingPlayers.length <= 1) {
             this.gamePhase = 'finished';
-            this.determineWinner(eliminatedPlayers);
+            this.winner = remainingPlayers[0] || null;
             return true;
         }
         
@@ -214,18 +298,15 @@ class GameState {
      * 确定获胜者
      */
     determineWinner(eliminatedPlayers) {
-        // 如果队伍1的任一成员被消灭，队伍2获胜
-        if (eliminatedPlayers.some(p => Config.TEAMS.TEAM1.includes(p))) {
-            this.winner = 'TEAM2';
+        const remainingPlayers = [0, 1, 2, 3].filter(p => !eliminatedPlayers.includes(p));
+        if (remainingPlayers.length === 1) {
+            return remainingPlayers[0];
         }
-        // 如果队伍2的任一成员被消灭，队伍1获胜
-        else if (eliminatedPlayers.some(p => Config.TEAMS.TEAM2.includes(p))) {
-            this.winner = 'TEAM1';
-        }
+        return null;
     }
     
     /**
-     * 重置游戏
+     * 重置游戏状态
      */
     reset() {
         this.board = this.initializeBoard();
@@ -236,7 +317,13 @@ class GameState {
         this.possibleMoves = [];
         this.winner = null;
         this.turn = 1;
-        this.pieceCounts = { 0: 10, 1: 10, 2: 10, 3: 10 };
+        
+        // 重置棋子计数
+        this.pieceCounts = {
+            0: 10, 1: 10, 2: 10, 3: 10
+        };
+        
+        // 重新初始化棋子
         this.initializePieces();
     }
     
@@ -245,19 +332,40 @@ class GameState {
      */
     startGame() {
         this.gamePhase = 'playing';
+        this.currentPlayer = 0; // 红方先行
+        this.turn = 1;
+        this.moveHistory = [];
+        this.winner = null;
+        this.clearSelection();
     }
     
     /**
-     * 获取游戏状态信息
+     * 获取游戏统计信息
+     */
+    getGameStats() {
+        return {
+            turn: this.turn,
+            moveCount: this.moveHistory.length,
+            currentPlayer: this.currentPlayer,
+            gamePhase: this.gamePhase,
+            pieceCounts: { ...this.pieceCounts },
+            winner: this.winner
+        };
+    }
+    
+    /**
+     * 获取游戏信息
      */
     getGameInfo() {
         return {
             currentPlayer: this.currentPlayer,
             gamePhase: this.gamePhase,
             turn: this.turn,
-            pieceCounts: Utils.deepCopy(this.pieceCounts),
             winner: this.winner,
-            moveCount: this.moveHistory.length
+            pieceCounts: { ...this.pieceCounts },
+            moveCount: this.moveHistory.length,
+            selectedPiece: this.selectedPiece,
+            possibleMoves: [...this.possibleMoves]
         };
     }
     
@@ -265,14 +373,17 @@ class GameState {
      * 获取最后一步移动
      */
     getLastMove() {
-        return this.moveHistory.length > 0 ? this.moveHistory[this.moveHistory.length - 1] : null;
+        return this.moveHistory.length > 0 ? 
+               this.moveHistory[this.moveHistory.length - 1] : null;
     }
     
     /**
      * 悔棋
      */
     undoMove() {
-        if (this.moveHistory.length === 0) return false;
+        if (this.moveHistory.length === 0) {
+            return false;
+        }
         
         const lastMove = this.moveHistory.pop();
         
@@ -281,44 +392,166 @@ class GameState {
         this.removePiece(lastMove.to.x, lastMove.to.y);
         this.setPiece(lastMove.from.x, lastMove.from.y, piece);
         
-        // 如果有被吃掉的棋子，恢复它
+        // 如果有被吃的棋子，恢复它
         if (lastMove.captured) {
             this.setPiece(lastMove.to.x, lastMove.to.y, lastMove.captured);
             this.pieceCounts[lastMove.captured.player]++;
         }
         
-        // 恢复玩家轮次
-        this.currentPlayer = lastMove.player;
-        this.turn = lastMove.turn;
-        this.selectedPiece = null;
-        this.possibleMoves = [];
+        // 回到上一个玩家
+        const clockwiseOrder = [0, 2, 1, 3];
+        const currentIndex = clockwiseOrder.indexOf(this.currentPlayer);
+        const prevIndex = (currentIndex - 1 + 4) % 4;
+        this.currentPlayer = clockwiseOrder[prevIndex];
+        
+        this.turn--;
+        this.clearSelection();
         
         return true;
+    }
+    
+    /**
+     * 检查游戏是否结束
+     */
+    isGameOver() {
+        return this.gamePhase === 'finished' || this.winner !== null;
+    }
+    
+    /**
+     * 获取棋盘的副本
+     */
+    getBoardCopy() {
+        const copy = [];
+        for (let x = 0; x < Config.BOARD_SIZE; x++) {
+            copy[x] = [];
+            for (let y = 0; y < Config.BOARD_SIZE; y++) {
+                const piece = this.board[x][y];
+                copy[x][y] = piece ? piece.clone() : null;
+            }
+        }
+        return copy;
+    }
+    
+    /**
+     * 从JSON恢复游戏状态
+     */
+    loadFromJSON(data) {
+        this.currentPlayer = data.currentPlayer || 0;
+        this.gamePhase = data.gamePhase || 'ready';
+        this.turn = data.turn || 1;
+        this.winner = data.winner || null;
+        this.pieceCounts = data.pieceCounts || { 0: 10, 1: 10, 2: 10, 3: 10 };
+        this.moveHistory = data.moveHistory || [];
+        
+        // 恢复棋盘
+        this.board = this.initializeBoard();
+        if (data.board) {
+            for (let x = 0; x < Config.BOARD_SIZE; x++) {
+                for (let y = 0; y < Config.BOARD_SIZE; y++) {
+                    if (data.board[x] && data.board[x][y]) {
+                        const pieceData = data.board[x][y];
+                        const piece = new ChessPiece(
+                            pieceData.type,
+                            pieceData.player,
+                            pieceData.x,
+                            pieceData.y
+                        );
+                        piece.moveCount = pieceData.moveCount || 0;
+                        this.board[x][y] = piece;
+                    }
+                }
+            }
+        }
+        
+        this.clearSelection();
+    }
+    
+    /**
+     * 转换为JSON格式
+     */
+    toJSON() {
+        return {
+            currentPlayer: this.currentPlayer,
+            gamePhase: this.gamePhase,
+            turn: this.turn,
+            winner: this.winner,
+            pieceCounts: this.pieceCounts,
+            moveHistory: this.moveHistory,
+            board: this.board.map(row => 
+                row.map(piece => piece ? {
+                    type: piece.type,
+                    player: piece.player,
+                    x: piece.x,
+                    y: piece.y,
+                    moveCount: piece.moveCount
+                } : null)
+            )
+        };
     }
 }
 
 // 棋子类
 class ChessPiece {
     constructor(type, player, x, y) {
-        this.type = type;
-        this.player = player;
+        this.type = type;       // 棋子类型
+        this.player = player;   // 所属玩家 (0-3)
+        this.x = x;            // X坐标
+        this.y = y;            // Y坐标
+        this.moveCount = 0;    // 移动次数
+    }
+    
+    /**
+     * 移动棋子到新位置
+     */
+    moveTo(x, y) {
         this.x = x;
         this.y = y;
-        this.id = Utils.generateId();
+        this.moveCount++;
     }
     
     /**
-     * 获取棋子的显示名称
+     * 获取棋子的显示符号
      */
-    getName() {
-        return Config.PIECE_NAMES[this.player][this.type];
+    getSymbol() {
+        const symbols = {
+            'king': ['帅', '将', '帥', '將'],
+            'advisor': ['仕', '士', '仕', '士'],
+            'elephant': ['相', '象', '相', '象'],
+            'horse': ['马', '马', '馬', '馬'],
+            'rook': ['车', '车', '車', '車'],
+            'cannon': ['炮', '炮', '砲', '砲'],
+            'pawn': ['兵', '卒', '兵', '卒']
+        };
+        
+        return symbols[this.type] ? symbols[this.type][this.player] : '?';
     }
     
     /**
-     * 获取棋子的颜色信息
+     * 克隆棋子
      */
-    getColorInfo() {
-        return Config.PLAYER_COLORS[this.player];
+    clone() {
+        const cloned = new ChessPiece(this.type, this.player, this.x, this.y);
+        cloned.moveCount = this.moveCount;
+        return cloned;
+    }
+    
+    /**
+     * 比较两个棋子是否相同
+     */
+    equals(other) {
+        return other && 
+               this.type === other.type && 
+               this.player === other.player && 
+               this.x === other.x && 
+               this.y === other.y;
+    }
+    
+    /**
+     * 获取棋子描述
+     */
+    toString() {
+        const playerNames = ['红', '蓝', '绿', '黑'];
+        return `${playerNames[this.player]}${this.getSymbol()}(${this.x},${this.y})`;
     }
 }
 

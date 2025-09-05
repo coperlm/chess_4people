@@ -26,8 +26,8 @@ class NetworkGameController {
     /**
      * 登录
      */
-    login(userId, nickname) {
-        const user = this.userManager.login(userId, nickname);
+    login(nickname) {
+        const user = this.userManager.login(nickname);
         this.fireCallback('onLogin', user);
         return user;
     }
