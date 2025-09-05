@@ -1,0 +1,22 @@
+{
+  "name": "four-player-chess",
+  "version": "1.0.0",
+  "description": "四人象棋游戏",
+  "main": "index.html",
+  "scripts": {
+    "dev": "live-server --port=3000",
+    "build-css": "tailwindcss -i ./css/input.css -o ./css/output.css --watch"
+  },
+  "devDependencies": {
+    "live-server": "^1.2.2",
+    "tailwindcss": "^3.4.17"
+  },
+  "keywords": [
+    "chess",
+    "game",
+    "four-player",
+    "javascript"
+  ],
+  "author": "Chess Game Developer",
+  "license": "MIT"
+}

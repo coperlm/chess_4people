@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>四人象棋游戏</title>
+    <link rel="stylesheet" href="styles/style.css">
+    <style>
+        /* 主要样式已移至编译后的CSS文件 */
+    </style>
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- 游戏标题 -->
+    <header class="bg-amber-800 text-white py-4 shadow-lg">
+        <div class="container mx-auto text-center">
+            <h1 class="text-3xl font-bold">四人象棋</h1>
+            <p class="text-amber-200 mt-2">Four Player Chinese Chess</p>
+        </div>
+    </header>
+
+    <!-- 主游戏区域 -->
+    <main class="container mx-auto px-4 py-8">
+        <div class="flex flex-col lg:flex-row gap-8">
+            <!-- 左侧控制面板 -->
+            <div class="lg:w-1/4">
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h2 class="text-xl font-bold mb-4">游戏控制</h2>
+                    
+                    <!-- 当前玩家显示 -->
+                    <div class="mb-4">
+                        <p class="text-sm text-gray-600 mb-2">当前玩家:</p>
+                        <div id="currentPlayer" class="text-lg font-bold text-red-600">红方</div>
+                    </div>
+                    
+                    <!-- 游戏状态 -->
+                    <div class="mb-4">
+                        <p class="text-sm text-gray-600 mb-2">游戏状态:</p>
+                        <div id="gameStatus" class="text-sm">等待开始</div>
+                    </div>
+                    
+                    <!-- 控制按钮 -->
+                    <div class="space-y-2">
+                        <button id="newGameBtn" class="w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 transition-colors">
+                            新游戏
+                        </button>
+                        <button id="undoBtn" class="w-full bg-yellow-500 text-white py-2 px-4 rounded hover:bg-yellow-600 transition-colors" disabled>
+                            悔棋
+                        </button>
+                        <button id="surrenderBtn" class="w-full bg-red-500 text-white py-2 px-4 rounded hover:bg-red-600 transition-colors" disabled>
+                            认输
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 玩家信息 -->
+                <div class="bg-white rounded-lg shadow-lg p-6 mt-6">
+                    <h3 class="text-lg font-bold mb-4">玩家信息</h3>
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-red-600 font-medium">红方(下)</span>
+                            <span id="redPieces" class="text-sm">10棋子</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-blue-600 font-medium">蓝方(上)</span>
+                            <span id="bluePieces" class="text-sm">10棋子</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-green-600 font-medium">绿方(右)</span>
+                            <span id="greenPieces" class="text-sm">10棋子</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-gray-800 font-medium">黑方(左)</span>
+                            <span id="blackPieces" class="text-sm">10棋子</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 棋盘区域 -->
+            <div class="lg:w-2/4 flex justify-center">
+                <div class="relative">
+                    <!-- 棋盘 -->
+                    <div id="chessBoard" class="grid grid-cols-11 grid-rows-11 gap-0 bg-amber-100 p-4 rounded-lg shadow-xl border-4 border-amber-800">
+                        <!-- 棋盘格子将通过JavaScript动态生成 -->
+                    </div>
+                    
+                    <!-- 河界标识 -->
+                    <div class="absolute top-1/2 left-0 right-0 transform -translate-y-1/2 text-center pointer-events-none">
+                        <div class="bg-blue-500 text-white px-2 py-1 rounded text-sm font-bold inline-block">楚河汉界</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧信息面板 -->
+            <div class="lg:w-1/4">
+                <!-- 移动历史 -->
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h3 class="text-lg font-bold mb-4">移动历史</h3>
+                    <div id="moveHistory" class="max-h-64 overflow-y-auto space-y-1">
+                        <p class="text-gray-500 text-sm">暂无移动记录</p>
+                    </div>
+                </div>
+
+                <!-- 游戏规则 -->
+                <div class="bg-white rounded-lg shadow-lg p-6 mt-6">
+                    <h3 class="text-lg font-bold mb-4">游戏规则</h3>
+                    <div class="text-sm text-gray-600 space-y-2">
+                        <p>• 四人对战，对角线玩家为队友</p>
+                        <p>• 红绿队 vs 蓝黑队</p>
+                        <p>• 河界位置不可落子</p>
+                        <p>• 兵卒有方向性，过河后可横移</p>
+                        <p>• 将死任意敌方即可获胜</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 游戏消息提示 -->
+    <div id="messageToast" class="fixed bottom-4 right-4 bg-blue-500 text-white px-6 py-3 rounded-lg shadow-lg transform translate-y-full transition-transform duration-300">
+        <p id="messageText">游戏消息</p>
+    </div>
+
+    <!-- JavaScript模块 -->
+    <script src="js/utils/Config.js"></script>
+    <script src="js/utils/Utils.js"></script>
+    <script src="js/utils/GameStatePersistence.js"></script>
+    <script src="js/board/CoordinateMapper.js"></script>
+    <script src="js/game/GameState.js"></script>
+    <script src="js/board/PieceManager.js"></script>
+    <script src="js/game/RuleValidator.js"></script>
+    <script src="js/board/BoardRenderer.js"></script>
+    <script src="js/game/GameEngine.js"></script>
+    <script src="js/ui/GameInterface.js"></script>
+    <!-- 网络相关模块 -->
+    <script src="js/network/UserManager.js"></script>
+    <script src="js/network/RoomManager.js"></script>
+    <script src="js/network/NetworkGameController.js"></script>
+    <script src="js/ui/MultiplayerInterface.js"></script>
+    <!-- 主程序 -->
+    <script src="js/main.js"></script>
+</body>
+</html>

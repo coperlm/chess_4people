@@ -1,0 +1,138 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 棋子样式 */
+.chess-piece {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  border-width: 2px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 1.125rem;
+  user-select: none;
+  position: relative;
+  z-index: 5;
+}
+
+.chess-piece:hover {
+  transform: scale(1.1);
+  z-index: 10;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.chess-piece.selected {
+  box-shadow: 0 0 0 4px rgba(250, 204, 21, 0.75);
+  animation: glow 1s ease-in-out infinite alternate;
+}
+
+/* 棋盘格子样式 */
+.chess-cell {
+  border: 1px solid #8b4513;
+  background-color: #f4e4bc;
+  position: relative;
+  aspect-ratio: 1;
+  min-height: 2.5rem;
+}
+
+.chess-cell.river {
+  background-color: #87ceeb;
+  border-color: #3b82f6;
+}
+
+.chess-cell.possible-move {
+  background-color: #bbf7d0;
+  border-color: #22c55e;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.chess-cell.enemy-piece {
+  background-color: #fecaca;
+  border-color: #ef4444;
+}
+
+.chess-cell.selected {
+  background-color: #fbbf24;
+  border-color: #f59e0b;
+}
+
+.chess-cell.check {
+  background-color: #fca5a5;
+  border-color: #ef4444;
+  animation: flash 1s infinite;
+}
+
+/* 动画效果 */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes glow {
+  from {
+    box-shadow: 0 0 5px rgba(59, 130, 246, 0.5);
+  }
+  to {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.8);
+  }
+}
+
+@keyframes flash {
+  0%, 100% { 
+    opacity: 1; 
+  }
+  50% { 
+    opacity: 0.5; 
+  }
+}
+
+/* 玩家区域 */
+.player-area {
+  opacity: 0.1;
+  transition: opacity 0.3s ease;
+}
+
+.player-area.active {
+  opacity: 1;
+}
+
+/* 通用过渡效果 */
+.game-transition {
+  transition: all 0.3s ease-in-out;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .chess-piece {
+    font-size: 0.875rem;
+    width: 2rem;
+    height: 2rem;
+  }
+  
+  .chess-cell {
+    min-height: 2rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .chess-piece {
+    font-size: 0.75rem;
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+  
+  .chess-cell {
+    min-height: 1.75rem;
+  }
+}
