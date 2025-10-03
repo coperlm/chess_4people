@@ -3,9 +3,7 @@ class ChessGameApp {
     constructor() {
         this.gameEngine = null;
         this.gameInterface = null;
-        this.multiplayerInterface = null;
         this.isInitialized = false;
-        this.gameMode = 'single'; // 'single' or 'multiplayer'
         
         // 绑定错误处理
         this.bindErrorHandlers();
@@ -33,14 +31,7 @@ class ChessGameApp {
                 throw new Error('浏览器不兼容');
             }
             
-            // 添加游戏模式选择
-            this.createGameModeSelector();
-            
-            // 初始化多人游戏界面
-            this.multiplayerInterface = new MultiplayerInterface();
-            console.log('✅ 多人游戏界面初始化完成');
-            
-            // 初始化游戏引擎（单机模式）
+            // 初始化游戏引擎
             this.gameEngine = new GameEngine();
             console.log('✅ 游戏引擎初始化完成');
             
@@ -51,14 +42,10 @@ class ChessGameApp {
             // 暴露到全局作用域（用于调试）
             window.gameEngine = this.gameEngine;
             window.gameInterface = this.gameInterface;
-            window.multiplayerInterface = this.multiplayerInterface;
             window.chessApp = this;
             
             // 隐藏加载状态
             this.hideInitialLoading();
-            
-            // 默认显示多人游戏界面
-            this.setGameMode('multiplayer');
             
             // 标记为已初始化
             this.isInitialized = true;
@@ -100,95 +87,6 @@ class ChessGameApp {
         }
         
         return true;
-    }
-    
-    /**
-     * 创建游戏模式选择器
-     */
-    createGameModeSelector() {
-        // 在标题栏添加模式切换按钮
-        const header = document.querySelector('header .container');
-        if (header) {
-            const modeSelector = document.createElement('div');
-            modeSelector.className = 'flex items-center space-x-2';
-            modeSelector.innerHTML = `
-                <span class="text-amber-200 text-sm">游戏模式:</span>
-                <button id="singleModeBtn" class="px-3 py-1 rounded text-sm bg-amber-600 text-white hover:bg-amber-700">
-                    单机模式
-                </button>
-                <button id="multiModeBtn" class="px-3 py-1 rounded text-sm bg-amber-900 text-amber-200 hover:bg-amber-800">
-                    多人模式
-                </button>
-            `;
-            
-            // 插入到标题右侧
-            const titleContainer = header.querySelector('div');
-            if (titleContainer) {
-                titleContainer.appendChild(modeSelector);
-                titleContainer.className = 'flex justify-between items-center';
-            }
-            
-            // 延迟绑定事件，确保元素已插入DOM
-            setTimeout(() => {
-                const singleBtn = document.getElementById('singleModeBtn');
-                const multiBtn = document.getElementById('multiModeBtn');
-                
-                if (singleBtn) {
-                    singleBtn.addEventListener('click', () => {
-                        this.setGameMode('single');
-                    });
-                }
-                
-                if (multiBtn) {
-                    multiBtn.addEventListener('click', () => {
-                        this.setGameMode('multiplayer');
-                    });
-                }
-            }, 0);
-        }
-    }
-    
-    /**
-     * 设置游戏模式
-     */
-    setGameMode(mode) {
-        this.gameMode = mode;
-        
-        // 更新按钮样式
-        const singleBtn = document.getElementById('singleModeBtn');
-        const multiBtn = document.getElementById('multiModeBtn');
-        
-        if (mode === 'single') {
-            singleBtn.className = 'px-3 py-1 rounded text-sm bg-amber-600 text-white hover:bg-amber-700';
-            multiBtn.className = 'px-3 py-1 rounded text-sm bg-amber-900 text-amber-200 hover:bg-amber-800';
-            
-            // 显示单机游戏界面，隐藏多人界面
-            if (this.multiplayerInterface) {
-                this.multiplayerInterface.hideAllViews();
-            }
-            document.querySelector('header').style.display = 'block';
-            document.querySelector('main').style.display = 'block';
-            
-            // 重新初始化单机游戏
-            if (this.gameEngine) {
-                this.gameEngine.setNetworkMode(false);
-                this.gameEngine.startNewGame();
-            }
-            
-        } else {
-            singleBtn.className = 'px-3 py-1 rounded text-sm bg-amber-900 text-amber-200 hover:bg-amber-800';
-            multiBtn.className = 'px-3 py-1 rounded text-sm bg-amber-600 text-white hover:bg-amber-700';
-            
-            // 显示多人游戏界面
-            if (this.multiplayerInterface) {
-                const user = this.multiplayerInterface.networkController.userManager.getCurrentUser();
-                if (user) {
-                    this.multiplayerInterface.showLobby();
-                } else {
-                    this.multiplayerInterface.showLogin();
-                }
-            }
-        }
     }
     
     /**

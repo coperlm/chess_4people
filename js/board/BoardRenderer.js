@@ -7,42 +7,8 @@ class BoardRenderer {
         this.boardElement = document.getElementById('chessBoard');
         this.selectedCell = null;
         
-        // 网络模式相关
-        this.isNetworkMode = false;
-        this.myPlayerPosition = -1;
-        
         this.initializeBoard();
         this.bindEvents();
-    }
-    
-    /**
-     * 设置网络模式
-     */
-    setNetworkMode(enabled) {
-        this.isNetworkMode = enabled;
-    }
-    
-    /**
-     * 设置玩家位置
-     */
-    setPlayerPosition(position) {
-        this.myPlayerPosition = position;
-    }
-    
-    /**
-     * 检查是否可以控制棋子
-     */
-    canControlPiece(piece) {
-        if (!this.isNetworkMode) return true;
-        return piece && piece.player === this.myPlayerPosition;
-    }
-    
-    /**
-     * 检查是否是当前玩家的回合
-     */
-    isMyTurn() {
-        if (!this.isNetworkMode) return true;
-        return this.gameState.currentPlayer === this.myPlayerPosition;
     }
     
     /**
@@ -187,12 +153,6 @@ class BoardRenderer {
         const cell = e.target.closest('.chess-cell');
         if (!cell) return;
         
-        // 网络模式下检查是否是自己的回合
-        if (this.isNetworkMode && !this.isMyTurn()) {
-            Utils.showMessage('现在不是你的回合', 'warning');
-            return;
-        }
-        
         const x = parseInt(cell.dataset.x);
         const y = parseInt(cell.dataset.y);
         
@@ -214,17 +174,9 @@ class BoardRenderer {
     handlePieceSelection(x, y) {
         const piece = this.gameState.getPiece(x, y);
         
-        // 网络模式下只能选择自己的棋子
-        if (this.isNetworkMode) {
-            if (!piece || !this.canControlPiece(piece)) {
-                Utils.showMessage('只能选择自己的棋子', 'warning');
-                return;
-            }
-        } else {
-            // 单机模式下只能选择当前玩家的棋子
-            if (!piece || piece.player !== this.gameState.currentPlayer) {
-                return;
-            }
+        // 只能选择当前玩家的棋子
+        if (!piece || piece.player !== this.gameState.currentPlayer) {
+            return;
         }
         
         // 选择棋子

@@ -11,41 +11,7 @@ class GameEngine {
         this.gameStartTime = null;
         this.moveTimeout = null;
         
-        // 网络模式相关
-        this.isNetworkMode = false;
-        this.myPlayerPosition = -1;
-        this.onMoveCompleted = null;
-        this.onGameEnd = null;
-        
         this.initialize();
-    }
-    
-    /**
-     * 设置网络模式
-     */
-    setNetworkMode(enabled) {
-        this.isNetworkMode = enabled;
-        if (this.boardRenderer) {
-            this.boardRenderer.setNetworkMode(enabled);
-        }
-    }
-    
-    /**
-     * 设置玩家位置（网络模式）
-     */
-    setPlayerPosition(position) {
-        this.myPlayerPosition = position;
-        if (this.boardRenderer) {
-            this.boardRenderer.setPlayerPosition(position);
-        }
-    }
-    
-    /**
-     * 检查是否是当前玩家的回合
-     */
-    isMyTurn() {
-        if (!this.isNetworkMode) return true;
-        return this.gameState.currentPlayer === this.myPlayerPosition;
     }
     
     /**
@@ -192,44 +158,8 @@ class GameEngine {
         // 更新移动历史显示
         this.updateMoveHistory();
         
-        // 网络模式：通知网络控制器
-        if (this.isNetworkMode && this.onMoveCompleted) {
-            const lastMove = this.gameState.moveHistory[this.gameState.moveHistory.length - 1];
-            if (lastMove) {
-                this.onMoveCompleted(lastMove);
-            }
-        }
-        
         // 自动保存游戏状态（如果需要）
         this.autoSave();
-    }
-    
-    /**
-     * 应用远程移动（网络模式）
-     */
-    applyMove(moveData) {
-        if (!this.isNetworkMode) return;
-        
-        try {
-            // 应用移动到游戏状态
-            const success = this.gameState.makeMove(
-                moveData.fromX, moveData.fromY,
-                moveData.toX, moveData.toY
-            );
-            
-            if (success) {
-                this.onMoveCompleted();
-            }
-        } catch (error) {
-            console.error('Failed to apply remote move:', error);
-        }
-    }
-    
-    /**
-     * 获取当前玩家
-     */
-    getCurrentPlayer() {
-        return this.gameState.currentPlayer;
     }
     
     /**
