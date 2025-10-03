@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>屏幕适配测试</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .info-box {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+        .info-item {
+            margin: 8px 0;
+            line-height: 1.6;
+        }
+        .label {
+            font-weight: bold;
+            color: #ffd700;
+        }
+        .button {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: bold;
+            background: rgba(255, 255, 255, 0.3);
+            color: white;
+            cursor: pointer;
+        }
+        #preview {
+            background: white;
+            margin: 20px 0;
+            padding: 10px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .test-board {
+            display: inline-block;
+            background: #f3e5ab;
+            border: 2px solid #8b4513;
+            padding: 5px;
+        }
+        .test-cell {
+            background: #f5deb3;
+            border: 1px solid #8b4513;
+            display: inline-block;
+        }
+        .test-piece {
+            background: #dc2626;
+            color: white;
+            border: 2px solid #991b1b;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1 style="text-align: center;">📱 棋盘尺寸计算</h1>
+    
+    <div class="info-box">
+        <h3>屏幕信息</h3>
+        <div class="info-item">
+            <span class="label">屏幕宽度：</span>
+            <span id="screenWidth">--</span> px
+        </div>
+        <div class="info-item">
+            <span class="label">屏幕高度：</span>
+            <span id="screenHeight">--</span> px
+        </div>
+        <div class="info-item">
+            <span class="label">屏幕方向：</span>
+            <span id="orientation">--</span>
+        </div>
+        <div class="info-item">
+            <span class="label">设备像素比：</span>
+            <span id="dpr">--</span>
+        </div>
+    </div>
+    
+    <div class="info-box">
+        <h3>计算的棋盘尺寸</h3>
+        <div class="info-item">
+            <span class="label">格子大小：</span>
+            <span id="cellSize">--</span> px
+        </div>
+        <div class="info-item">
+            <span class="label">河界宽度：</span>
+            <span id="riverWidth">--</span> px
+        </div>
+        <div class="info-item">
+            <span class="label">棋子大小：</span>
+            <span id="pieceSize">--</span> px
+        </div>
+        <div class="info-item">
+            <span class="label">字体大小：</span>
+            <span id="fontSize">--</span> px
+        </div>
+        <div class="info-item">
+            <span class="label">棋盘总宽：</span>
+            <span id="boardWidth">--</span> px
+        </div>
+    </div>
+    
+    <div id="preview" class="info-box">
+        <h3>预览效果</h3>
+        <div id="testBoard"></div>
+    </div>
+    
+    <button class="button" onclick="location.href='index.html'">
+        🎮 开始游戏
+    </button>
+    
+    <script>
+        function calculateBoardSize() {
+            const screenWidth = window.innerWidth;
+            const screenHeight = window.innerHeight;
+            
+            // 预留空间给标题、按钮、侧边栏等
+            const isPortrait = screenHeight > screenWidth;
+            const availableWidth = isPortrait ? screenWidth * 0.95 : screenWidth * 0.6;
+            const availableHeight = isPortrait ? screenHeight * 0.5 : screenHeight * 0.7;
+            
+            // 取较小值作为棋盘可用空间
+            const availableSize = Math.min(availableWidth, availableHeight);
+            
+            // 计算格子大小（10格 + 1条河界线）
+            const cellSize = Math.floor(availableSize / 11);
+            const riverWidth = Math.max(2, Math.floor(cellSize * 0.08));
+            
+            // 限制最小和最大尺寸
+            const finalCellSize = Math.max(28, Math.min(cellSize, 70));
+            const finalRiverWidth = Math.max(2, Math.min(riverWidth, 5));
+            
+            return {
+                cellSize: finalCellSize,
+                riverWidth: finalRiverWidth,
+                pieceSize: Math.floor(finalCellSize * 0.78),
+                fontSize: Math.floor(finalCellSize * 0.3)
+            };
+        }
+        
+        function updateInfo() {
+            const screenWidth = window.innerWidth;
+            const screenHeight = window.innerHeight;
+            const isPortrait = screenHeight > screenWidth;
+            const dpr = window.devicePixelRatio || 1;
+            
+            document.getElementById('screenWidth').textContent = screenWidth;
+            document.getElementById('screenHeight').textContent = screenHeight;
+            document.getElementById('orientation').textContent = isPortrait ? '竖屏 📱' : '横屏 📱';
+            document.getElementById('dpr').textContent = dpr;
+            
+            const sizes = calculateBoardSize();
+            document.getElementById('cellSize').textContent = sizes.cellSize;
+            document.getElementById('riverWidth').textContent = sizes.riverWidth;
+            document.getElementById('pieceSize').textContent = sizes.pieceSize;
+            document.getElementById('fontSize').textContent = sizes.fontSize;
+            
+            const boardWidth = sizes.cellSize * 10 + sizes.riverWidth;
+            document.getElementById('boardWidth').textContent = boardWidth;
+            
+            // 预览效果
+            const testBoard = document.getElementById('testBoard');
+            testBoard.innerHTML = '';
+            testBoard.className = 'test-board';
+            testBoard.style.width = (sizes.cellSize * 3 + sizes.riverWidth) + 'px';
+            testBoard.style.height = (sizes.cellSize * 3 + sizes.riverWidth) + 'px';
+            testBoard.style.display = 'grid';
+            testBoard.style.gridTemplateColumns = `${sizes.cellSize}px ${sizes.riverWidth}px ${sizes.cellSize}px`;
+            testBoard.style.gridTemplateRows = `${sizes.cellSize}px ${sizes.riverWidth}px ${sizes.cellSize}px`;
+            testBoard.style.gap = '0';
+            
+            // 添加4个格子和一个河界预览
+            for (let i = 0; i < 3; i++) {
+                for (let j = 0; j < 3; j++) {
+                    const cell = document.createElement('div');
+                    if (i === 1 || j === 1) {
+                        // 河界
+                        cell.style.backgroundColor = '#3b82f6';
+                        cell.style.gridColumn = j + 1;
+                        cell.style.gridRow = i + 1;
+                    } else {
+                        // 格子
+                        cell.className = 'test-cell';
+                        cell.style.width = sizes.cellSize + 'px';
+                        cell.style.height = sizes.cellSize + 'px';
+                        cell.style.gridColumn = j + 1;
+                        cell.style.gridRow = i + 1;
+                        cell.style.position = 'relative';
+                        
+                        // 添加一个棋子示例
+                        if (i === 0 && j === 0) {
+                            const piece = document.createElement('div');
+                            piece.className = 'test-piece';
+                            piece.style.width = sizes.pieceSize + 'px';
+                            piece.style.height = sizes.pieceSize + 'px';
+                            piece.style.fontSize = sizes.fontSize + 'px';
+                            piece.style.lineHeight = sizes.pieceSize + 'px';
+                            piece.textContent = '將';
+                            piece.style.position = 'absolute';
+                            piece.style.top = '50%';
+                            piece.style.left = '50%';
+                            piece.style.transform = 'translate(-50%, -50%)';
+                            cell.appendChild(piece);
+                        }
+                    }
+                    testBoard.appendChild(cell);
+                }
+            }
+        }
+        
+        // 初始化
+        updateInfo();
+        
+        // 监听屏幕变化
+        window.addEventListener('resize', updateInfo);
+        window.addEventListener('orientationchange', () => {
+            setTimeout(updateInfo, 100);
+        });
+    </script>
+</body>
+</html>

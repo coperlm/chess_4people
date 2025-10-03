@@ -2,13 +2,21 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>四人象棋游戏</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#92400e">
+    <meta name="description" content="四人象棋 - 传统中国象棋的四人对战版本">
+    <title>四人象棋</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
     
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="favicon.ico">
-    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
     
     <link rel="stylesheet" href="styles/style.css">
@@ -137,5 +145,45 @@
     <script src="js/ui/GameInterface.js"></script>
     <!-- 主程序 -->
     <script src="js/main.js"></script>
+    
+    <!-- PWA Service Worker 注册 -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('✅ Service Worker 注册成功:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.log('❌ Service Worker 注册失败:', error);
+                    });
+            });
+        }
+        
+        // PWA安装提示
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            console.log('💡 可以安装为APP');
+            
+            // 显示安装提示（可选）
+            setTimeout(() => {
+                if (confirm('📱 想把四人象棋添加到主屏幕吗？像APP一样使用！')) {
+                    deferredPrompt.prompt();
+                    deferredPrompt.userChoice.then((choiceResult) => {
+                        if (choiceResult.outcome === 'accepted') {
+                            console.log('✅ 用户接受安装');
+                        }
+                        deferredPrompt = null;
+                    });
+                }
+            }, 3000);
+        });
+        
+        window.addEventListener('appinstalled', () => {
+            console.log('✅ APP已安装到主屏幕');
+        });
+    </script>
 </body>
 </html>

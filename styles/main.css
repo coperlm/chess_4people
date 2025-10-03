@@ -2,10 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 棋子样式 */
+/* 棋子样式 - 尺寸由JavaScript动态设置 */
 .chess-piece {
-  width: 42px;
-  height: 42px;
+  /* width和height由JavaScript动态设置 */
   border-radius: 50%;
   border-width: 2px;
   cursor: pointer;
@@ -14,7 +13,7 @@
   align-items: center;
   justify-content: center;
   font-weight: bold;
-  font-size: 16px;
+  /* fontSize由JavaScript动态设置 */
   user-select: none;
   position: absolute;
   top: 50%;
@@ -133,43 +132,11 @@
   touch-action: manipulation;
 }
 
-/* 响应式调整 - 平板 */
-@media (max-width: 1024px) {
-  .chess-cell {
-    width: 48px !important;
-    height: 48px !important;
-  }
-  
-  .chess-piece {
-    width: 38px;
-    height: 38px;
-    font-size: 15px;
-  }
-  
-  .river-separator {
-    width: 3px !important;
-    height: 3px !important;
-  }
-}
+/* 棋盘和棋子尺寸由JavaScript动态计算 */
+/* 不再使用固定的媒体查询尺寸 */
 
-/* 响应式调整 - 手机横屏 */
+/* 响应式调整 - 按钮和界面元素 */
 @media (max-width: 768px) {
-  .chess-cell {
-    width: 40px !important;
-    height: 40px !important;
-  }
-  
-  .chess-piece {
-    width: 32px;
-    height: 32px;
-    font-size: 13px;
-  }
-  
-  .river-separator {
-    width: 2px !important;
-    height: 2px !important;
-  }
-  
   /* 优化按钮 */
   button {
     padding: 0.5rem 1rem !important;
@@ -236,22 +203,11 @@
   }
 }
 
-/* 小屏幕手机 */
+/* 小屏幕手机 - 界面元素优化 */
 @media (max-width: 480px) {
-  .chess-cell {
-    width: 28px !important;
-    height: 28px !important;
-  }
-  
-  .chess-piece {
-    width: 22px;
-    height: 22px;
-    font-size: 10px;
-  }
-  
-  .river-separator {
-    width: 1.5px !important;
-    height: 1.5px !important;
+  /* 棋盘和棋子尺寸由JavaScript动态计算 */
+  header {
+    padding: 0.5rem 0 !important;
   }
 }
 

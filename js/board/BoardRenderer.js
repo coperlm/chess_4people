@@ -11,8 +11,34 @@ class BoardRenderer {
         this.isNetworkMode = false;
         this.myPlayerPosition = -1;
         
+        // 防抖定时器
+        this.resizeTimer = null;
+        
         this.initializeBoard();
         this.bindEvents();
+        this.bindResizeEvent();
+    }
+    
+    /**
+     * 绑定窗口大小改变事件
+     */
+    bindResizeEvent() {
+        window.addEventListener('resize', () => {
+            // 防抖：延迟300ms后重新渲染
+            clearTimeout(this.resizeTimer);
+            this.resizeTimer = setTimeout(() => {
+                console.log('屏幕尺寸改变，重新渲染棋盘');
+                this.initializeBoard();
+            }, 300);
+        });
+        
+        // 监听屏幕方向改变
+        window.addEventListener('orientationchange', () => {
+            setTimeout(() => {
+                console.log('屏幕方向改变，重新渲染棋盘');
+                this.initializeBoard();
+            }, 100);
+        });
     }
     
     /**
@@ -48,16 +74,58 @@ class BoardRenderer {
     }
     
     /**
+     * 计算最佳棋盘尺寸（根据屏幕自动适配）
+     */
+    calculateBoardSize() {
+        const screenWidth = window.innerWidth;
+        const screenHeight = window.innerHeight;
+        
+        // 预留空间给标题、按钮、侧边栏等（根据屏幕方向调整）
+        const isPortrait = screenHeight > screenWidth;
+        const availableWidth = isPortrait ? screenWidth * 0.95 : screenWidth * 0.6;
+        const availableHeight = isPortrait ? screenHeight * 0.5 : screenHeight * 0.7;
+        
+        // 取较小值作为棋盘可用空间
+        const availableSize = Math.min(availableWidth, availableHeight);
+        
+        // 计算格子大小（10格 + 1条河界线）
+        // 河界占格子大小的8%
+        const cellSize = Math.floor(availableSize / 11);
+        const riverWidth = Math.max(2, Math.floor(cellSize * 0.08));
+        
+        // 限制最小和最大尺寸
+        const finalCellSize = Math.max(28, Math.min(cellSize, 70));
+        const finalRiverWidth = Math.max(2, Math.min(riverWidth, 5));
+        
+        console.log('屏幕尺寸:', screenWidth, 'x', screenHeight);
+        console.log('计算棋盘 - 格子:', finalCellSize, 'px, 河界:', finalRiverWidth, 'px');
+        
+        return {
+            cellSize: finalCellSize,
+            riverWidth: finalRiverWidth,
+            pieceSize: Math.floor(finalCellSize * 0.78), // 棋子是格子的78%
+            fontSize: Math.floor(finalCellSize * 0.3)    // 字体是格子的30%
+        };
+    }
+    
+    /**
      * 初始化棋盘DOM结构
      */
     initializeBoard() {
         this.boardElement.innerHTML = '';
         
-        // 创建棋盘容器，使用CSS Grid布局
-        // 计算格子大小：(600px - padding - border - 河界宽度) / 10
-        const cellSize = 54; // 每个格子54px
-        const riverWidth = 4; // 河界宽度4px
+        // 根据屏幕大小计算棋盘尺寸
+        const sizes = this.calculateBoardSize();
+        const cellSize = sizes.cellSize;
+        const riverWidth = sizes.riverWidth;
         
+        // 保存尺寸信息供其他方法使用
+        this.cellSize = cellSize;
+        this.riverWidth = riverWidth;
+        this.pieceSize = sizes.pieceSize;
+        this.fontSize = sizes.fontSize;
+        
+        // 创建棋盘容器，使用CSS Grid布局
         this.boardElement.style.display = 'grid';
         this.boardElement.style.gridTemplateColumns = `repeat(5, ${cellSize}px) ${riverWidth}px repeat(5, ${cellSize}px)`;
         this.boardElement.style.gridTemplateRows = `repeat(5, ${cellSize}px) ${riverWidth}px repeat(5, ${cellSize}px)`;
@@ -88,7 +156,10 @@ class BoardRenderer {
         centerRiver.style.display = 'flex';
         centerRiver.style.alignItems = 'center';
         centerRiver.style.justifyContent = 'center';
-        centerRiver.innerHTML = '<span style="color: white; font-size: 8px; font-weight: bold; writing-mode: vertical-rl; text-orientation: upright;">河</span>';
+        
+        // 河界中心文字大小根据格子大小调整
+        const riverFontSize = Math.max(6, Math.floor(cellSize * 0.15));
+        centerRiver.innerHTML = `<span style="color: white; font-size: ${riverFontSize}px; font-weight: bold; writing-mode: vertical-rl; text-orientation: upright;">河</span>`;
         this.boardElement.appendChild(centerRiver);
         
         // 添加横向河界（左侧5格）
@@ -144,6 +215,10 @@ class BoardRenderer {
         cell.className = 'chess-cell';
         cell.dataset.x = x;
         cell.dataset.y = y;
+        
+        // 动态设置格子大小
+        cell.style.width = `${this.cellSize}px`;
+        cell.style.height = `${this.cellSize}px`;
         
         // 设置可落子区域样式
         if (Utils.isPlayablePosition(x, y)) {
@@ -226,6 +301,12 @@ class BoardRenderer {
         pieceElement.dataset.pieceId = piece.id;
         pieceElement.dataset.player = piece.player;
         pieceElement.dataset.type = piece.type;
+        
+        // 动态设置棋子大小和字体
+        pieceElement.style.width = `${this.pieceSize}px`;
+        pieceElement.style.height = `${this.pieceSize}px`;
+        pieceElement.style.fontSize = `${this.fontSize}px`;
+        pieceElement.style.lineHeight = `${this.pieceSize}px`;
         
         // 设置棋子样式
         const colorInfo = piece.getColorInfo();

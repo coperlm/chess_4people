@@ -87,6 +87,36 @@ node server.js
 # 生成的文件夹可直接分发给他人使用
 ```
 
+### 方法五：打包成手机APP 📱🔥
+
+#### PWA方式（推荐，最简单）
+```bash
+# 1. 启动服务器
+node server.js
+
+# 2. 手机浏览器访问显示的地址
+# 3. 点击"添加到主屏幕"
+# 4. ✅ 完成！像原生APP一样使用
+```
+
+#### 在线打包APK（无需Android Studio）✨
+```bash
+# 超轻量方案，无需安装任何工具！
+
+# 方法1: 在线打包服务
+./build-apk-online.bat
+# 生成ZIP → 上传到apkonline.net → 下载APK
+
+# 方法2: GitHub Pages + PWABuilder  
+# 1. 部署到GitHub Pages（免费）
+# 2. 使用PWABuilder在线打包APK
+```
+
+📖 **详细说明**: 
+- [📱 轻量级APK打包方案](./轻量级APK打包方案.md) - **无需Android Studio**
+- [🌐 免费部署指南](./免费部署指南.md) - 部署到网上
+- [📱 打包手机APP指南](./打包手机APP指南.md) - 完整教程
+
 ---
 
 ## 🎯 功能特性
