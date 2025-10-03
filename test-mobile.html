@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>手机连接测试</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            color: white;
+        }
+        
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+        
+        .emoji {
+            font-size: 4rem;
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .info-box {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .info-item {
+            margin: 10px 0;
+            line-height: 1.6;
+        }
+        
+        .label {
+            font-weight: bold;
+            color: #ffd700;
+        }
+        
+        .button {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            text-align: center;
+        }
+        
+        .button-primary {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+        
+        .button-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        .button-secondary {
+            background: rgba(255, 255, 255, 0.3);
+            color: white;
+        }
+        
+        .status {
+            text-align: center;
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 10px;
+            font-weight: bold;
+        }
+        
+        .status-success {
+            background: rgba(34, 197, 94, 0.3);
+        }
+        
+        .status-info {
+            background: rgba(59, 130, 246, 0.3);
+        }
+        
+        .tips {
+            font-size: 0.9rem;
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            border-left: 4px solid #ffd700;
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 1.5rem;
+            }
+            
+            .emoji {
+                font-size: 3rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="emoji">📱✅</div>
+        <h1>手机连接成功！</h1>
+        
+        <div class="status status-success">
+            🎉 恭喜！你的手机已成功连接到游戏服务器
+        </div>
+        
+        <div class="info-box">
+            <div class="info-item">
+                <span class="label">设备类型：</span>
+                <span id="deviceType">检测中...</span>
+            </div>
+            <div class="info-item">
+                <span class="label">屏幕尺寸：</span>
+                <span id="screenSize">检测中...</span>
+            </div>
+            <div class="info-item">
+                <span class="label">浏览器：</span>
+                <span id="browser">检测中...</span>
+            </div>
+            <div class="info-item">
+                <span class="label">触摸支持：</span>
+                <span id="touchSupport">检测中...</span>
+            </div>
+        </div>
+        
+        <a href="index.html" class="button button-primary">
+            🎮 开始游戏
+        </a>
+        
+        <button onclick="testTouch()" class="button button-secondary">
+            🖐️ 测试触摸
+        </button>
+        
+        <div class="tips">
+            <strong>💡 提示：</strong><br>
+            • 建议横屏游玩，视野更大<br>
+            • 可添加到主屏幕，像APP一样打开<br>
+            • 支持多人同时连接游玩
+        </div>
+    </div>
+    
+    <script>
+        // 检测设备信息
+        function detectDevice() {
+            const ua = navigator.userAgent;
+            let deviceType = '未知设备';
+            
+            if (/Android/i.test(ua)) {
+                deviceType = '🤖 Android';
+            } else if (/iPhone|iPad|iPod/i.test(ua)) {
+                deviceType = '🍎 iOS';
+            } else if (/Windows Phone/i.test(ua)) {
+                deviceType = '📱 Windows Phone';
+            } else {
+                deviceType = '💻 桌面设备';
+            }
+            
+            document.getElementById('deviceType').textContent = deviceType;
+        }
+        
+        // 检测屏幕尺寸
+        function detectScreenSize() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            const dpr = window.devicePixelRatio || 1;
+            
+            document.getElementById('screenSize').textContent = 
+                `${width}×${height} (DPR: ${dpr})`;
+        }
+        
+        // 检测浏览器
+        function detectBrowser() {
+            const ua = navigator.userAgent;
+            let browser = '未知浏览器';
+            
+            if (/Chrome/i.test(ua) && !/Edg/i.test(ua)) {
+                browser = 'Chrome';
+            } else if (/Safari/i.test(ua) && !/Chrome/i.test(ua)) {
+                browser = 'Safari';
+            } else if (/Firefox/i.test(ua)) {
+                browser = 'Firefox';
+            } else if (/Edg/i.test(ua)) {
+                browser = 'Edge';
+            }
+            
+            document.getElementById('browser').textContent = browser;
+        }
+        
+        // 检测触摸支持
+        function detectTouchSupport() {
+            const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+            document.getElementById('touchSupport').textContent = 
+                hasTouch ? '✅ 支持' : '❌ 不支持';
+        }
+        
+        // 测试触摸
+        function testTouch() {
+            const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+            
+            if (hasTouch) {
+                alert('✅ 触摸功能正常！\n\n请在游戏中点击棋子和格子进行操作。');
+            } else {
+                alert('⚠️ 检测不到触摸支持\n\n请使用鼠标点击操作，或在支持触摸的设备上打开。');
+            }
+        }
+        
+        // 页面加载时执行检测
+        window.addEventListener('load', () => {
+            detectDevice();
+            detectScreenSize();
+            detectBrowser();
+            detectTouchSupport();
+        });
+        
+        // 屏幕旋转时更新尺寸
+        window.addEventListener('resize', detectScreenSize);
+        window.addEventListener('orientationchange', detectScreenSize);
+    </script>
+</body>
+</html>

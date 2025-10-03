@@ -241,11 +241,36 @@ class BoardRenderer {
     }
     
     /**
-     * 绑定事件
+     * 绑定事件（支持触摸和鼠标）
      */
     bindEvents() {
+        // 鼠标点击事件
         this.boardElement.addEventListener('click', (e) => {
             this.handleCellClick(e);
+        });
+        
+        // 触摸事件支持（移动设备）
+        let touchStartTime = 0;
+        let touchStartTarget = null;
+        
+        this.boardElement.addEventListener('touchstart', (e) => {
+            touchStartTime = Date.now();
+            touchStartTarget = e.target;
+        }, { passive: true });
+        
+        this.boardElement.addEventListener('touchend', (e) => {
+            // 只处理快速触摸（不是滑动）
+            const touchDuration = Date.now() - touchStartTime;
+            if (touchDuration < 300 && touchStartTarget === e.target) {
+                // 阻止触发click事件（避免双重触发）
+                e.preventDefault();
+                this.handleCellClick(e);
+            }
+        });
+        
+        // 防止移动端长按菜单
+        this.boardElement.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
         });
     }
     

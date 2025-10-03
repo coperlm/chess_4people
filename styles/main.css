@@ -127,27 +127,159 @@
   transition: all 0.3s ease-in-out;
 }
 
-/* 响应式调整 */
-@media (max-width: 768px) {
-  .chess-piece {
-    font-size: 0.875rem;
-    width: 2rem;
-    height: 2rem;
+/* 移动端优化 */
+/* 禁用移动端双击放大 */
+* {
+  touch-action: manipulation;
+}
+
+/* 响应式调整 - 平板 */
+@media (max-width: 1024px) {
+  .chess-cell {
+    width: 48px !important;
+    height: 48px !important;
   }
   
-  .chess-cell {
-    min-height: 2rem;
+  .chess-piece {
+    width: 38px;
+    height: 38px;
+    font-size: 15px;
+  }
+  
+  .river-separator {
+    width: 3px !important;
+    height: 3px !important;
   }
 }
 
-@media (max-width: 640px) {
+/* 响应式调整 - 手机横屏 */
+@media (max-width: 768px) {
+  .chess-cell {
+    width: 40px !important;
+    height: 40px !important;
+  }
+  
   .chess-piece {
-    font-size: 0.75rem;
-    width: 1.75rem;
-    height: 1.75rem;
+    width: 32px;
+    height: 32px;
+    font-size: 13px;
+  }
+  
+  .river-separator {
+    width: 2px !important;
+    height: 2px !important;
+  }
+  
+  /* 优化按钮 */
+  button {
+    padding: 0.5rem 1rem !important;
+    font-size: 0.875rem !important;
+  }
+  
+  /* 优化侧边栏 */
+  .game-info {
+    font-size: 0.875rem;
+  }
+}
+
+/* 响应式调整 - 手机竖屏 */
+@media (max-width: 640px) {
+  body {
+    font-size: 14px;
   }
   
   .chess-cell {
-    min-height: 1.75rem;
+    width: 32px !important;
+    height: 32px !important;
+  }
+  
+  .chess-piece {
+    width: 26px;
+    height: 26px;
+    font-size: 11px;
+    border-width: 1.5px;
+  }
+  
+  .river-separator {
+    width: 2px !important;
+    height: 2px !important;
+  }
+  
+  /* 优化标题 */
+  header {
+    padding: 0.75rem 0 !important;
+  }
+  
+  header h1 {
+    font-size: 1.25rem !important;
+  }
+  
+  header p {
+    font-size: 0.75rem !important;
+  }
+  
+  /* 优化按钮 */
+  button {
+    padding: 0.4rem 0.8rem !important;
+    font-size: 0.75rem !important;
+  }
+  
+  /* 优化布局 */
+  .container {
+    padding: 0.5rem !important;
+  }
+  
+  /* 优化消息提示 */
+  #message {
+    font-size: 0.875rem !important;
+    padding: 0.5rem 1rem !important;
+  }
+}
+
+/* 小屏幕手机 */
+@media (max-width: 480px) {
+  .chess-cell {
+    width: 28px !important;
+    height: 28px !important;
+  }
+  
+  .chess-piece {
+    width: 22px;
+    height: 22px;
+    font-size: 10px;
+  }
+  
+  .river-separator {
+    width: 1.5px !important;
+    height: 1.5px !important;
+  }
+}
+
+/* 触摸反馈增强 */
+@media (hover: none) and (pointer: coarse) {
+  /* 移动设备触摸优化 */
+  .chess-piece {
+    cursor: default;
+  }
+  
+  .chess-piece:active {
+    transform: translate(-50%, -50%) scale(1.15);
+  }
+  
+  .chess-cell.valid-move {
+    animation: pulse-mobile 1s infinite;
+  }
+  
+  @keyframes pulse-mobile {
+    0%, 100% {
+      background-color: rgba(34, 197, 94, 0.3);
+    }
+    50% {
+      background-color: rgba(34, 197, 94, 0.6);
+    }
+  }
+  
+  button:active {
+    transform: scale(0.95);
   }
 }

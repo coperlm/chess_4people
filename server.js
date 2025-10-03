@@ -2,9 +2,24 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
+const os = require('os');
 
 const PORT = 8080;
-const HOST = '127.0.0.1';
+const HOST = '0.0.0.0'; // 监听所有网络接口，允许局域网访问
+
+// 获取本机IP地址
+function getLocalIP() {
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+        for (const iface of interfaces[name]) {
+            // 跳过内部和非IPv4地址
+            if (iface.family === 'IPv4' && !iface.internal) {
+                return iface.address;
+            }
+        }
+    }
+    return '127.0.0.1';
+}
 
 // MIME类型映射
 const mimeTypes = {
@@ -47,15 +62,30 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, HOST, () => {
+    const localIP = getLocalIP();
+    
     console.log('========================================');
-    console.log('   四人象棋游戏服务器已启动！');
+    console.log('   🎮 四人象棋游戏服务器已启动！');
     console.log('========================================');
-    console.log(`访问地址: http://${HOST}:${PORT}`);
+    console.log('💻 本机访问:');
+    console.log(`   http://localhost:${PORT}`);
+    console.log(`   http://127.0.0.1:${PORT}`);
+    console.log('');
+    console.log('📱 手机访问 (确保手机和电脑在同一WiFi):');
+    console.log(`   http://${localIP}:${PORT}`);
+    console.log('');
+    console.log('📝 提示:');
+    console.log('   1. 手机浏览器输入上面的地址');
+    console.log('   2. 可以将地址添加到手机主屏幕');
+    console.log('   3. 支持触摸操作');
+    console.log('');
+    console.log('⚠️  防火墙提示: 如果手机无法访问，请允许防火墙放行');
+    console.log('');
     console.log('按 Ctrl+C 停止服务器');
     console.log('========================================\n');
 
     // 自动打开浏览器
-    const url = `http://${HOST}:${PORT}`;
+    const url = `http://localhost:${PORT}`;
     const start = process.platform === 'win32' ? 'start' : 
                   process.platform === 'darwin' ? 'open' : 'xdg-open';
     exec(`${start} ${url}`);
