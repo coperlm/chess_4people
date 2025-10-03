@@ -11,11 +11,8 @@ class GameEngine {
         this.gameStartTime = null;
         this.moveTimeout = null;
         
-        // 网络模式相关
+        // 网络模式相关（已移除）
         this.isNetworkMode = false;
-        this.myPlayerPosition = -1;
-        this.onMoveCompleted = null;
-        this.onGameEnd = null;
         
         this.initialize();
     }
@@ -31,13 +28,11 @@ class GameEngine {
     }
     
     /**
-     * 设置玩家位置（网络模式）
+     * 设置玩家位置（网络模式已移除，此方法保留但不执行任何操作）
      */
     setPlayerPosition(position) {
-        this.myPlayerPosition = position;
-        if (this.boardRenderer) {
-            this.boardRenderer.setPlayerPosition(position);
-        }
+        // 网络模式已移除
+        return;
     }
     
     /**
@@ -49,17 +44,73 @@ class GameEngine {
     }
     
     /**
+     * 检查游戏组件是否正确初始化
+     */
+    checkInitialization() {
+        const issues = [];
+        
+        if (!this.gameState) {
+            issues.push('GameState 未初始化');
+        }
+        
+        if (!this.pieceManager) {
+            issues.push('PieceManager 未初始化');
+        }
+        
+        if (!this.ruleValidator) {
+            issues.push('RuleValidator 未初始化');
+        }
+        
+        if (!this.boardRenderer) {
+            issues.push('BoardRenderer 未初始化');
+        }
+        
+        // 检查必要的DOM元素
+        const requiredElements = ['currentPlayer', 'gameStatus', 'chessBoard'];
+        requiredElements.forEach(id => {
+            if (!document.getElementById(id)) {
+                issues.push(`缺少必要的DOM元素: ${id}`);
+            }
+        });
+        
+        if (issues.length > 0) {
+            console.error('❌ 游戏初始化检查失败:', issues);
+            Utils.showMessage(`游戏初始化不完整:\n${issues.join('\n')}`, 'error');
+            return false;
+        }
+        
+        console.log('✅ 游戏组件初始化检查通过');
+        return true;
+    }
+    
+    /**
      * 初始化游戏引擎
      */
     initialize() {
-        // 更新规则验证器和棋子管理器的引用
-        this.updateReferences();
-        
-        // 绑定事件
-        this.bindEvents();
-        
-        // 初始化界面
-        this.updateUI();
+        try {
+            console.log('🔧 初始化游戏引擎...');
+            
+            // 检查初始化状态
+            if (!this.checkInitialization()) {
+                throw new Error('游戏组件初始化检查失败');
+            }
+            
+            // 更新规则验证器和棋子管理器的引用
+            this.updateReferences();
+            console.log('✅ 对象引用关系更新完成');
+            
+            // 绑定事件
+            this.bindEvents();
+            console.log('✅ 事件绑定完成');
+            
+            // 初始化界面
+            this.updateUI();
+            console.log('✅ 游戏引擎初始化完成');
+            
+        } catch (error) {
+            console.error('❌ 游戏引擎初始化失败:', error);
+            Utils.showMessage(`游戏引擎初始化失败: ${error.message}\n请刷新页面重试`, 'error');
+        }
     }
     
     /**
@@ -106,18 +157,33 @@ class GameEngine {
      * 开始新游戏
      */
     startNewGame() {
-        this.gameState.reset();
-        this.boardRenderer.reset();
-        this.isGameActive = true;
-        this.gameStartTime = Date.now();
-        
-        this.gameState.startGame();
-        this.updateUI();
-        
-        Utils.showMessage('新游戏开始！红方先行', 'success');
-        
-        console.log('游戏开始 - 初始棋盘状态：');
-        console.log(this.pieceManager.getBoardText());
+        try {
+            console.log('🎮 开始新游戏...');
+            
+            this.gameState.reset();
+            console.log('✅ 游戏状态重置完成');
+            
+            this.boardRenderer.reset();
+            console.log('✅ 棋盘渲染器重置完成');
+            
+            this.isGameActive = true;
+            this.gameStartTime = Date.now();
+            
+            this.gameState.startGame();
+            console.log('✅ 游戏状态设置为playing');
+            
+            this.updateUI();
+            console.log('✅ UI更新完成');
+            
+            Utils.showMessage('新游戏开始！红方先行', 'success');
+            
+            console.log('🎯 游戏开始 - 初始棋盘状态：');
+            console.log(this.pieceManager.getBoardText());
+            
+        } catch (error) {
+            console.error('❌ 开始新游戏时出错:', error);
+            Utils.showMessage(`开始新游戏失败: ${error.message}\n请刷新页面重试`, 'error');
+        }
     }
     
     /**
@@ -174,55 +240,43 @@ class GameEngine {
      * 移动完成后的处理
      */
     onMoveCompleted() {
-        // 更新界面
-        this.updateUI();
-        
-        // 检查将军状态
-        this.checkForCheck();
-        
-        // 检查游戏结束
-        if (this.gameState.gamePhase === 'finished') {
-            this.endGame();
-            return;
-        }
-        
-        // 高亮最后一步移动
-        this.boardRenderer.highlightLastMove();
-        
-        // 更新移动历史显示
-        this.updateMoveHistory();
-        
-        // 网络模式：通知网络控制器
-        if (this.isNetworkMode && this.onMoveCompleted) {
-            const lastMove = this.gameState.moveHistory[this.gameState.moveHistory.length - 1];
-            if (lastMove) {
-                this.onMoveCompleted(lastMove);
+        try {
+            console.log('🎯 处理移动完成，当前玩家:', this.gameState.currentPlayer);
+            
+            // 更新界面
+            this.updateUI();
+            
+            // 检查将军状态
+            this.checkForCheck();
+            
+            // 检查游戏结束
+            if (this.gameState.gamePhase === 'finished') {
+                this.endGame();
+                return;
             }
+            
+            // 高亮最后一步移动
+            this.boardRenderer.highlightLastMove();
+            
+            // 更新移动历史显示
+            this.updateMoveHistory();
+            
+            // 自动保存游戏状态（如果需要）
+            this.autoSave();
+            
+            console.log('✅ 移动处理完成');
+        } catch (error) {
+            console.error('❌ 移动处理失败:', error);
+            Utils.showMessage('移动处理出错: ' + error.message, 'error');
         }
-        
-        // 自动保存游戏状态（如果需要）
-        this.autoSave();
     }
     
     /**
-     * 应用远程移动（网络模式）
+     * 应用远程移动（网络模式已移除，此方法保留但不执行任何操作）
      */
     applyMove(moveData) {
-        if (!this.isNetworkMode) return;
-        
-        try {
-            // 应用移动到游戏状态
-            const success = this.gameState.makeMove(
-                moveData.fromX, moveData.fromY,
-                moveData.toX, moveData.toY
-            );
-            
-            if (success) {
-                this.onMoveCompleted();
-            }
-        } catch (error) {
-            console.error('Failed to apply remote move:', error);
-        }
+        // 网络模式已移除
+        return;
     }
     
     /**
@@ -326,11 +380,27 @@ class GameEngine {
      * 更新当前玩家显示
      */
     updateCurrentPlayerDisplay() {
-        const currentPlayerElement = document.getElementById('currentPlayer');
-        if (currentPlayerElement) {
-            const playerInfo = Config.PLAYER_COLORS[this.gameState.currentPlayer];
-            currentPlayerElement.textContent = playerInfo.name;
-            currentPlayerElement.className = playerInfo.color;
+        try {
+            const currentPlayerElement = document.getElementById('currentPlayer');
+            if (currentPlayerElement) {
+                const currentPlayer = this.gameState.currentPlayer;
+                console.log(`🎯 更新当前玩家显示: ${currentPlayer}`);
+                
+                const playerInfo = Config.PLAYER_COLORS[currentPlayer];
+                if (!playerInfo) {
+                    throw new Error(`玩家 ${currentPlayer} 的配置信息不存在`);
+                }
+                
+                currentPlayerElement.textContent = playerInfo.name;
+                currentPlayerElement.className = playerInfo.color;
+                
+                console.log(`✅ 当前玩家显示更新为: ${playerInfo.name}`);
+            } else {
+                console.warn('⚠️ 找不到 currentPlayer 元素');
+            }
+        } catch (error) {
+            console.error('❌ 更新当前玩家显示时出错:', error);
+            Utils.showMessage(`更新玩家显示失败: ${error.message}`, 'error');
         }
     }
     

@@ -3,9 +3,7 @@ class ChessGameApp {
     constructor() {
         this.gameEngine = null;
         this.gameInterface = null;
-        this.multiplayerInterface = null;
         this.isInitialized = false;
-        this.gameMode = 'single'; // 'single' or 'multiplayer'
         
         // 绑定错误处理
         this.bindErrorHandlers();
@@ -33,13 +31,6 @@ class ChessGameApp {
                 throw new Error('浏览器不兼容');
             }
             
-            // 添加游戏模式选择
-            this.createGameModeSelector();
-            
-            // 初始化多人游戏界面
-            this.multiplayerInterface = new MultiplayerInterface();
-            console.log('✅ 多人游戏界面初始化完成');
-            
             // 初始化游戏引擎（单机模式）
             this.gameEngine = new GameEngine();
             console.log('✅ 游戏引擎初始化完成');
@@ -51,14 +42,10 @@ class ChessGameApp {
             // 暴露到全局作用域（用于调试）
             window.gameEngine = this.gameEngine;
             window.gameInterface = this.gameInterface;
-            window.multiplayerInterface = this.multiplayerInterface;
             window.chessApp = this;
             
             // 隐藏加载状态
             this.hideInitialLoading();
-            
-            // 默认显示多人游戏界面
-            this.setGameMode('multiplayer');
             
             // 标记为已初始化
             this.isInitialized = true;
@@ -103,95 +90,6 @@ class ChessGameApp {
     }
     
     /**
-     * 创建游戏模式选择器
-     */
-    createGameModeSelector() {
-        // 在标题栏添加模式切换按钮
-        const header = document.querySelector('header .container');
-        if (header) {
-            const modeSelector = document.createElement('div');
-            modeSelector.className = 'flex items-center space-x-2';
-            modeSelector.innerHTML = `
-                <span class="text-amber-200 text-sm">游戏模式:</span>
-                <button id="singleModeBtn" class="px-3 py-1 rounded text-sm bg-amber-600 text-white hover:bg-amber-700">
-                    单机模式
-                </button>
-                <button id="multiModeBtn" class="px-3 py-1 rounded text-sm bg-amber-900 text-amber-200 hover:bg-amber-800">
-                    多人模式
-                </button>
-            `;
-            
-            // 插入到标题右侧
-            const titleContainer = header.querySelector('div');
-            if (titleContainer) {
-                titleContainer.appendChild(modeSelector);
-                titleContainer.className = 'flex justify-between items-center';
-            }
-            
-            // 延迟绑定事件，确保元素已插入DOM
-            setTimeout(() => {
-                const singleBtn = document.getElementById('singleModeBtn');
-                const multiBtn = document.getElementById('multiModeBtn');
-                
-                if (singleBtn) {
-                    singleBtn.addEventListener('click', () => {
-                        this.setGameMode('single');
-                    });
-                }
-                
-                if (multiBtn) {
-                    multiBtn.addEventListener('click', () => {
-                        this.setGameMode('multiplayer');
-                    });
-                }
-            }, 0);
-        }
-    }
-    
-    /**
-     * 设置游戏模式
-     */
-    setGameMode(mode) {
-        this.gameMode = mode;
-        
-        // 更新按钮样式
-        const singleBtn = document.getElementById('singleModeBtn');
-        const multiBtn = document.getElementById('multiModeBtn');
-        
-        if (mode === 'single') {
-            singleBtn.className = 'px-3 py-1 rounded text-sm bg-amber-600 text-white hover:bg-amber-700';
-            multiBtn.className = 'px-3 py-1 rounded text-sm bg-amber-900 text-amber-200 hover:bg-amber-800';
-            
-            // 显示单机游戏界面，隐藏多人界面
-            if (this.multiplayerInterface) {
-                this.multiplayerInterface.hideAllViews();
-            }
-            document.querySelector('header').style.display = 'block';
-            document.querySelector('main').style.display = 'block';
-            
-            // 重新初始化单机游戏
-            if (this.gameEngine) {
-                this.gameEngine.setNetworkMode(false);
-                this.gameEngine.startNewGame();
-            }
-            
-        } else {
-            singleBtn.className = 'px-3 py-1 rounded text-sm bg-amber-900 text-amber-200 hover:bg-amber-800';
-            multiBtn.className = 'px-3 py-1 rounded text-sm bg-amber-600 text-white hover:bg-amber-700';
-            
-            // 显示多人游戏界面
-            if (this.multiplayerInterface) {
-                const user = this.multiplayerInterface.networkController.userManager.getCurrentUser();
-                if (user) {
-                    this.multiplayerInterface.showLobby();
-                } else {
-                    this.multiplayerInterface.showLogin();
-                }
-            }
-        }
-    }
-    
-    /**
      * 显示初始加载状态
      */
     showInitialLoading() {
@@ -219,11 +117,11 @@ class ChessGameApp {
                                 <span>加载游戏引擎...</span>
                             </div>
                             <div class="flex items-center">
-                                <div class="w-2 h-2 bg-yellow-500 rounded-full mr-2 animate-pulse"></div>
+                                <div class="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
                                 <span>初始化棋盘...</span>
                             </div>
                             <div class="flex items-center">
-                                <div class="w-2 h-2 bg-gray-300 rounded-full mr-2"></div>
+                                <div class="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
                                 <span>准备游戏界面...</span>
                             </div>
                         </div>
@@ -282,18 +180,51 @@ class ChessGameApp {
         // 全局错误处理
         window.addEventListener('error', (event) => {
             console.error('全局JavaScript错误:', event.error);
+            console.error('错误详情:', {
+                message: event.message,
+                filename: event.filename,
+                lineno: event.lineno,
+                colno: event.colno,
+                stack: event.error?.stack
+            });
             
             if (!this.isInitialized) {
                 this.handleInitializationError(event.error);
             } else {
-                Utils.showMessage('发生了一个错误，请刷新页面重试', 'error');
+                // 显示详细的错误信息
+                const errorMsg = event.error?.message || event.message || '未知错误';
+                const filename = event.filename ? event.filename.split('/').pop() : '未知文件';
+                const location = event.lineno ? `行${event.lineno}` : '';
+                
+                const detailedMessage = `JavaScript错误: ${errorMsg}\n文件: ${filename} ${location}\n请检查控制台查看详细信息`;
+                Utils.showMessage(detailedMessage, 'error');
+                
+                // 如果是开发环境，显示更详细的错误
+                if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                    console.log('🔧 开发模式 - 详细错误信息:');
+                    console.log('Stack trace:', event.error?.stack);
+                }
             }
         });
         
         // Promise rejection 处理
         window.addEventListener('unhandledrejection', (event) => {
             console.error('未处理的Promise rejection:', event.reason);
-            Utils.showMessage('发生了一个异步错误', 'error');
+            
+            // 显示详细的Promise错误信息
+            const reason = event.reason;
+            let errorMsg = '异步错误';
+            
+            if (reason instanceof Error) {
+                errorMsg = `Promise错误: ${reason.message}`;
+                console.error('Promise错误堆栈:', reason.stack);
+            } else if (typeof reason === 'string') {
+                errorMsg = `Promise错误: ${reason}`;
+            } else {
+                errorMsg = `Promise错误: ${JSON.stringify(reason)}`;
+            }
+            
+            Utils.showMessage(errorMsg + '\n请检查控制台查看详细信息', 'error');
         });
     }
     

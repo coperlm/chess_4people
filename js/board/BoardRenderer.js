@@ -16,17 +16,19 @@ class BoardRenderer {
     }
     
     /**
-     * 设置网络模式
+     * 设置网络模式（已移除，保留方法以防调用）
      */
     setNetworkMode(enabled) {
-        this.isNetworkMode = enabled;
+        // 网络模式已移除
+        this.isNetworkMode = false;
     }
     
     /**
-     * 设置玩家位置
+     * 设置玩家位置（已移除，保留方法以防调用）
      */
     setPlayerPosition(position) {
-        this.myPlayerPosition = position;
+        // 网络模式已移除
+        return;
     }
     
     /**
@@ -266,31 +268,48 @@ class BoardRenderer {
      * 执行移动
      */
     executeMove(fromX, fromY, toX, toY) {
-        const piece = this.gameState.getPiece(fromX, fromY);
-        const capturedPiece = this.gameState.getPiece(toX, toY);
-        
-        // 执行移动
-        if (this.gameState.movePiece(fromX, fromY, toX, toY)) {
-            // 播放移动音效（如果有）
-            this.playMoveSound();
+        try {
+            console.log(`🚀 执行移动: (${fromX},${fromY}) -> (${toX},${toY})`);
             
-            // 更新界面
-            this.clearSelection();
-            this.renderPieces();
+            const piece = this.gameState.getPiece(fromX, fromY);
+            const capturedPiece = this.gameState.getPiece(toX, toY);
             
-            // 显示移动信息
-            const moveText = Utils.formatMove(piece, fromX, fromY, toX, toY, capturedPiece);
-            Utils.showMessage(moveText, 'success');
+            console.log('移动棋子:', piece ? `${piece.type}(${piece.player})` : 'null');
+            console.log('移动前当前玩家:', this.gameState.currentPlayer);
             
-            // 检查游戏是否结束
-            if (this.gameState.checkGameEnd()) {
-                this.handleGameEnd();
+            // 执行移动
+            if (this.gameState.movePiece(fromX, fromY, toX, toY)) {
+                console.log('移动后当前玩家:', this.gameState.currentPlayer);
+                
+                // 播放移动音效（如果有）
+                this.playMoveSound();
+                
+                // 更新界面
+                this.clearSelection();
+                this.renderPieces();
+                
+                // 显示移动信息
+                const moveText = Utils.formatMove(piece, fromX, fromY, toX, toY, capturedPiece);
+                Utils.showMessage(moveText, 'success');
+                
+                // 检查游戏是否结束
+                if (this.gameState.checkGameEnd()) {
+                    this.handleGameEnd();
+                }
+                
+                // 通知游戏引擎更新状态
+                if (window.gameEngine) {
+                    console.log('📢 通知游戏引擎更新状态');
+                    window.gameEngine.onMoveCompleted();
+                } else {
+                    console.warn('⚠️ window.gameEngine 不存在');
+                }
+            } else {
+                console.log('❌ 移动失败');
             }
-            
-            // 通知游戏引擎更新状态
-            if (window.gameEngine) {
-                window.gameEngine.onMoveCompleted();
-            }
+        } catch (error) {
+            console.error('❌ 执行移动时出错:', error);
+            Utils.showMessage('移动执行出错: ' + error.message, 'error');
         }
     }
     
@@ -393,9 +412,26 @@ class BoardRenderer {
      * 重置棋盘
      */
     reset() {
-        this.clearSelection();
-        this.boardElement.style.pointerEvents = 'auto';
-        this.renderPieces();
+        try {
+            console.log('🔄 重置棋盘渲染器...');
+            
+            this.clearSelection();
+            console.log('✅ 清除选择状态完成');
+            
+            if (this.boardElement) {
+                this.boardElement.style.pointerEvents = 'auto';
+                console.log('✅ 启用棋盘交互');
+            } else {
+                console.warn('⚠️ boardElement 不存在');
+            }
+            
+            this.renderPieces();
+            console.log('✅ 棋盘重置完成');
+            
+        } catch (error) {
+            console.error('❌ 重置棋盘时出错:', error);
+            Utils.showMessage(`棋盘重置失败: ${error.message}`, 'error');
+        }
     }
     
     /**

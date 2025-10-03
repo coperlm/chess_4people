@@ -151,12 +151,19 @@ class Utils {
     /**
      * 显示消息提示
      */
-    static showMessage(message, type = 'info') {
+    static showMessage(message, type = 'info', duration = 3000) {
         const toast = document.getElementById('messageToast');
         const text = document.getElementById('messageText');
         
         if (toast && text) {
-            text.textContent = message;
+            // 处理多行消息
+            if (message.includes('\n')) {
+                text.innerHTML = message.split('\n').map(line => 
+                    line.trim() ? `<div>${Utils.escapeHtml(line)}</div>` : '<div>&nbsp;</div>'
+                ).join('');
+            } else {
+                text.textContent = message;
+            }
             
             // 设置颜色
             toast.className = toast.className.replace(/bg-\w+-\d+/, '');
@@ -166,22 +173,45 @@ class Utils {
                     break;
                 case 'error':
                     toast.classList.add('bg-red-500');
+                    // 错误消息显示更长时间
+                    duration = Math.max(duration, 6000);
                     break;
                 case 'warning':
                     toast.classList.add('bg-yellow-500');
+                    duration = Math.max(duration, 4000);
                     break;
                 default:
                     toast.classList.add('bg-blue-500');
             }
             
+            // 调整toast大小以适应内容
+            if (message.length > 50 || message.includes('\n')) {
+                toast.classList.add('max-w-md', 'text-sm');
+            } else {
+                toast.classList.remove('max-w-md', 'text-sm');
+            }
+            
             // 显示消息
             toast.style.transform = 'translateY(0)';
             
-            // 3秒后隐藏
+            // 自动隐藏
             setTimeout(() => {
                 toast.style.transform = 'translateY(100%)';
-            }, 3000);
+            }, duration);
         }
+        
+        // 同时在控制台输出
+        const prefix = type === 'error' ? '❌' : type === 'warning' ? '⚠️' : type === 'success' ? '✅' : 'ℹ️';
+        console.log(`${prefix} ${message}`);
+    }
+    
+    /**
+     * HTML转义工具
+     */
+    static escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
     
     /**
