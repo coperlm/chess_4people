@@ -80,14 +80,9 @@
             <!-- 棋盘区域 -->
             <div class="lg:w-2/4 flex justify-center">
                 <div class="relative">
-                    <!-- 棋盘 -->
-                    <div id="chessBoard" class="grid grid-cols-11 grid-rows-11 gap-0 bg-amber-100 p-4 rounded-lg shadow-xl border-4 border-amber-800">
-                        <!-- 棋盘格子将通过JavaScript动态生成 -->
-                    </div>
-                    
-                    <!-- 河界标识 -->
-                    <div class="absolute top-1/2 left-0 right-0 transform -translate-y-1/2 text-center pointer-events-none">
-                        <div class="bg-blue-500 text-white px-2 py-1 rounded text-sm font-bold inline-block">楚河汉界</div>
+                    <!-- 棋盘 (10x10格子 + 河界分隔线) -->
+                    <div id="chessBoard" class="bg-amber-100 p-4 rounded-lg shadow-xl border-4 border-amber-800" style="width: fit-content; height: fit-content;">
+                        <!-- 棋盘格子和河界将通过JavaScript动态生成 -->
                     </div>
                 </div>
             </div>

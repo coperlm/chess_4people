@@ -53,12 +53,82 @@ class BoardRenderer {
     initializeBoard() {
         this.boardElement.innerHTML = '';
         
-        // 创建11x11的网格
+        // 创建棋盘容器，使用CSS Grid布局
+        // 计算格子大小：(600px - padding - border - 河界宽度) / 10
+        const cellSize = 54; // 每个格子54px
+        const riverWidth = 4; // 河界宽度4px
+        
+        this.boardElement.style.display = 'grid';
+        this.boardElement.style.gridTemplateColumns = `repeat(5, ${cellSize}px) ${riverWidth}px repeat(5, ${cellSize}px)`;
+        this.boardElement.style.gridTemplateRows = `repeat(5, ${cellSize}px) ${riverWidth}px repeat(5, ${cellSize}px)`;
+        this.boardElement.style.gap = '0';
+        
+        // 创建10x10的格子（跳过河界位置）
         for (let y = 0; y < Config.BOARD_SIZE; y++) {
             for (let x = 0; x < Config.BOARD_SIZE; x++) {
                 const cell = this.createCell(x, y);
+                
+                // 计算grid位置（考虑河界）
+                const gridX = x < 5 ? x + 1 : x + 2;
+                const gridY = y < 5 ? y + 1 : y + 2;
+                
+                cell.style.gridColumn = gridX;
+                cell.style.gridRow = gridY;
+                
                 this.boardElement.appendChild(cell);
             }
+        }
+        
+        // 添加横向河界（十字交叉中心）
+        const centerRiver = document.createElement('div');
+        centerRiver.className = 'river-center';
+        centerRiver.style.gridColumn = '6';
+        centerRiver.style.gridRow = '6';
+        centerRiver.style.backgroundColor = '#3b82f6';
+        centerRiver.style.display = 'flex';
+        centerRiver.style.alignItems = 'center';
+        centerRiver.style.justifyContent = 'center';
+        centerRiver.innerHTML = '<span style="color: white; font-size: 8px; font-weight: bold; writing-mode: vertical-rl; text-orientation: upright;">河</span>';
+        this.boardElement.appendChild(centerRiver);
+        
+        // 添加横向河界（左侧5格）
+        for (let i = 1; i <= 5; i++) {
+            const hRiver = document.createElement('div');
+            hRiver.className = 'river-horizontal';
+            hRiver.style.gridColumn = i;
+            hRiver.style.gridRow = '6';
+            hRiver.style.backgroundColor = '#3b82f6';
+            this.boardElement.appendChild(hRiver);
+        }
+        
+        // 添加横向河界（右侧5格）
+        for (let i = 7; i <= 11; i++) {
+            const hRiver = document.createElement('div');
+            hRiver.className = 'river-horizontal';
+            hRiver.style.gridColumn = i;
+            hRiver.style.gridRow = '6';
+            hRiver.style.backgroundColor = '#3b82f6';
+            this.boardElement.appendChild(hRiver);
+        }
+        
+        // 添加纵向河界（上侧5格）
+        for (let i = 1; i <= 5; i++) {
+            const vRiver = document.createElement('div');
+            vRiver.className = 'river-vertical';
+            vRiver.style.gridColumn = '6';
+            vRiver.style.gridRow = i;
+            vRiver.style.backgroundColor = '#3b82f6';
+            this.boardElement.appendChild(vRiver);
+        }
+        
+        // 添加纵向河界（下侧5格）
+        for (let i = 7; i <= 11; i++) {
+            const vRiver = document.createElement('div');
+            vRiver.className = 'river-vertical';
+            vRiver.style.gridColumn = '6';
+            vRiver.style.gridRow = i;
+            vRiver.style.backgroundColor = '#3b82f6';
+            this.boardElement.appendChild(vRiver);
         }
         
         // 渲染棋子
@@ -75,11 +145,8 @@ class BoardRenderer {
         cell.dataset.x = x;
         cell.dataset.y = y;
         
-        // 设置河界样式
-        if (Utils.isRiverPosition(x, y)) {
-            cell.classList.add('river');
-            cell.innerHTML = '<span class="text-xs text-blue-800 font-bold">河</span>';
-        } else if (Utils.isPlayablePosition(x, y)) {
+        // 设置可落子区域样式
+        if (Utils.isPlayablePosition(x, y)) {
             cell.classList.add('playable');
         }
         
@@ -197,9 +264,6 @@ class BoardRenderer {
         
         const x = parseInt(cell.dataset.x);
         const y = parseInt(cell.dataset.y);
-        
-        // 如果点击的是河界，忽略
-        if (Utils.isRiverPosition(x, y)) return;
         
         if (this.gameState.selectedPiece) {
             // 已有选中的棋子，尝试移动

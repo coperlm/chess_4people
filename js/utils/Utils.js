@@ -8,19 +8,17 @@ class Utils {
     }
     
     /**
-     * 检查坐标是否是河界位置
+     * 检查坐标是否是河界位置（河界不再是格子）
      */
     static isRiverPosition(x, y) {
-        return x === Config.RIVER_POSITION || y === Config.RIVER_POSITION;
+        // 河界不再是可落子的格子，这个方法保留用于兼容性
+        return false;
     }
     
     /**
      * 检查坐标是否在可落子区域内
      */
     static isPlayablePosition(x, y) {
-        // 河界位置也是可以落子的，兵/卒可以过河
-        if (this.isRiverPosition(x, y)) return true;
-        
         // 检查是否在任一玩家的可落子区域内
         for (let player = 0; player < 4; player++) {
             const area = Config.PLAYABLE_AREAS[player];

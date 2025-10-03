@@ -186,8 +186,6 @@ class RuleValidator {
         // 检查路径是否被阻挡
         const path = Utils.getPathBetween(fromX, fromY, toX, toY);
         return path.every(pos => {
-            // 河界可以跨越
-            if (Utils.isRiverPosition(pos.x, pos.y)) return true;
             return this.gameState.getPiece(pos.x, pos.y) === null;
         });
     }
@@ -204,9 +202,8 @@ class RuleValidator {
         const targetPiece = this.gameState.getPiece(toX, toY);
         const path = Utils.getPathBetween(fromX, fromY, toX, toY);
         
-        // 计算路径上的障碍物（不包括河界）
+        // 计算路径上的障碍物
         const obstacles = path.filter(pos => {
-            if (Utils.isRiverPosition(pos.x, pos.y)) return false;
             return this.gameState.getPiece(pos.x, pos.y) !== null;
         });
         
@@ -231,18 +228,6 @@ class RuleValidator {
             const nextPos = CoordinateMapper.getNextPosition(fromX, fromY, direction, 1);
             if (nextPos.x === toX && nextPos.y === toY) {
                 return true;
-            }
-            
-            // 跨河移动：如果中间是河界，允许移动两格
-            const twoStepPos = CoordinateMapper.getNextPosition(fromX, fromY, direction, 2);
-            if (twoStepPos.x === toX && twoStepPos.y === toY) {
-                // 检查中间位置是否是河界
-                if (Utils.isRiverPosition(nextPos.x, nextPos.y)) {
-                    // 确保目标位置是有效的可落子区域
-                    if (Utils.isPlayablePosition(toX, toY) && !Utils.isRiverPosition(toX, toY)) {
-                        return true;
-                    }
-                }
             }
         }
         
@@ -387,20 +372,10 @@ class RuleValidator {
         const directions = CoordinateMapper.getPawnMoveDirections(x, y, player);
         
         for (const direction of directions) {
-            // 正常移动一格
+            // 移动一格
             const pos = CoordinateMapper.getNextPosition(x, y, direction, 1);
             if (Utils.isValidPosition(pos.x, pos.y) && Utils.isPlayablePosition(pos.x, pos.y)) {
                 moves.push(pos);
-            }
-            
-            // 跨河移动：如果中间是河界，尝试移动两格
-            if (Utils.isValidPosition(pos.x, pos.y) && Utils.isRiverPosition(pos.x, pos.y)) {
-                const twoStepPos = CoordinateMapper.getNextPosition(x, y, direction, 2);
-                if (Utils.isValidPosition(twoStepPos.x, twoStepPos.y) && 
-                    Utils.isPlayablePosition(twoStepPos.x, twoStepPos.y) && 
-                    !Utils.isRiverPosition(twoStepPos.x, twoStepPos.y)) {
-                    moves.push(twoStepPos);
-                }
             }
         }
         

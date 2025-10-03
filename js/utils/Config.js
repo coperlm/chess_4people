@@ -1,8 +1,8 @@
 // 游戏配置文件
 class Config {
-    static BOARD_SIZE = 11;
+    static BOARD_SIZE = 10;  // 改为10x10，河界不再占用格子
     static PLAYABLE_SIZE = 5;
-    static RIVER_POSITION = 5;
+    static RIVER_POSITION = 5; // 河界在第5行/列之后（视觉分隔线）
     
     // 玩家配置
     static PLAYERS = {
@@ -57,19 +57,19 @@ class Config {
         }
     };
     
-    // 可落子区域定义
+    // 可落子区域定义（10x10棋盘，坐标0-9）
     static PLAYABLE_AREAS = {
-        0: { x: [0, 4], y: [6, 10] }, // 红方：左下
-        1: { x: [6, 10], y: [0, 4] }, // 蓝方：右上
-        2: { x: [6, 10], y: [6, 10] }, // 绿方：右下
-        3: { x: [0, 4], y: [0, 4] }   // 黑方：左上
+        0: { x: [0, 4], y: [5, 9] }, // 红方：左下
+        1: { x: [5, 9], y: [0, 4] }, // 蓝方：右上
+        2: { x: [5, 9], y: [5, 9] }, // 绿方：右下
+        3: { x: [0, 4], y: [0, 4] }  // 黑方：左上
     };
     
-    // 九宫格区域定义
+    // 九宫格区域定义（10x10棋盘，坐标0-9）
     static PALACE_AREAS = {
-        0: { x: [0, 2], y: [8, 10] }, // 红方九宫格
-        1: { x: [8, 10], y: [0, 2] }, // 蓝方九宫格
-        2: { x: [8, 10], y: [8, 10] }, // 绿方九宫格
+        0: { x: [0, 2], y: [7, 9] },  // 红方九宫格
+        1: { x: [7, 9], y: [0, 2] },  // 蓝方九宫格
+        2: { x: [7, 9], y: [7, 9] },  // 绿方九宫格
         3: { x: [0, 2], y: [0, 2] }   // 黑方九宫格
     };
     
@@ -88,40 +88,40 @@ class Config {
             { type: 'pawn', x: 3, y: 2 }
         ],
         1: [ // 蓝方 - 右上角 (顺时针旋转90度)
-            { type: 'king', x: 10, y: 0 },
-            { type: 'advisor', x: 9, y: 1 },
-            { type: 'elephant', x: 8, y: 0 },
-            { type: 'rook', x: 10, y: 1 },
-            { type: 'horse', x: 8, y: 2 },
-            { type: 'cannon', x: 8, y: 1 },
-            { type: 'pawn', x: 7, y: 0 },
-            { type: 'pawn', x: 7, y: 2 },
-            { type: 'pawn', x: 10, y: 3 },
-            { type: 'pawn', x: 8, y: 3 }
+            { type: 'king', x: 9, y: 0 },
+            { type: 'advisor', x: 8, y: 1 },
+            { type: 'elephant', x: 7, y: 0 },
+            { type: 'rook', x: 9, y: 1 },
+            { type: 'horse', x: 7, y: 2 },
+            { type: 'cannon', x: 7, y: 1 },
+            { type: 'pawn', x: 6, y: 0 },
+            { type: 'pawn', x: 6, y: 2 },
+            { type: 'pawn', x: 9, y: 3 },
+            { type: 'pawn', x: 7, y: 3 }
         ],
         2: [ // 绿方 - 右下角 (旋转180度)
-            { type: 'king', x: 10, y: 10 },
-            { type: 'advisor', x: 9, y: 9 },
-            { type: 'elephant', x: 10, y: 8 },
-            { type: 'rook', x: 9, y: 10 },
-            { type: 'horse', x: 8, y: 8 },
-            { type: 'cannon', x: 9, y: 8 },
-            { type: 'pawn', x: 10, y: 7 },
-            { type: 'pawn', x: 8, y: 7 },
-            { type: 'pawn', x: 7, y: 10 },
-            { type: 'pawn', x: 7, y: 8 }
+            { type: 'king', x: 9, y: 9 },
+            { type: 'advisor', x: 8, y: 8 },
+            { type: 'elephant', x: 9, y: 7 },
+            { type: 'rook', x: 8, y: 9 },
+            { type: 'horse', x: 7, y: 7 },
+            { type: 'cannon', x: 8, y: 7 },
+            { type: 'pawn', x: 9, y: 6 },
+            { type: 'pawn', x: 7, y: 6 },
+            { type: 'pawn', x: 6, y: 9 },
+            { type: 'pawn', x: 6, y: 7 }
         ],
         0: [ // 红方 - 左下角 (逆时针旋转90度)
-            { type: 'king', x: 0, y: 10 },
-            { type: 'advisor', x: 1, y: 9 },
-            { type: 'elephant', x: 2, y: 10 },
-            { type: 'rook', x: 0, y: 9 },
-            { type: 'horse', x: 2, y: 8 },
-            { type: 'cannon', x: 2, y: 9 },
-            { type: 'pawn', x: 3, y: 10 },
-            { type: 'pawn', x: 3, y: 8 },
-            { type: 'pawn', x: 0, y: 7 },
-            { type: 'pawn', x: 2, y: 7 }
+            { type: 'king', x: 0, y: 9 },
+            { type: 'advisor', x: 1, y: 8 },
+            { type: 'elephant', x: 2, y: 9 },
+            { type: 'rook', x: 0, y: 8 },
+            { type: 'horse', x: 2, y: 7 },
+            { type: 'cannon', x: 2, y: 8 },
+            { type: 'pawn', x: 3, y: 9 },
+            { type: 'pawn', x: 3, y: 7 },
+            { type: 'pawn', x: 0, y: 6 },
+            { type: 'pawn', x: 2, y: 6 }
         ]
     };
 }
