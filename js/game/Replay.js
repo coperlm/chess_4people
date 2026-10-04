@@ -38,7 +38,8 @@ class Replay {
             next: $('replayNextBtn'),
             last: $('replayLastBtn'),
             exit: $('replayExitBtn'),
-            status: $('replayStatus')
+            status: $('replayStatus'),
+            sig: $('replaySig')
         };
         if (this.el.export) this.el.export.addEventListener('click', () => { this.exportFile().catch(() => {}); });
         if (this.el.import) this.el.import.addEventListener('click', () => { if (this.el.file) this.el.file.click(); });
@@ -129,6 +130,14 @@ class Replay {
         try { return (await this._sign(data.body)) === data.signature; } catch (e) { return false; }
     }
 
+    _setSigStatus(text, kind) {
+        if (!this.el || !this.el.sig) return;
+        this.el.sig.textContent = text;
+        this.el.sig.className = 'online-status ' + (kind === 'bad' ? 'online-status--error' : kind === 'warn' ? '' : 'online-status--ok');
+        if (kind === 'warn') this.el.sig.style.color = '#b45309';
+        else this.el.sig.style.color = '';
+    }
+
     // ---------- 导入 ----------
     _onFile(e) {
         const f = e.target.files && e.target.files[0];
@@ -140,15 +149,18 @@ class Replay {
                 if (data.signature) {
                     const ok = await this.verify(data);
                     if (!ok) {
+                        this._setSigStatus('⚠️ 签名校验：不匹配（文件已被修改）', 'bad');
                         const go = confirm('⚠️ 回放签名不匹配，文件可能被修改过。\n仍要查看吗？');
                         if (!go) { this._sigBad = false; return; }
                         this._sigBad = true;
                         Utils.showMessage('回放签名不匹配（文件可能被修改）', 'error');
                     } else {
                         this._sigBad = false;
+                        this._setSigStatus('签名校验：通过 ✅', 'ok');
                     }
                 } else {
                     this._sigBad = false;
+                    this._setSigStatus('无签名（可能被手动编辑过）', 'warn');
                     Utils.showMessage('该回放没有签名（可能被手动编辑过）', 'warning');
                 }
                 if (!data.moves.length) { Utils.showMessage('该对局还没有走子记录', 'info'); return; }
