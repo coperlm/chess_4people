@@ -316,14 +316,6 @@ class GameEngine {
     }
     
     /**
-     * 应用远程移动（网络模式已移除，此方法保留但不执行任何操作）
-     */
-    applyMove(moveData) {
-        // 网络模式已移除
-        return;
-    }
-    
-    /**
      * 获取当前玩家
      */
     getCurrentPlayer() {
@@ -546,28 +538,20 @@ class GameEngine {
             return;
         }
         
-        // 只显示最近的10步
-        const recentMoves = history.slice(-10);
-        const htmlContent = recentMoves.map(move => {
+        // 最新在上：倒序显示，超长时由 CSS 限高在“移动历史”内部滚动
+        const htmlContent = history.slice().reverse().map(move => {
             const piece = { player: move.player, type: move.piece };
             const moveText = Utils.formatMove(
-                piece, 
-                move.from.x, move.from.y, 
-                move.to.x, move.to.y, 
+                piece,
+                move.from.x, move.from.y,
+                move.to.x, move.to.y,
                 move.captured
             );
-            
             const playerColor = Config.PLAYER_COLORS[move.player].color;
-            
-            return `<div class="text-sm ${playerColor} py-1 border-b border-gray-200">
-                        <span class="font-medium">${move.turn}.</span> ${moveText}
-                    </div>`;
+            return `<div class="text-sm ${playerColor}">${moveText}</div>`;
         }).join('');
-        
         historyElement.innerHTML = htmlContent;
-        
-        // 滚动到底部
-        historyElement.scrollTop = historyElement.scrollHeight;
+        historyElement.scrollTop = 0;
     }
     
     /**
@@ -639,22 +623,6 @@ class GameEngine {
             isActive: this.isGameActive,
             duration: this.getGameDuration()
         };
-    }
-    
-    /**
-     * 暂停游戏
-     */
-    pauseGame() {
-        this.isGameActive = false;
-        // 可以添加暂停相关的UI处理
-    }
-    
-    /**
-     * 恢复游戏
-     */
-    resumeGame() {
-        this.isGameActive = true;
-        // 可以添加恢复相关的UI处理
     }
 }
 

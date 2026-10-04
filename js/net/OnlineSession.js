@@ -720,6 +720,8 @@ class OnlineSession {
     // ================= 结束 =================
     onGameEnd() {
         this._clearRecord();
+        // 清掉本机单机存档，避免下次加载把这场联机局当单机继续
+        if (this.gameEngine && this.gameEngine.persistence) this.gameEngine.persistence.clearSavedState();
         if (this.isHost) this._broadcastState();
     }
 

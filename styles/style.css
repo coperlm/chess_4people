@@ -1591,6 +1591,103 @@ video {
 .modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
 .modal-x { border: 0; background: transparent; font-size: 1.2rem; line-height: 1; cursor: pointer; color: #6b7280; padding: .25rem .5rem; border-radius: .375rem; }
 .modal-x:hover { background: #f3f4f6; color: #111827; }
+
+/* ===================== 主题：重做外观（木质棋盘 + 四色） ===================== */
+:root{
+  --bg:#f4efe6; --ink:#2a2622; --muted:#6b6259;
+  --walnut:#4a2b16; --walnut-2:#6b3e1f; --wood-line:#8a5a2b;
+  --board-a:#f3d9a8; --board-b:#eccf95; --board-frame:#7a4a1e;
+  --river:#2c5d9f; --river-2:#1f4b7a;
+  --red:#b23b2e; --blue:#2c5d9f; --green:#1f7a55; --black:#33302c;
+  --primary:#2e7d5b; --accent:#0f766e; --slate:#64748b; --slate-2:#475569; --danger:#b23b2e;
+  --card-r:14px; --btn-r:11px;
+  --shadow:0 6px 18px -6px rgba(60,40,20,.35), 0 2px 6px -2px rgba(60,40,20,.2);
+}
+*{ -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+body{
+  background:radial-gradient(1200px 600px at 50% -10%, #fff8ec 0%, var(--bg) 60%) fixed, var(--bg);
+  color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,"Segoe UI",Roboto,sans-serif;
+  padding-bottom:calc(env(safe-area-inset-bottom,0px));
+}
+header.bg-amber-800{ background:linear-gradient(135deg,var(--walnut) 0%,var(--walnut-2) 100%) !important; box-shadow:0 6px 20px -8px rgba(40,20,5,.6); }
+header.bg-amber-800 h1{ letter-spacing:.12em; }
+header.bg-amber-800 p{ color:#ecd9b8 !important; letter-spacing:.14em; }
+
+main{ max-width:1200px; }
+main .bg-white.rounded-lg{ border-radius:var(--card-r); box-shadow:var(--shadow); border:1px solid rgba(138,90,43,.14); }
+main h3{ color:var(--walnut-2); letter-spacing:.04em; }
+#currentPlayer{ font-weight:800; }
+#gameStatus{ color:var(--muted); }
+
+/* 按钮 */
+.online-btn{ border:0; border-radius:var(--btn-r); color:#fff; font-weight:650; letter-spacing:.03em; min-height:44px; padding:.6rem .9rem; cursor:pointer;
+  box-shadow:0 3px 0 rgba(0,0,0,.12), 0 6px 14px -8px rgba(0,0,0,.5); transition:transform .08s ease, filter .15s ease, box-shadow .15s ease; }
+.online-btn:not(:disabled):hover{ filter:brightness(1.06); }
+.online-btn:not(:disabled):active{ transform:translateY(2px); box-shadow:0 1px 0 rgba(0,0,0,.15); }
+.online-btn:disabled{ opacity:.45; box-shadow:none; cursor:not-allowed; }
+.online-btn--start{ background:linear-gradient(180deg,#35926b,var(--primary)); }
+.online-btn--create{ background:linear-gradient(180deg,#149487,var(--accent)); }
+.online-btn--join{ background:linear-gradient(180deg,#3468ab,var(--blue)); }
+.online-btn--copy{ background:linear-gradient(180deg,#71809a,var(--slate)); }
+.online-btn--leave{ background:linear-gradient(180deg,#a9b3c2,var(--slate-2)); }
+.online-btn--danger{ background:linear-gradient(180deg,#c24536,var(--danger)); }
+
+/* 输入/下拉 */
+.online-input{ border-radius:10px; border:1px solid #d8cdbb; background:#fffdf8; color:var(--ink); min-height:42px; }
+.online-input:focus{ outline:2px solid rgba(15,118,110,.35); border-color:var(--accent); }
+.online-check{ color:var(--muted); }
+
+/* 玩家信息 2x2 */
+.piece-counts{ gap:.4rem; }
+.pc{ border:1px solid rgba(0,0,0,.06); font-weight:600; }
+.pc b{ font-variant-numeric:tabular-nums; }
+.pc--red{ background:#fbeae7; color:var(--red); }
+.pc--blue{ background:#e8f0fb; color:var(--blue); }
+.pc--green{ background:#e6f5ee; color:var(--green); }
+.pc--black{ background:#efece7; color:var(--black); }
+
+/* 移动历史 */
+.move-history{ gap:.3rem; }
+.move-history > div{ padding:.28rem .5rem; border-radius:8px; background:#faf6ef; border:1px solid rgba(138,90,43,.10); }
+
+/* 棋盘 */
+#chessBoard{ background:linear-gradient(160deg,var(--board-a),var(--board-b)) !important; border:6px solid var(--board-frame) !important; border-radius:16px !important;
+  box-shadow:var(--shadow), inset 0 0 0 3px rgba(255,255,255,.35) !important; }
+.chess-cell{ position:relative; border:1px solid rgba(138,90,43,.5) !important; }
+.chess-cell.playable:hover{ background:rgba(255,255,255,.35); }
+.chess-cell.selected{ background:rgba(46,125,91,.18) !important; }
+.chess-cell.enemy-piece{ background:rgba(178,59,46,.16) !important; }
+.chess-cell.possible-move::after{ content:""; position:absolute; left:50%; top:50%; width:30%; height:30%; transform:translate(-50%,-50%); border-radius:50%; background:rgba(46,125,91,.55); }
+.chess-cell.last-move-from, .chess-cell.last-move-to{ box-shadow:inset 0 0 0 3px rgba(217,119,6,.6); }
+.chess-cell.check{ background:rgba(178,59,46,.28) !important; }
+.river-horizontal, .river-vertical{ background:linear-gradient(var(--river),var(--river-2)) !important; }
+.river-center{ background:linear-gradient(135deg,var(--river),var(--river-2)) !important; }
+.chess-piece{ border-width:2px; border-style:solid; font-weight:800; font-family:"KaiTi","STKaiti","Kaiti SC","Noto Serif SC",serif;
+  box-shadow:0 2px 4px rgba(0,0,0,.25), inset 0 -2px 4px rgba(0,0,0,.10), inset 0 2px 3px rgba(255,255,255,.8) !important; }
+.chess-piece.selected{ box-shadow:0 0 0 3px rgba(46,125,91,.8), 0 3px 8px rgba(0,0,0,.3) !important; }
+.chess-piece[data-player="0"]{ color:var(--red) !important; border-color:#c9544a !important; background:radial-gradient(circle at 32% 28%, #fff, #f6dcd7) !important; }
+.chess-piece[data-player="1"]{ color:var(--blue) !important; border-color:#4a7cc4 !important; background:radial-gradient(circle at 32% 28%, #fff, #d9e6f8) !important; }
+.chess-piece[data-player="2"]{ color:var(--green) !important; border-color:#3fa079 !important; background:radial-gradient(circle at 32% 28%, #fff, #d7efe4) !important; }
+.chess-piece[data-player="3"]{ color:var(--black) !important; border-color:#6b6259 !important; background:radial-gradient(circle at 32% 28%, #fff, #e3ddd4) !important; }
+
+#messageToast{ border-radius:12px; box-shadow:var(--shadow); font-weight:600; }
+.replay-bar{ border:1px solid rgba(138,90,43,.18); }
+.modal-box{ border-radius:16px; box-shadow:0 24px 60px -20px rgba(40,20,5,.6); }
+
+/* 移动端 / 安卓适配 */
+@media (max-width: 1023px){
+  main{ padding-left:12px !important; padding-right:12px !important; }
+  main > .flex{ flex-direction:column !important; gap:14px !important; }
+  #boardCol{ order:-1; }
+  .lg\:w-1\/4, .lg\:w-2\/4{ width:100% !important; }
+  .online-btn{ min-height:46px; }
+  .modal-box{ max-height:92vh; }
+}
+@media (hover:none) and (pointer:coarse){
+  .chess-piece:active{ transform:translate(-50%,-50%) scale(1.12); }
+}
+
 .setup-group { margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid #e5e7eb; }
 .setup-group:last-of-type { border-bottom: 0; }
 .setup-label { font-weight: 600; font-size: .95rem; margin-bottom: .5rem; }

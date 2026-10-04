@@ -299,13 +299,6 @@ class GameState {
     }
     
     /**
-     * 检查是否可以移动到指定位置
-     */
-    canMoveTo(x, y) {
-        return this.possibleMoves.some(move => move.x === x && move.y === y);
-    }
-    
-    /**
      * 重置游戏
      */
     reset() {

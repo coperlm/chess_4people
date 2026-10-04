@@ -13,6 +13,8 @@ class GameStatePersistence {
             const saveData = {
                 v: 2,
                 timestamp: Date.now(),
+                online: !!(typeof window !== 'undefined' && window.onlineSession && window.onlineSession.active),
+                rules: gameState.rules,
                 gamePhase: gameState.gamePhase,
                 currentPlayer: gameState.currentPlayer,
                 turn: gameState.turn,
@@ -82,6 +84,7 @@ class GameStatePersistence {
             }
             
             // 恢复基本状态
+            if (savedData.rules) gameState.setRules(savedData.rules);
             gameState.gamePhase = savedData.gamePhase || 'playing';
             gameState.currentPlayer = savedData.currentPlayer || 0;
             gameState.turn = savedData.turn || 1;

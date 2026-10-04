@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -53,17 +53,28 @@
                     </div>
                     <div class="online-row">
                         <button id="undoBtn" class="online-btn online-btn--leave" disabled>悔棋</button>
-                        <button id="surrenderBtn" class="online-btn online-btn--leave" disabled>认输</button>
+                        <button id="surrenderBtn" class="online-btn online-btn--danger" disabled>认输</button>
                     </div>
                     <div class="online-row">
                         <button id="replayOpenBtn" class="online-btn online-btn--copy">对局记录</button>
                         <button id="rulesOpenBtn" class="online-btn online-btn--copy">游戏规则</button>
                     </div>
                 </div>
+
+                <!-- 玩家信息 -->
+                <div class="bg-white rounded-lg shadow-lg p-4 mt-4">
+                    <h3 class="text-base font-bold mb-2">玩家信息</h3>
+                    <div class="piece-counts">
+                        <span class="pc pc--black">黑(左上) <b id="blackPieces">10</b></span>
+                        <span class="pc pc--blue">蓝(右上) <b id="bluePieces">10</b></span>
+                        <span class="pc pc--red">红(左下) <b id="redPieces">10</b></span>
+                        <span class="pc pc--green">绿(右下) <b id="greenPieces">10</b></span>
+                    </div>
+                </div>
             </div>
 
             <!-- 棋盘区域 -->
-            <div class="lg:w-2/4 flex justify-center">
+            <div id="boardCol" class="lg:w-2/4 flex justify-center">
                 <div class="relative">
                     <!-- 棋盘 (10x10格子 + 河界分隔线) -->
                     <div id="chessBoard" class="bg-amber-100 p-4 rounded-lg shadow-xl border-4 border-amber-800" style="width: fit-content; height: fit-content;">
@@ -78,17 +89,6 @@
                     <h3 class="text-base font-bold mb-2">移动历史</h3>
                     <div id="moveHistory" class="move-history overflow-y-auto">
                         <p class="text-gray-500 text-sm">暂无移动记录</p>
-                    </div>
-                </div>
-
-                <!-- 玩家信息 -->
-                <div class="bg-white rounded-lg shadow-lg p-4 mt-4">
-                    <h3 class="text-base font-bold mb-2">玩家信息</h3>
-                    <div class="piece-counts">
-                        <span class="pc pc--black">黑(左上) <b id="blackPieces">10</b></span>
-                        <span class="pc pc--blue">蓝(右上) <b id="bluePieces">10</b></span>
-                        <span class="pc pc--red">红(左下) <b id="redPieces">10</b></span>
-                        <span class="pc pc--green">绿(右下) <b id="greenPieces">10</b></span>
                     </div>
                 </div>
             </div>

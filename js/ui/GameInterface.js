@@ -140,35 +140,17 @@ class GameInterface {
     }
     
     /**
-     * 启用移动端布局
+     * 启用移动端布局（布局由 CSS 媒体查询负责，这里不再隐藏侧栏）
      */
     enableMobileLayout() {
-        const mainContainer = document.querySelector('main .flex');
-        if (mainContainer) {
-            mainContainer.className = mainContainer.className.replace('lg:flex-row', 'flex-col');
-        }
-        
-        // 隐藏或简化一些界面元素
-        const rightPanel = document.querySelector('main .lg\\:w-1\\/4:last-child');
-        if (rightPanel) {
-            rightPanel.classList.add('hidden', 'lg:block');
-        }
+        // no-op：窄屏通过 CSS 让棋盘置顶、面板堆叠
     }
     
     /**
      * 启用桌面端布局
      */
     enableDesktopLayout() {
-        const mainContainer = document.querySelector('main .flex');
-        if (mainContainer) {
-            mainContainer.className = mainContainer.className.replace('flex-col', 'lg:flex-row');
-        }
-        
-        // 显示所有界面元素
-        const rightPanel = document.querySelector('main .lg\\:w-1\\/4:last-child');
-        if (rightPanel) {
-            rightPanel.classList.remove('hidden');
-        }
+        // no-op
     }
     
     /**
@@ -176,10 +158,16 @@ class GameInterface {
      */
     adjustBoardSize() {
         // 棋盘尺寸由 BoardRenderer 按屏幕/所在栏宽度统一计算。
-        // 不再用 maxWidth 裁剪容器：那会把底板压小、而网格仍是固定像素，导致“棋子超出底板”。
         const renderer = this.gameEngine && this.gameEngine.boardRenderer;
         if (renderer && typeof renderer.initializeBoard === 'function') {
             renderer.initializeBoard();
+        }
+        // 让“移动历史”的高度不超过棋盘，超长时在其内部滚动
+        const board = document.getElementById('chessBoard');
+        const mh = document.getElementById('moveHistory');
+        if (board && mh) {
+            const h = Math.round(board.getBoundingClientRect().height);
+            if (h > 120) mh.style.maxHeight = h + 'px';
         }
     }
     

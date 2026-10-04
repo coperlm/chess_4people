@@ -4,14 +4,6 @@ class Config {
     static PLAYABLE_SIZE = 5;
     static RIVER_POSITION = 5; // 河界在第5行/列之后（视觉分隔线）
     
-    // 玩家配置
-    static PLAYERS = {
-        RED: 0,    // 红方 - 左下角
-        BLUE: 1,   // 蓝方 - 右上角  
-        GREEN: 2,  // 绿方 - 右下角
-        BLACK: 3   // 黑方 - 左上角
-    };
-    
     // 队伍配置（对角线队友）
     static TEAMS = {
         TEAM1: [0, 1], // 红方 + 蓝方

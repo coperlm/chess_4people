@@ -239,6 +239,8 @@ class ChessGameApp {
             const persistence = (this.gameEngine && this.gameEngine.persistence) || new GameStatePersistence();
             const savedData = persistence.loadGameState();
             if (!savedData) return;
+            // 联机局由 OnlineSession 负责续局；这里只恢复“单机/本地”存档，避免把联机局当单机继续
+            if (savedData.online) return;
             
             const saveTime = new Date(savedData.timestamp || Date.now());
             const shouldContinue = confirm(

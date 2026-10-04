@@ -2,7 +2,6 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [ "回溯到不登录", main, master ]
   workflow_dispatch:
 
 permissions:

@@ -1,59 +1,18 @@
 {
   "name": "four-player-chess",
   "version": "1.0.0",
-  "description": "四人象棋游戏",
-  "main": "index.html",
+  "description": "四人象棋（本地 / 联机）",
+  "private": true,
   "scripts": {
-    "dev": "live-server --port=3000",
-    "test": "node test/logic.test.js && node test/online.test.js && node test/replay.test.js && node test/deep.test.js",    "build-css": "tailwindcss -i ./css/input.css -o ./css/output.css --watch",
-    "start": "electron .",
-    "serve": "node server.js",
-    "build:win": "electron-builder --win --x64",
-    "build:win:dir": "electron-builder --win --x64 --dir",
-    "build:win:portable": "electron-builder --win portable --x64",
-    "build:mac": "electron-builder --mac",
-    "build:linux": "electron-builder --linux"
-  },
-  "devDependencies": {
-    "live-server": "^1.2.2",
-    "tailwindcss": "^3.4.17"
+    "test": "node test/logic.test.js && node test/online.test.js && node test/replay.test.js && node test/deep.test.js",
+    "serve": "node server.js"
   },
   "keywords": [
     "chess",
     "game",
     "four-player",
-    "javascript"
+    "javascript",
+    "p2p"
   ],
-  "author": "Chess Game Developer",
-  "license": "MIT",
-  "build": {
-    "appId": "com.chess.fourplayer",
-    "productName": "四人象棋",
-    "directories": {
-      "output": "dist"
-    },
-    "files": [
-      "**/*",
-      "!node_modules/**/*",
-      "!dist/**/*",
-      "!.git/**/*",
-      "!*.md",
-      "!package-standalone.js"
-    ],
-    "win": {
-      "target": [
-        "nsis",
-        "portable"
-      ],
-      "icon": "icon.ico"
-    },
-    "mac": {
-      "target": "dmg",
-      "icon": "icon.icns"
-    },
-    "linux": {
-      "target": "AppImage",
-      "icon": "icon.png"
-    }
-  }
+  "license": "MIT"
 }

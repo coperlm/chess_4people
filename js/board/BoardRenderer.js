@@ -93,7 +93,7 @@ class BoardRenderer {
         // 以“棋盘所在栏”的实际宽度为上限，避免网格超出底板
         const holder = this.boardElement && this.boardElement.closest('[class*="w-2/4"]');
         if (holder && holder.clientWidth > 0) {
-            availableWidth = Math.min(availableWidth, holder.clientWidth - 30);
+            availableWidth = Math.min(availableWidth, holder.clientWidth - 40);
         }
         
         // 取较小值作为棋盘可用空间
@@ -105,7 +105,7 @@ class BoardRenderer {
         const riverWidth = Math.max(2, Math.floor(cellSize * 0.08));
         
         // 限制最小和最大尺寸
-        const finalCellSize = Math.max(28, Math.min(cellSize, 70));
+        const finalCellSize = Math.max(24, Math.min(cellSize, 70));
         const finalRiverWidth = Math.max(2, Math.min(riverWidth, 5));
         
         console.log('屏幕尺寸:', screenWidth, 'x', screenHeight);
