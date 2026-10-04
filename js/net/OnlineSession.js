@@ -277,8 +277,8 @@ class OnlineSession {
         this._saveRecord();
         if (!this._resuming) this._sendHello();
         // 进入房间后，界面切到“联机”、关掉设置弹窗
-        if (window.gameInterface && window.gameInterface._setSetupMode) {
-            window.gameInterface._setSetupMode('online');
+        if (window.gameInterface && window.gameInterface.openOnline) {
+            window.gameInterface.openOnline();
             if (window.gameInterface.closeSetup) window.gameInterface.closeSetup();
         }
     }
@@ -504,7 +504,8 @@ class OnlineSession {
             if (!this.gameEngine.ruleValidator.isValidMove(d.from[0], d.from[1], d.to[0], d.to[1])) return this._reject(peerId, '非法走法');
             this._hostApplyAndBroadcast(d.from[0], d.from[1], d.to[0], d.to[1]);
         } else if (d.kind === 'undo') {
-            this._doUndo(true);
+            const p = this.participants.find(p => p.id === peerId);
+            this._doUndo(true, p && p.name ? p.name : '玩家');
         } else if (d.kind === 'resign') {
             const p = this.participants.find(p => p.id === peerId);
             if (!p || !p.colors.includes(d.color)) return this._reject(peerId, '不能替别人认输');
@@ -556,10 +557,10 @@ class OnlineSession {
 
     requestUndo() {
         if (!this.active || !this.started) return;
-        if (this.isHost) this._doUndo(true);
+        if (this.isHost) this._doUndo(true, this.name || '房主');
         else this.actIntent.send({ kind: 'undo' });
     }
-    _doUndo(broadcast) {
+    _doUndo(broadcast, who) {
         const ge = this.gameEngine, gs = ge.gameState;
         if (!gs.undoMove()) return;
         this.seq++;
@@ -567,7 +568,10 @@ class OnlineSession {
         ge.boardRenderer.renderPieces();
         ge.updateUI();
         if (ge.updateMoveHistory) ge.updateMoveHistory();
-        if (broadcast) this.actUndo.send({ seq: this.seq });
+        if (broadcast) {
+            this.actUndo.send({ seq: this.seq });
+            if (who) this.actNotice.send({ text: `${who} 悔棋` });
+        }
     }
     _onUndo(d) {
         if (this.isHost || !d) return;

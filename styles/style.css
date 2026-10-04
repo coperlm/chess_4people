@@ -1561,6 +1561,15 @@ video {
 .online-status--ok { color: #15803d; }
 .online-check { display: flex; align-items: center; gap: .4rem; font-size: .875rem; color: #4b5563; margin: .6rem 0 .35rem; }
 .online-check input { width: auto; }
+
+/* 简版控制区 */
+.piece-counts { display: flex; flex-wrap: wrap; gap: .25rem .5rem; margin: .1rem 0 .6rem; font-size: .8rem; }
+.pc { padding: .1rem .4rem; border-radius: .25rem; background: #f3f4f6; }
+.pc--red { color: #dc2626; }
+.pc--blue { color: #2563eb; }
+.pc--green { color: #16a34a; }
+.pc--black { color: #111827; }
+.move-history { max-height: 68vh; display: flex; flex-direction: column; gap: .15rem; }
 .online-roster { font-size: .8rem; margin-top: .25rem; color: #374151; }
 .online-roster > div { margin-top: .15rem; }
 

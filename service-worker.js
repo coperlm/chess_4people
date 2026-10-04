@@ -1,5 +1,5 @@
 // Service Worker：网络优先（保证代码更新能生效），离线时回退缓存
-const CACHE_NAME = 'chess-4p-v3';
+const CACHE_NAME = 'chess-4p-v4';
 const PRECACHE = [
   './',
   './index.html',

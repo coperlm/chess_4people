@@ -505,7 +505,7 @@ class GameEngine {
         ['red', 'blue', 'green', 'black'].forEach((color, index) => {
             const element = document.getElementById(`${color}Pieces`);
             if (element) {
-                element.textContent = `${counts[index]}棋子`;
+                element.textContent = counts[index];
             }
         });
     }
