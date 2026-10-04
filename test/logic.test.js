@@ -263,6 +263,21 @@ t('全部兵/卒均可后退走法总数为 0', backwardTotal === 0, 'count=' + 
   t('nextPlayer 跳过被淘汰的绿(2)', gs.currentPlayer === 1, 'got ' + gs.currentPlayer);
 }
 
+// =====================================================================
+// 8. 棋子命名：成套、不混搭（红蓝同款 / 绿黑同款）
+// =====================================================================
+{
+  const isSetA = n => n.king === '帅' && n.advisor === '士' && n.elephant === '相' && n.pawn === '兵';
+  const isSetB = n => n.king === '将' && n.advisor === '仕' && n.elephant === '象' && n.pawn === '卒';
+  for (const p of [0, 1, 2, 3]) {
+    const n = Config.PIECE_NAMES[p];
+    t(`P${p} 棋子命名成套不混搭`, isSetA(n) || isSetB(n), `${n.king}${n.advisor}${n.elephant}${n.pawn}`);
+  }
+  t('红蓝命名同款', Config.PIECE_NAMES[0].king === Config.PIECE_NAMES[1].king && Config.PIECE_NAMES[0].pawn === Config.PIECE_NAMES[1].pawn);
+  t('绿黑命名同款', Config.PIECE_NAMES[2].king === Config.PIECE_NAMES[3].king && Config.PIECE_NAMES[2].pawn === Config.PIECE_NAMES[3].pawn);
+  t('蓝方将=帅', Config.PIECE_NAMES[1].king === '帅', Config.PIECE_NAMES[1].king);
+}
+
 // ---- 汇总 ----
 console.log(`\n规则回归测试: ${pass} 通过, ${fail} 失败`);
 if (fail) { console.log('\n失败项:'); failures.forEach(f => console.log('  ✗ ' + f)); process.exit(1); }

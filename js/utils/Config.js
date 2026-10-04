@@ -55,14 +55,15 @@ class Config {
         PAWN: 'pawn'      // 兵/卒
     };
     
-    // 棋子中文名称
+    // 棋子中文名称（命名分两套，同队一致）
+    // 帅/士/相/兵：红方(0) + 蓝方(1)；将/仕/象/卒：绿方(2) + 黑方(3)
     static PIECE_NAMES = {
         0: { // 红方
             king: '帅', advisor: '士', elephant: '相',
             horse: '马', rook: '车', cannon: '炮', pawn: '兵'
         },
         1: { // 蓝方
-            king: '将', advisor: '仕', elephant: '象',
+            king: '帅', advisor: '士', elephant: '相',
             horse: '马', rook: '车', cannon: '炮', pawn: '兵'
         },
         2: { // 绿方
