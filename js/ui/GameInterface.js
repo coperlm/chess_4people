@@ -157,17 +157,10 @@ class GameInterface {
      * 调整棋盘大小
      */
     adjustBoardSize() {
-        // 棋盘尺寸由 BoardRenderer 按屏幕/所在栏宽度统一计算。
+        // 棋盘由 BoardRenderer 监听窗口变化自行重渲；这里只同步“移动历史”高度
         const renderer = this.gameEngine && this.gameEngine.boardRenderer;
-        if (renderer && typeof renderer.initializeBoard === 'function') {
-            renderer.initializeBoard();
-        }
-        // 让“移动历史”的高度不超过棋盘，超长时在其内部滚动
-        const board = document.getElementById('chessBoard');
-        const mh = document.getElementById('moveHistory');
-        if (board && mh) {
-            const h = Math.round(board.getBoundingClientRect().height);
-            if (h > 120) mh.style.maxHeight = h + 'px';
+        if (renderer && renderer._syncHistoryHeight) {
+            renderer._syncHistoryHeight();
         }
     }
     

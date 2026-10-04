@@ -1,395 +1,95 @@
-# 🎮 四人象棋 | Four Player Chinese Chess
+# 🎴 四人象棋 · Four-Player Chinese Chess
 
-<div align="center">
+一款纯前端的**四人中国象棋**变体：本地轮流对战，或**免服务器联机**（WebRTC P2P），可直接部署到 GitHub Pages。
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
-![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
-
-**一款基于Web技术开发的四人象棋单机游戏**
-
-[快速开始](#-快速开始) • [功能特性](#-功能特性) • [游戏规则](#-游戏规则) • [技术栈](#-技术栈) • [打包分发](#-打包分发)
-
-</div>
+- **无需后端**：联机用 WebRTC 点对点 + 公共信令（Trystero），房主浏览器充当裁判。
+- **可离线**：Service Worker 缓存，支持"添加到主屏幕"当 App 用。
 
 ---
 
-## 📖 简介
+## ✨ 功能
 
-四人象棋是传统中国象棋的创新变体，支持四名玩家同时对战。游戏采用纯前端技术开发，无需后端服务器，支持在浏览器中直接运行，也可打包成独立的可执行程序。
+- **两种对局方式**：`本地对战`（同一设备轮流操作四个颜色）、`联机对战`（输入房间号/点邀请链接加入）。
+- **两种对战模式**：`两两组队`（红蓝 vs 绿黑，对角线是队友）、`四人混战`（各自为战，按死亡顺序排 1–4 名）。
+- **胜利条件**：`将死任意一方即结束`（默认）/ `仅剩一队`。
+- **友伤**：可开关"允许吃队友棋子"。
+- **对局回放**：导出为**带校验的纯文本**（`签名` 行 + 时间/模式/胜负/走子/淘汰），导入后逐手查看。
+- **联机容错**：房主刷新**自动续局**；房主掉线 20 秒后由在线玩家**自动接任**。
+- **响应式**：桌面 / 平板 / 安卓手机自适应（窄屏单列、棋盘置顶、触摸友好）。
 
-### ✨ 特色亮点
+## 🎮 快速开始
 
-- 🎯 **四人对战** - 独特的四方对局，策略性更强
-- 🎨 **精美UI** - 使用Tailwind CSS打造现代化界面
-- 💾 **本地运行** - 无需网络，完全离线可玩
-- 📱 **响应式设计** - 支持不同屏幕尺寸
-- 🔄 **悔棋功能** - 支持撤销上一步操作
-- 📊 **移动历史** - 完整记录每步棋的移动
-- 🎪 **便携分发** - 可打包成无依赖的可执行文件
-
----
-
-## 🚀 快速开始
-
-### 方法一：直接在浏览器中运行（推荐）
-
-1. **下载项目**
-   ```bash
-   git clone https://github.com/coperlm/chess_4people.git
-   cd chess_4people
-   ```
-
-2. **启动游戏**
-   - **Windows**: 双击 `start-game.bat`
-   - **手动启动**: 直接双击 `index.html` 文件
-
-3. **开始游戏**
-   - 点击"新游戏"按钮
-   - 红方先行，顺时针轮流下棋
-
-### 方法二：使用Node.js服务器（支持手机访问）
-
+### 单机 / 本地对战
+直接双击 `index.html` 即可（无需任何环境）。或用本地服务：
 ```bash
-# 安装依赖（首次运行）
-npm install
-
-# 启动服务器
-npm run serve
-# 或
-node server.js
-
-# 电脑浏览器访问 http://localhost:8080
-# 手机浏览器访问 http://[你的IP]:8080 (确保同一WiFi)
+npm run serve        # 打开 http://localhost:8080
 ```
 
-### 方法三：在手机上玩 📱
+### 联机对战（免服务器）
+1. 把项目部署到 GitHub Pages（见下），或局域网内 `node server.js` 后各自访问该地址。
+2. 一人点 **新游戏 → 联机对战 → 创建房间**，点 **复制邀请链接**。
+3. 其他人打开该链接（`...?room=xxxx`）即自动加入；也可手动输入房间号。
+4. 房主选 **对战模式 / 胜利条件 / 友伤**，点 **开始 / 重开对局**。其余端只看自己（或本队）的棋子可动。
 
-1. **电脑启动服务器**
-   ```bash
-   node server.js
-   # 会显示手机访问地址，如: http://192.168.1.100:8080
-   ```
+## 📋 规则（简版，游戏内「游戏规则」有详细版）
 
-2. **手机访问**
-   - 确保手机和电脑在同一WiFi
-   - 手机浏览器输入显示的地址
-   - 支持触摸操作，完美适配移动端
+- 棋盘 10×10，中间横竖两条"楚河汉界"为分隔线（不可落子）；四角 5×5 为四家区域（红左下 / 蓝右上 / 绿右下 / 黑左上）。
+- 棋子走法同传统象棋：帅/将（九宫直一格）、士/仕（九宫斜一格）、相/象（走田不过河、塞象眼）、马（走日、蹩马腿）、车（直线）、炮（隔一子吃）、兵/卒（**未过河只前进，过河后可前进+侧移，永不后退**；每个兵朝向由初始位置固定）。
+- **命名**：红+蓝用「帅/士/相/兵」，绿+黑用「将/仕/象/卒」。
 
-3. **详细说明**: 查看 [📱手机玩法指南](./手机玩法指南.md)
+## 🧠 联机实现要点
 
-### 方法四：打包成独立应用
+- **房主权威 + 各端复核**：房主校验每手并广播"走子"，其他端用同一套规则**复核**后再落子；非法走子会被拒绝并请求重同步。（注意：没有中立后端，无法从根本上阻止房主改自己浏览器；本作为**朋友局**定位。）
+- **身份**：用本机 `localStorage` 中的 token 识别（换设备/清缓存 = 新身份）。
+- **续局/接任**：房主状态随时存本地，刷新后自动重连同一房间续局；失联超时由在线玩家中 `selfId` 最小者接任。
 
+## 💾 对局回放
+
+- **导出**：`新游戏/对局记录 → 导出回放`，得到 `.txt`（首行是校验值，其后是时间/模式/胜负/走子/淘汰）。
+- **导入**：`对局记录 → 导入回放`，底部出现控制条可逐手查看。
+- 校验是"加盐哈希"（盐写在源码里）：能挡**普通误改**，**不防专业伪造**；不匹配会弹确认并常驻提示（仍可选择查看）。
+
+## 🚀 部署到 GitHub Pages
+
+1. 推到 GitHub 仓库。
+2. 仓库 **Settings → Pages → Build and deployment → Source** 选 **GitHub Actions**。
+3. 每次 `push` 会自动跑测试并部署（见 `.github/workflows/deploy-pages.yml`）。
+
+> 更新后如仍看到旧界面：是浏览器/Service Worker 缓存，**刷新两次**或 Ctrl+Shift+R。
+
+## 🛠️ 开发
+
+```
+index.html                 # 页面 + 弹窗
+styles/style.css           # 全部样式（主题/棋盘/弹窗/响应式）
+js/
+  utils/Config.js          # 棋盘/角色/命名/规则常量
+  utils/Utils.js           # 工具函数
+  utils/GameStatePersistence.js  # 本地存档（含规则）
+  game/GameState.js        # 棋盘状态、规则数据、淘汰与排名
+  game/RuleValidator.js    # 走法合法性
+  game/GameEngine.js       # 流程编排（UI/胜负/历史）
+  game/Replay.js           # 回放导出/导入/校验
+  board/{BoardRenderer,CoordinateMapper,PieceManager}.js
+  net/OnlineSession.js     # 联机（Trystero P2P，房主权威）
+  ui/GameInterface.js      # 界面与弹窗
+  main.js                  # 入口
+vendor/trystero.nostr.iife.js  # 打包后的 Trystero（无需 CDN）
+server.js                  # 局域网静态服务器（可选）
+test/                      # Node 测试（规则/联机协议/回放/随机化压力）
+```
+
+### 测试
 ```bash
-# 创建便携版（无需Node.js）
-./create-portable.bat
-
-# 生成的文件夹可直接分发给他人使用
+npm test    # 4 套件、约 36 万条断言，<1s；CI 部署前也会跑
 ```
 
-### 方法五：打包成手机APP 📱🔥
+## ⚠️ 已知限制
 
-#### PWA方式（推荐，最简单）
-```bash
-# 1. 启动服务器
-node server.js
+- 反作弊为"防君子不防小人"（详见上）。
+- 联机信令走公共网络，个别网络环境下可能连不上；无 TURN 时少数 NAT 打不通。
+- 手机端已做响应式，但仍建议真机自测。
 
-# 2. 手机浏览器访问显示的地址
-# 3. 点击"添加到主屏幕"
-# 4. ✅ 完成！像原生APP一样使用
-```
+## 📄 许可
 
-#### 在线打包APK（无需Android Studio）✨
-```bash
-# 超轻量方案，无需安装任何工具！
-
-# 方法1: 在线打包服务
-./build-apk-online.bat
-# 生成ZIP → 上传到apkonline.net → 下载APK
-
-# 方法2: GitHub Pages + PWABuilder  
-# 1. 部署到GitHub Pages（免费）
-# 2. 使用PWABuilder在线打包APK
-```
-
-📖 **详细说明**: 
-- [📱 轻量级APK打包方案](./轻量级APK打包方案.md) - **无需Android Studio**
-- [🌐 免费部署指南](./免费部署指南.md) - 部署到网上
-- [📱 打包手机APP指南](./打包手机APP指南.md) - 完整教程
-
----
-
-## 🎯 功能特性
-
-### 游戏功能
-
-- ✅ 四人对战模式（红、蓝、绿、黑）
-- ✅ 队伍对抗（红绿 vs 蓝黑）
-- ✅ 完整的象棋规则验证
-- ✅ 智能高亮可移动位置
-- ✅ 悔棋功能
-- ✅ 认输功能
-- ✅ 移动历史记录
-- ✅ 游戏状态显示
-- ✅ 棋子计数统计
-
-### 技术特性
-
-- 📐 **模块化架构** - 清晰的代码结构
-- 🎨 **现代化UI** - Tailwind CSS + 自定义样式
-- 📱 **移动端优化** - 完美支持手机/平板触摸操作
-- 🌐 **局域网多设备** - 支持4部手机同时连接游玩
-- 🧩 **面向对象设计** - 可维护性强
-- 🐛 **详细错误日志** - 便于调试
-- 💾 **自动保存** - 游戏进度自动保存
-- 🔧 **配置灵活** - 易于修改和扩展
-
----
-
-## 📋 游戏规则
-
-### 基本规则
-
-1. **玩家与阵营**
-   - 四名玩家：红方（左下）、蓝方（右上）、绿方（右下）、黑方（左上）
-   - 两个队伍：红绿队 vs 蓝黑队
-   - 对角线玩家为队友
-
-2. **胜利条件**
-   - 将死任意敌方玩家即可获胜
-   - 队友任一方获胜，全队获胜
-
-3. **行棋顺序**
-   - 顺时针轮流：红 → 绿 → 蓝 → 黑 → 红...
-
-4. **特殊规则**
-   - 河界不可落子（仅作视觉分隔）
-   - 兵/卒过河后可横向移动
-   - 象不能过河
-   - 马走日，炮翻山
-
-### 棋子移动规则
-
-| 棋子 | 移动规则 |
-|------|---------|
-| **帅/将** | 只能在九宫格内移动，每次一格 |
-| **士/仕** | 只能在九宫格内斜线移动 |
-| **相/象** | 走田字，不能过河 |
-| **马** | 走日字，蹩马腿 |
-| **车** | 直线移动，不限距离 |
-| **炮** | 直线移动，吃子需隔一子 |
-| **兵/卒** | 向前一格，过河后可横移 |
-
----
-
-## 🛠️ 技术栈
-
-### 前端技术
-
-- **核心**: 纯JavaScript (ES6+)
-- **样式**: Tailwind CSS + 自定义CSS
-- **架构**: 面向对象 + 模块化设计
-
-### 项目结构
-
-```
-chess_4people/
-├── index.html              # 主页面
-├── server.js              # 本地服务器（可选）
-├── package.json           # 项目配置
-├── start-game.bat         # Windows启动脚本
-├── create-portable.bat    # 便携版打包脚本
-├── js/
-│   ├── main.js           # 应用入口
-│   ├── board/            # 棋盘相关
-│   │   ├── BoardRenderer.js      # 棋盘渲染
-│   │   ├── CoordinateMapper.js   # 坐标映射
-│   │   └── PieceManager.js       # 棋子管理
-│   ├── game/             # 游戏逻辑
-│   │   ├── GameEngine.js         # 游戏引擎
-│   │   ├── GameState.js          # 游戏状态
-│   │   └── RuleValidator.js      # 规则验证
-│   ├── ui/               # 用户界面
-│   │   └── GameInterface.js      # 界面控制
-│   └── utils/            # 工具类
-│       ├── Config.js             # 配置文件
-│       ├── Utils.js              # 工具函数
-│       └── GameStatePersistence.js # 状态保存
-├── styles/
-│   ├── main.css          # 主样式
-│   └── style.css         # 自定义样式
-└── css/
-    └── input.css         # Tailwind输入
-```
-
----
-
-## 📦 打包分发
-
-### 方法一：便携版HTML（推荐）
-
-**适合**: 快速分享给朋友，无需任何环境
-
-```bash
-# 1. 双击运行
-create-portable.bat
-
-# 2. 生成"四人象棋便携版"文件夹
-# 3. 压缩整个文件夹
-# 4. 发送给朋友，解压后双击"启动游戏.html"即可玩
-```
-
-**优点**:
-- ✅ 无需安装任何软件
-- ✅ 体积小（约5MB）
-- ✅ 任何电脑都能运行
-- ✅ 只需双击HTML文件
-
-### 方法二：Electron打包
-
-**适合**: 需要专业的EXE程序
-
-```bash
-# 前置: 安装Node.js (https://nodejs.org)
-
-# 安装依赖
-npm install --save-dev electron electron-builder
-
-# 打包Windows版
-npm run build:win
-
-# 打包Mac版
-npm run build:mac
-
-# 输出在 dist/ 文件夹
-```
-
----
-
-## 🎨 AI图标生成提示词
-
-使用AI（如Midjourney、DALL-E）生成游戏图标：
-
-### 推荐提示词：
-
-```
-Create a modern, circular app icon for a four-player Chinese chess game.
-Features:
-- Four "将" (Chinese chess king) characters in red, blue, green, and black
-- Arranged in a cross/compass pattern
-- Blue cross lines in center representing the river (楚河汉界)
-- Warm golden amber background (#D97706)
-- Clean flat design style, professional game icon
-- 512x512 pixels, rounded corners
-- High contrast, recognizable at small sizes
-```
-
-### 中国风版本：
-
-```
-Traditional Chinese chess app icon with elegant design.
-- Four colored "将" characters in cardinal directions (red/blue/green/black)
-- Classic wooden chess board texture
-- Golden decorative border with Chinese cloud patterns
-- Blue river cross in center with calligraphy "楚河汉界"
-- Rich warm colors, seal stamp style
-- 512x512px, traditional Chinese art aesthetic
-```
-
----
-
-## 🔧 开发
-
-### 开发环境设置
-
-```bash
-# 克隆项目
-git clone https://github.com/coperlm/chess_4people.git
-cd chess_4people
-
-# 安装依赖（可选）
-npm install
-
-# 启动开发服务器
-npm run serve
-
-# 构建CSS（如果修改了Tailwind）
-npm run build-css
-```
-
-### 调试快捷键
-
-- `Ctrl+Shift+I` - 显示应用信息
-- `Ctrl+Shift+D` - 显示游戏状态
-- `Ctrl+Z` - 悔棋
-- `Ctrl+N` - 新游戏
-- `ESC` - 取消选择
-
-### 修改配置
-
-编辑 `js/utils/Config.js` 可以修改：
-- 棋盘大小
-- 棋子初始位置
-- 玩家颜色配置
-- 游戏规则参数
-
----
-
-## 📝 更新日志
-
-### v1.0.0 (2025-10-03)
-- ✨ 初始版本发布
-- ✅ 完整的四人象棋功能
-- ✅ 河界优化为视觉分隔线
-- ✅ 移除网络功能，专注单机体验
-- ✅ 添加详细错误日志
-- ✅ 支持便携版打包
-
----
-
-## 🤝 贡献
-
-欢迎提交问题和功能建议！
-
-1. Fork 本项目
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 开启 Pull Request
-
----
-
-## 📄 许可证
-
-本项目采用 MIT 许可证。详见 [LICENSE](LICENSE) 文件。
-
----
-
-## 👥 作者
-
-- **coperlm** - *初始开发* - [GitHub](https://github.com/coperlm)
-
----
-
-## 🙏 致谢
-
-- 中国象棋传统规则
-- Tailwind CSS 框架
-- 所有测试和反馈的朋友们
-
----
-
-## 📞 联系方式
-
-- GitHub Issues: [提交问题](https://github.com/coperlm/chess_4people/issues)
-- 项目主页: [chess_4people](https://github.com/coperlm/chess_4people)
-
----
-
-<div align="center">
-
-**⭐ 如果这个项目对你有帮助，请给它一个Star！**
-
-Made with ❤️ by coperlm
-
-</div>
+MIT

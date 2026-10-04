@@ -215,6 +215,19 @@ class BoardRenderer {
         
         // 渲染棋子
         this.renderPieces();
+        
+        // 让“移动历史”高度不超过棋盘
+        this._syncHistoryHeight();
+    }
+    
+    /**
+     * 让移动历史面板高度不超过棋盘（超长时在其内部滚动）
+     */
+    _syncHistoryHeight() {
+        const mh = document.getElementById('moveHistory');
+        if (!mh || !this.boardElement) return;
+        const h = Math.round(this.boardElement.getBoundingClientRect().height);
+        if (h > 120) mh.style.maxHeight = h + 'px';
     }
     
     /**
