@@ -8,14 +8,6 @@ class Utils {
     }
     
     /**
-     * 检查坐标是否是河界位置（河界不再是格子）
-     */
-    static isRiverPosition(x, y) {
-        // 河界不再是可落子的格子，这个方法保留用于兼容性
-        return false;
-    }
-    
-    /**
      * 检查坐标是否在可落子区域内
      */
     static isPlayablePosition(x, y) {
@@ -50,25 +42,6 @@ class Utils {
      */
     static getManhattanDistance(x1, y1, x2, y2) {
         return Math.abs(x1 - x2) + Math.abs(y1 - y2);
-    }
-    
-    /**
-     * 获取两个坐标之间的方向
-     */
-    static getDirection(fromX, fromY, toX, toY) {
-        const dx = toX - fromX;
-        const dy = toY - fromY;
-        
-        if (dx === 0 && dy > 0) return 'down';
-        if (dx === 0 && dy < 0) return 'up';
-        if (dx > 0 && dy === 0) return 'right';
-        if (dx < 0 && dy === 0) return 'left';
-        if (dx > 0 && dy > 0) return 'down-right';
-        if (dx < 0 && dy > 0) return 'down-left';
-        if (dx > 0 && dy < 0) return 'up-right';
-        if (dx < 0 && dy < 0) return 'up-left';
-        
-        return 'none';
     }
     
     /**

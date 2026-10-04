@@ -151,10 +151,7 @@ class PieceManager {
         
         // 检查路径是否被阻挡
         const path = Utils.getPathBetween(fromX, fromY, toX, toY);
-        return path.every(pos => {
-            if (Utils.isRiverPosition(pos.x, pos.y)) return true; // 可以跨越河界
-            return this.gameState.getPiece(pos.x, pos.y) === null;
-        });
+        return path.every(pos => this.gameState.getPiece(pos.x, pos.y) === null);
     }
     
     /**
@@ -166,10 +163,7 @@ class PieceManager {
         
         // 炮需要隔一个子攻击
         const path = Utils.getPathBetween(fromX, fromY, toX, toY);
-        const obstacles = path.filter(pos => {
-            if (Utils.isRiverPosition(pos.x, pos.y)) return false; // 河界不算障碍
-            return this.gameState.getPiece(pos.x, pos.y) !== null;
-        });
+        const obstacles = path.filter(pos => this.gameState.getPiece(pos.x, pos.y) !== null);
         
         return obstacles.length === 1;
     }
@@ -266,9 +260,7 @@ class PieceManager {
         for (let y = 0; y < Config.BOARD_SIZE; y++) {
             for (let x = 0; x < Config.BOARD_SIZE; x++) {
                 const piece = this.gameState.getPiece(x, y);
-                if (Utils.isRiverPosition(x, y)) {
-                    text += '河';
-                } else if (piece) {
+                if (piece) {
                     text += piece.getName();
                 } else {
                     text += '空';

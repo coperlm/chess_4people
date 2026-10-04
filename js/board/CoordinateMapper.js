@@ -140,8 +140,6 @@ class CoordinateMapper {
                 const pos = this.getNextPosition(x, y, direction, step);
                 
                 if (!Utils.isValidPosition(pos.x, pos.y)) break;
-                if (Utils.isRiverPosition(pos.x, pos.y)) continue;
-                
                 moves.push({ x: pos.x, y: pos.y });
             }
         });

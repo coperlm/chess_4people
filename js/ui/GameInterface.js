@@ -57,12 +57,20 @@ class GameInterface {
         bind('replayOpenBtn', () => this.openReplay());
         bind('rulesOpenBtn', () => this.openRules());
 
-        // 统一：右上角 ✕ 关闭 + 点击遮罩关闭
+        // 统一：右上角 ✕ 关闭 + 点击遮罩关闭 + ESC 关闭最上层弹窗 + 无障碍标注
         document.querySelectorAll('.modal-x').forEach(btn => {
+            btn.setAttribute('aria-label', '关闭');
             btn.addEventListener('click', () => this.closeModalById(btn.dataset.close));
         });
         document.querySelectorAll('.modal-overlay').forEach(ov => {
+            ov.setAttribute('role', 'dialog');
+            ov.setAttribute('aria-modal', 'true');
             ov.addEventListener('click', (e) => { if (e.target === ov) ov.classList.add('hidden'); });
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key !== 'Escape') return;
+            const open = [...document.querySelectorAll('.modal-overlay')].filter(m => !m.classList.contains('hidden'));
+            if (open.length) open[open.length - 1].classList.add('hidden');
         });
     }
 
@@ -89,11 +97,13 @@ class GameInterface {
         if (e.online) e.online.classList.toggle('active', mode === 'online');
         if (e.startLocal) e.startLocal.classList.toggle('hidden', mode !== 'local');
         if (onlineSetup) onlineSetup.classList.toggle('hidden', mode !== 'online');
+        const nameGroup = document.getElementById('nameGroup');
+        if (nameGroup) nameGroup.classList.toggle('hidden', mode !== 'online');
         if (e.hint) {
             e.hint.textContent = mode === 'local'
                 ? '本地对战：同一设备轮流操作四个颜色，点“开始本地对局”。'
                 : mode === 'online'
-                    ? '联机对战：创建或加入房间，房主点“开始 / 重开对局”。'
+                    ? '联机对战：创建房间，把「邀请链接」发给朋友加入。'
                     : '请选择对局方式。';
         }
     }

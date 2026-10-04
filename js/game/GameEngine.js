@@ -22,36 +22,10 @@ class GameEngine {
     }
     
     /**
-     * 设置网络模式
-     */
-    setNetworkMode(enabled) {
-        this.isNetworkMode = enabled;
-        if (this.boardRenderer) {
-            this.boardRenderer.setNetworkMode(enabled);
-        }
-    }
-    
-    /**
      * 设置本端控制的颜色（联机，支持一人多色）
      */
     setControlledColors(colors) {
         this.controlledColors = colors ? colors.slice() : null;
-    }
-    
-    /**
-     * 本端是否可以控制某个颜色
-     */
-    canControl(player) {
-        if (!this.isNetworkMode) return true;
-        return !!this.controlledColors && this.controlledColors.includes(player);
-    }
-    
-    /**
-     * 设置玩家位置（网络模式已移除，此方法保留但不执行任何操作）
-     */
-    setPlayerPosition(position) {
-        // 网络模式已移除
-        return;
     }
     
     /**
@@ -308,13 +282,6 @@ class GameEngine {
             console.error('❌ 移动处理失败:', error);
             Utils.showMessage('移动处理出错: ' + error.message, 'error');
         }
-    }
-    
-    /**
-     * 获取当前玩家
-     */
-    getCurrentPlayer() {
-        return this.gameState.currentPlayer;
     }
     
     /**

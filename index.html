@@ -6,7 +6,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#92400e">
+    <meta name="theme-color" content="#4a2b16">
     <meta name="description" content="四人象棋 - 传统中国象棋的四人对战版本">
     <title>四人象棋</title>
     
@@ -129,19 +129,14 @@
                 <label class="online-check"><input id="friendlyFireCheck" type="checkbox"> 友伤（可以吃队友棋子）</label>
             </div>
 
-            <div class="setup-group">
+            <div id="nameGroup" class="setup-group hidden">
                 <label class="online-label" for="playerNameInput">昵称（留空则随机生成 6 位字母数字 ID）</label>
                 <input id="playerNameInput" class="online-input" type="text" maxlength="12" placeholder="例如 小明">
             </div>
 
             <div id="onlineSetup" class="setup-group hidden">
                 <div class="setup-label">联机房间</div>
-                <label class="online-label" for="roomCodeInput">房间号</label>
-                <input id="roomCodeInput" class="online-input" type="text" maxlength="8" placeholder="例如 ab3k（创建时自动生成）">
-                <div class="online-row">
-                    <button id="createRoomBtn" class="online-btn online-btn--create">创建房间</button>
-                    <button id="joinRoomBtn" class="online-btn online-btn--join">加入房间</button>
-                </div>
+                <button id="createRoomBtn" class="online-btn online-btn--create">创建房间</button>
                 <button id="copyInviteBtn" class="online-btn online-btn--copy hidden">复制邀请链接</button>
                 <button id="startOnlineBtn" class="online-btn online-btn--start hidden" disabled>开始 / 重开对局（房主）</button>
                 <button id="leaveRoomBtn" class="online-btn online-btn--leave hidden">离开房间</button>
@@ -192,7 +187,7 @@
                 </ul>
                 <h4>联机</h4>
                 <ul>
-                    <li>房间号即邀请码，也可在创建后点“复制邀请链接”分享；打开带 <code>?room=</code> 的链接会自动加入。</li>
+                    <li>创建房间后点「复制邀请链接」分享；朋友打开带 <code>?room=</code> 的链接即自动加入。</li>
                     <li>房主是裁判，其他端会复核每手合法性；房主掉线 20 秒后由在线玩家自动接任，刷新会自动续局。</li>
                     <li>身份用本机保存的 token 识别（换设备/清缓存会变成新身份）。</li>
                 </ul>

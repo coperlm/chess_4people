@@ -39,11 +39,6 @@ class RuleValidator {
             return false;
         }
         
-        // 不能移动到河界位置
-        if (Utils.isRiverPosition(toX, toY)) {
-            return false;
-        }
-        
         // 起点和终点不能相同
         if (fromX === toX && fromY === toY) {
             return false;

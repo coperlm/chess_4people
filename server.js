@@ -84,11 +84,13 @@ server.listen(PORT, HOST, () => {
     console.log('按 Ctrl+C 停止服务器');
     console.log('========================================\n');
 
-    // 自动打开浏览器
-    const url = `http://localhost:${PORT}`;
-    const start = process.platform === 'win32' ? 'start' : 
-                  process.platform === 'darwin' ? 'open' : 'xdg-open';
-    exec(`${start} ${url}`);
+    // 自动打开浏览器（CI/无头环境跳过）
+    if (!process.env.CI) {
+        const url = `http://localhost:${PORT}`;
+        const start = process.platform === 'win32' ? 'start' :
+                      process.platform === 'darwin' ? 'open' : 'xdg-open';
+        exec(`${start} ${url}`);
+    }
 });
 
 // 优雅关闭

@@ -1671,7 +1671,7 @@ main h3{ color:var(--walnut-2); letter-spacing:.04em; }
 .chess-piece[data-player="2"]{ color:var(--green) !important; border-color:#3fa079 !important; background:radial-gradient(circle at 32% 28%, #fff, #d7efe4) !important; }
 .chess-piece[data-player="3"]{ color:var(--black) !important; border-color:#6b6259 !important; background:radial-gradient(circle at 32% 28%, #fff, #e3ddd4) !important; }
 
-#messageToast{ border-radius:12px; box-shadow:var(--shadow); font-weight:600; }
+#messageToast{ border-radius:12px; box-shadow:var(--shadow); font-weight:600; max-width:calc(100vw - 2rem); }
 .replay-bar{ border:1px solid rgba(138,90,43,.18); }
 .modal-box{ border-radius:16px; box-shadow:0 24px 60px -20px rgba(40,20,5,.6); }
 

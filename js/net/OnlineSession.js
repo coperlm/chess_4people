@@ -37,13 +37,11 @@ class OnlineSession {
         this._bound = true;
         const $ = id => document.getElementById(id);
         this.el = {
-            code: $('roomCodeInput'),
             name: $('playerNameInput'),
             mode: $('modeSelect'),
             victory: $('victorySelect'),
             ff: $('friendlyFireCheck'),
             create: $('createRoomBtn'),
-            join: $('joinRoomBtn'),
             copy: $('copyInviteBtn'),
             status: $('onlineStatus'),
             roster: $('onlineRoster'),
@@ -58,7 +56,6 @@ class OnlineSession {
             if (this.active && !this.isHost) this._sendHello();
         });
         if (this.el.create) this.el.create.addEventListener('click', () => this._onCreate());
-        if (this.el.join) this.el.join.addEventListener('click', () => this._onJoin());
         if (this.el.copy) this.el.copy.addEventListener('click', () => this._copyInvite());
         if (this.el.start) this.el.start.addEventListener('click', () => this.startMatch());
         if (this.el.leave) this.el.leave.addEventListener('click', () => this.leave());
@@ -164,22 +161,13 @@ class OnlineSession {
         try {
             const room = new URLSearchParams(location.search).get('room');
             if (!room || !this._validCode(room)) return false;
-            if (this.el && this.el.code) this.el.code.value = room;
             this._open(room.toLowerCase(), false);
             return true;
         } catch (e) { return false; }
     }
 
     _onCreate() {
-        const code = (this.el && this.el.code && this.el.code.value.trim()) || this._genCode();
-        if (!this._validCode(code)) return this._setStatus('房间号需为 3-8 位字母或数字', 'error');
-        if (this.el && this.el.code) this.el.code.value = code;
-        this._open(code.toLowerCase(), true);
-    }
-    _onJoin() {
-        const code = (this.el && this.el.code && this.el.code.value.trim()) || '';
-        if (!this._validCode(code)) return this._setStatus('请输入正确的房间号', 'error');
-        this._open(code.toLowerCase(), false);
+        this._open(this._genCode(), true);
     }
 
     _open(roomId, isHost, record) {

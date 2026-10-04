@@ -49,6 +49,10 @@ class Replay {
         if (this.el.next) this.el.next.addEventListener('click', () => this.goto(this.index + 1));
         if (this.el.last) this.el.last.addEventListener('click', () => this.goto(this.moves.length));
         if (this.el.exit) this.el.exit.addEventListener('click', () => this.exit());
+
+        // 无障碍标注
+        const labels = { first: '回到开头', prev: '上一步', next: '下一步', last: '跳到结尾', exit: '退出回放' };
+        Object.keys(labels).forEach(k => { if (this.el[k]) this.el[k].setAttribute('aria-label', labels[k]); });
     }
 
     _modeText(m) { return m === Config.MODES.FFA ? '四人混战' : '两两组队'; }
