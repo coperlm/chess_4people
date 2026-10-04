@@ -8,18 +8,21 @@ class GameStatePersistence {
     /**
      * 保存游戏状态
      */
-    saveGameState(gameState, roomInfo = null) {
+    saveGameState(gameState) {
         try {
             const saveData = {
+                v: 2,
                 timestamp: Date.now(),
                 gamePhase: gameState.gamePhase,
                 currentPlayer: gameState.currentPlayer,
-                board: gameState.board,
-                moveHistory: gameState.moveHistory,
-                capturedPieces: gameState.capturedPieces,
-                selectedPiece: gameState.selectedPiece,
-                possibleMoves: gameState.possibleMoves,
-                roomInfo: roomInfo
+                turn: gameState.turn,
+                pieceCounts: gameState.pieceCounts,
+                board: gameState.board.map(col => col.map(p => p ? {
+                    type: p.type,
+                    player: p.player,
+                    facing: p.facing || null
+                } : null)),
+                moveHistory: gameState.moveHistory
             };
             
             localStorage.setItem(this.storageKey, JSON.stringify(saveData));
@@ -64,36 +67,47 @@ class GameStatePersistence {
      */
     restoreGameState(gameEngine, savedData) {
         try {
-            if (!savedData || !gameEngine) return false;
+            if (!savedData || !gameEngine || !savedData.board) return false;
             
             const gameState = gameEngine.gameState;
+            
+            // 重建棋盘
+            for (let x = 0; x < Config.BOARD_SIZE; x++) {
+                for (let y = 0; y < Config.BOARD_SIZE; y++) {
+                    const d = savedData.board[x] ? savedData.board[x][y] : null;
+                    gameState.board[x][y] = d
+                        ? new ChessPiece(d.type, d.player, x, y, d.facing || null)
+                        : null;
+                }
+            }
             
             // 恢复基本状态
             gameState.gamePhase = savedData.gamePhase || 'playing';
             gameState.currentPlayer = savedData.currentPlayer || 0;
+            gameState.turn = savedData.turn || 1;
             gameState.moveHistory = savedData.moveHistory || [];
-            gameState.capturedPieces = savedData.capturedPieces || [];
+            gameState.selectedPiece = null;
+            gameState.possibleMoves = [];
+            gameState.winner = null;
             
-            // 恢复棋盘状态
-            if (savedData.board) {
+            // 棋子计数：优先用存档，否则按棋盘重算
+            if (savedData.pieceCounts) {
+                gameState.pieceCounts = Object.assign({ 0: 0, 1: 0, 2: 0, 3: 0 }, savedData.pieceCounts);
+            } else {
+                gameState.pieceCounts = { 0: 0, 1: 0, 2: 0, 3: 0 };
                 for (let x = 0; x < Config.BOARD_SIZE; x++) {
                     for (let y = 0; y < Config.BOARD_SIZE; y++) {
-                        if (savedData.board[x] && savedData.board[x][y]) {
-                            const pieceData = savedData.board[x][y];
-                            gameState.board[x][y] = new ChessPiece(
-                                pieceData.type, 
-                                pieceData.player, 
-                                x, 
-                                y
-                            );
-                        }
+                        if (gameState.board[x][y]) gameState.pieceCounts[gameState.board[x][y].player]++;
                     }
                 }
             }
             
+            gameEngine.isGameActive = gameState.gamePhase === 'playing';
+            
             // 更新界面
             gameEngine.updateUI();
-            gameEngine.boardRenderer.renderPieces();
+            if (gameEngine.boardRenderer) gameEngine.boardRenderer.reset();
+            if (gameEngine.updateMoveHistory) gameEngine.updateMoveHistory();
             
             console.log('Game state restored successfully');
             return true;

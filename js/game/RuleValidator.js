@@ -92,7 +92,7 @@ class RuleValidator {
             case Config.PIECE_TYPES.CANNON:
                 return this.validateCannonMove(fromX, fromY, toX, toY);
             case Config.PIECE_TYPES.PAWN:
-                return this.validatePawnMove(fromX, fromY, toX, toY, piece.player);
+                return this.validatePawnMove(piece, fromX, fromY, toX, toY);
             default:
                 return false;
         }
@@ -219,12 +219,13 @@ class RuleValidator {
     /**
      * 验证兵/卒移动
      */
-    validatePawnMove(fromX, fromY, toX, toY, player) {
-        const directions = CoordinateMapper.getPawnMoveDirections(fromX, fromY, player);
+    validatePawnMove(piece, fromX, fromY, toX, toY) {
+        const facing = piece.facing || CoordinateMapper.getDefaultPawnFacing(piece.player);
+        const crossed = CoordinateMapper.isPawnCrossedRiver(fromX, fromY, piece.player);
+        const directions = CoordinateMapper.getPawnMoveDirections(facing, crossed);
         
-        // 检查是否在允许的方向上移动一格或跨河移动
+        // 检查是否在允许的方向上移动一格
         for (const direction of directions) {
-            // 正常移动一格
             const nextPos = CoordinateMapper.getNextPosition(fromX, fromY, direction, 1);
             if (nextPos.x === toX && nextPos.y === toY) {
                 return true;
@@ -296,7 +297,7 @@ class RuleValidator {
             case Config.PIECE_TYPES.CANNON:
                 return this.generateCannonMoves(x, y);
             case Config.PIECE_TYPES.PAWN:
-                return this.generatePawnMoves(x, y, piece.player);
+                return this.generatePawnMoves(piece, x, y);
             default:
                 return [];
         }
@@ -367,12 +368,13 @@ class RuleValidator {
     /**
      * 生成兵/卒的可能移动
      */
-    generatePawnMoves(x, y, player) {
+    generatePawnMoves(piece, x, y) {
         const moves = [];
-        const directions = CoordinateMapper.getPawnMoveDirections(x, y, player);
+        const facing = piece.facing || CoordinateMapper.getDefaultPawnFacing(piece.player);
+        const crossed = CoordinateMapper.isPawnCrossedRiver(x, y, piece.player);
+        const directions = CoordinateMapper.getPawnMoveDirections(facing, crossed);
         
         for (const direction of directions) {
-            // 移动一格
             const pos = CoordinateMapper.getNextPosition(x, y, direction, 1);
             if (Utils.isValidPosition(pos.x, pos.y) && Utils.isPlayablePosition(pos.x, pos.y)) {
                 moves.push(pos);

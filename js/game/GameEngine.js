@@ -13,6 +13,10 @@ class GameEngine {
         
         // 网络模式相关（已移除）
         this.isNetworkMode = false;
+        this.controlledColors = null;
+        
+        // 存档
+        this.persistence = new GameStatePersistence();
         
         this.initialize();
     }
@@ -28,6 +32,21 @@ class GameEngine {
     }
     
     /**
+     * 设置本端控制的颜色（联机，支持一人多色）
+     */
+    setControlledColors(colors) {
+        this.controlledColors = colors ? colors.slice() : null;
+    }
+    
+    /**
+     * 本端是否可以控制某个颜色
+     */
+    canControl(player) {
+        if (!this.isNetworkMode) return true;
+        return !!this.controlledColors && this.controlledColors.includes(player);
+    }
+    
+    /**
      * 设置玩家位置（网络模式已移除，此方法保留但不执行任何操作）
      */
     setPlayerPosition(position) {
@@ -40,7 +59,7 @@ class GameEngine {
      */
     isMyTurn() {
         if (!this.isNetworkMode) return true;
-        return this.gameState.currentPlayer === this.myPlayerPosition;
+        return (this.controlledColors || []).includes(this.gameState.currentPlayer);
     }
     
     /**
@@ -157,11 +176,18 @@ class GameEngine {
      * 开始新游戏
      */
     startNewGame() {
+        if (window.onlineSession && window.onlineSession.active && !window.onlineSession.isHost) {
+            Utils.showMessage('只有房主能开新局', 'warning');
+            return;
+        }
         try {
             console.log('🎮 开始新游戏...');
             
             this.gameState.reset();
             console.log('✅ 游戏状态重置完成');
+            
+            // 新开一局，清掉旧存档
+            if (this.persistence) this.persistence.clearSavedState();
             
             this.boardRenderer.reset();
             console.log('✅ 棋盘渲染器重置完成');
@@ -180,6 +206,11 @@ class GameEngine {
             console.log('🎯 游戏开始 - 初始棋盘状态：');
             console.log(this.pieceManager.getBoardText());
             
+            // 联机：房主开局后广播初始局面
+            if (window.onlineSession && window.onlineSession.active && window.onlineSession.isHost) {
+                window.onlineSession._broadcastState();
+            }
+            
         } catch (error) {
             console.error('❌ 开始新游戏时出错:', error);
             Utils.showMessage(`开始新游戏失败: ${error.message}\n请刷新页面重试`, 'error');
@@ -190,6 +221,10 @@ class GameEngine {
      * 悔棋
      */
     undoMove() {
+        if (window.onlineSession && window.onlineSession.active) {
+            window.onlineSession.requestUndo();
+            return;
+        }
         if (!this.isGameActive || this.gameState.gamePhase !== 'playing') {
             Utils.showMessage('当前无法悔棋', 'warning');
             return;
@@ -213,6 +248,10 @@ class GameEngine {
      * 认输
      */
     surrender() {
+        if (window.onlineSession && window.onlineSession.active) {
+            window.onlineSession.requestResign(this.gameState.currentPlayer);
+            return;
+        }
         if (!this.isGameActive || this.gameState.gamePhase !== 'playing') {
             return;
         }
@@ -532,16 +571,8 @@ class GameEngine {
      */
     autoSave() {
         try {
-            const gameData = {
-                board: this.gameState.board,
-                currentPlayer: this.gameState.currentPlayer,
-                gamePhase: this.gameState.gamePhase,
-                moveHistory: this.gameState.moveHistory,
-                turn: this.gameState.turn,
-                timestamp: Date.now()
-            };
-            
-            localStorage.setItem('fourPlayerChess_autoSave', JSON.stringify(gameData));
+            if (!this.persistence) this.persistence = new GameStatePersistence();
+            this.persistence.saveGameState(this.gameState);
         } catch (error) {
             console.warn('自动保存失败:', error);
         }

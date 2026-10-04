@@ -22,101 +22,37 @@ class CoordinateMapper {
     }
     
     /**
-     * 根据玩家和兵的位置获取其前进方向
-     * 每个玩家有两个相邻敌人，兵面向最近的那个
+     * 兵/卒固定朝向的兜底值（仅用于老存档缺少 facing 时）
      */
-    static getPlayerDirection(player) {
-        // 这是一个简化版本，实际应该根据兵的具体位置确定
-        // 这里返回主要方向，具体的兵移动方向在getPawnMoveDirections中处理
+    static getDefaultPawnFacing(player) {
         switch (player) {
-            case 0: return 'up';    // 红方主要向上
-            case 1: return 'left';  // 蓝方主要向左  
-            case 2: return 'down';  // 绿方主要向下
-            case 3: return 'right'; // 黑方主要向右
+            case 0: return 'up';    // 红方
+            case 1: return 'left';  // 蓝方
+            case 2: return 'down';  // 绿方
+            case 3: return 'right'; // 黑方
             default: return 'up';
         }
     }
     
     /**
-     * 根据兵的具体位置获取其移动方向
-     * 每个玩家的兵分别面向两个相邻的敌人
-     */
-    static getPawnDirectionByPosition(x, y, player) {
-        const area = Config.PLAYABLE_AREAS[player];
-        const centerX = (area.x[0] + area.x[1]) / 2;
-        const centerY = (area.y[0] + area.y[1]) / 2;
-        
-        switch (player) {
-            case 0: // 红方在左下角 [0-4, 6-10]
-                // 相邻敌人：蓝方(右上)，黑方(左上)
-                if (y < centerY) {
-                    return 'up';    // 上方的兵向上面向黑方
-                } else {
-                    return 'right'; // 下方的兵向右面向蓝方
-                }
-            case 1: // 蓝方在右上角 [6-10, 0-4]  
-                // 相邻敌人：红方(左下)，绿方(右下)
-                if (x < centerX) {
-                    return 'left';  // 左侧的兵向左面向红方
-                } else {
-                    return 'down';  // 右侧的兵向下面向绿方
-                }
-            case 2: // 绿方在右下角 [6-10, 6-10]
-                // 相邻敌人：蓝方(右上)，红方(左下)  
-                if (y < centerY) {
-                    return 'up';    // 上方的兵向上面向蓝方
-                } else {
-                    return 'left';  // 下方的兵向左面向红方
-                }
-            case 3: // 黑方在左上角 [0-4, 0-4]
-                // 相邻敌人：红方(左下)，蓝方(右上)
-                if (x < centerX) {
-                    return 'down';  // 左侧的兵向下面向红方
-                } else {
-                    return 'right'; // 右侧的兵向右面向蓝方
-                }
-            default: 
-                return 'up';
-        }
-    }
-    
-    /**
-     * 检查兵/卒是否已过河
+     * 检查兵/卒是否已过河（离开本方象限即视为过河）
      */
     static isPawnCrossedRiver(x, y, player) {
-        const area = Config.PLAYABLE_AREAS[player];
-        
-        // 如果不在本方区域，说明已过河
         return !Utils.isInPlayerArea(x, y, player);
     }
     
     /**
-     * 获取兵/卒的可移动方向
+     * 根据固定朝向与是否过河，得到可移动方向
+     * - 未过河：只能沿 facing 前进一格
+     * - 过河后：可前进 + 两侧垂直方向（永不后退，绝不含 facing 的反向）
      */
-    static getPawnMoveDirections(x, y, player) {
-        const directions = [];
-        const isCrossed = this.isPawnCrossedRiver(x, y, player);
-        
-        if (!isCrossed) {
-            // 未过河，只能朝向最近的相邻敌人方向移动
-            const direction = this.getPawnDirectionByPosition(x, y, player);
-            directions.push(direction);
-        } else {
-            // 过河后，可以左右移动和继续前进
-            const mainDirection = this.getPawnDirectionByPosition(x, y, player);
-            directions.push(mainDirection);
-            
-            // 根据主方向添加侧向移动
-            if (mainDirection === 'right' || mainDirection === 'left') {
-                // 横向移动的兵，过河后可以纵向移动
-                directions.push('up', 'down');
-            } else {
-                // 纵向移动的卒，过河后可以横向移动
-                directions.push('left', 'right');
-            }
+    static getPawnMoveDirections(facing, crossed) {
+        if (!facing) return [];
+        if (!crossed) return [facing];
+        if (facing === 'left' || facing === 'right') {
+            return [facing, 'up', 'down'];
         }
-        
-        return directions;
+        return [facing, 'left', 'right'];
     }
     
     /**

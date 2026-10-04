@@ -23,7 +23,6 @@
     <style>
         /* 主要样式已移至编译后的CSS文件 */
     </style>
-    </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
     <!-- 游戏标题 -->
@@ -66,6 +65,22 @@
                             认输
                         </button>
                     </div>
+                </div>
+
+                <!-- 联机对局 -->
+                <div class="bg-white rounded-lg shadow-lg p-6 mt-6">
+                    <h3 class="text-lg font-bold mb-4">联机对局</h3>
+                    <label class="block text-sm text-gray-600 mb-2">房间号</label>
+                    <input id="roomCodeInput" type="text" maxlength="8" placeholder="例如 ab3k（创建时自动生成）"
+                           class="w-full border border-gray-300 rounded px-3 py-2 text-sm mb-3">
+                    <div class="flex gap-2">
+                        <button id="createRoomBtn" class="flex-1 bg-indigo-500 text-white py-2 px-3 rounded hover:bg-indigo-600 transition-colors text-sm">创建房间</button>
+                        <button id="joinRoomBtn" class="flex-1 bg-teal-500 text-white py-2 px-3 rounded hover:bg-teal-600 transition-colors text-sm">加入房间</button>
+                    </div>
+                    <button id="startOnlineBtn" class="hidden w-full mt-3 bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 transition-colors text-sm" disabled>开始对局（房主）</button>
+                    <button id="leaveRoomBtn" class="hidden w-full mt-2 bg-gray-400 text-white py-2 px-4 rounded hover:bg-gray-500 transition-colors text-sm">离开房间</button>
+                    <div id="onlineStatus" class="text-xs mt-2 text-gray-600">未联机</div>
+                    <div id="onlineRoster" class="text-xs mt-1 text-gray-700 space-y-0.5"></div>
                 </div>
 
                 <!-- 玩家信息 -->
@@ -143,6 +158,8 @@
     <script src="js/board/BoardRenderer.js"></script>
     <script src="js/game/GameEngine.js"></script>
     <script src="js/ui/GameInterface.js"></script>
+    <script src="vendor/trystero.nostr.iife.js"></script>
+    <script src="js/net/OnlineSession.js"></script>
     <!-- 主程序 -->
     <script src="js/main.js"></script>
     
@@ -150,7 +167,7 @@
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/service-worker.js')
+                navigator.serviceWorker.register('service-worker.js')
                     .then(registration => {
                         console.log('✅ Service Worker 注册成功:', registration.scope);
                     })

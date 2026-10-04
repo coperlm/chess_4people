@@ -4,6 +4,14 @@ class GameInterface {
         this.gameEngine = gameEngine;
         this.gameEngine.gameInterface = this;
         
+        // 联机会话（Trystero）
+        this.onlineSession = null;
+        if (typeof OnlineSession !== 'undefined') {
+            this.onlineSession = new OnlineSession(gameEngine);
+            this.onlineSession.init();
+            window.onlineSession = this.onlineSession;
+        }
+        
         this.initialize();
     }
     

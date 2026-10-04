@@ -44,7 +44,7 @@ class GameState {
         for (let player = 0; player < 4; player++) {
             const positions = Config.INITIAL_POSITIONS[player];
             positions.forEach(pos => {
-                const piece = new ChessPiece(pos.type, player, pos.x, pos.y);
+                const piece = new ChessPiece(pos.type, player, pos.x, pos.y, pos.facing || null);
                 this.setPiece(pos.x, pos.y, piece);
             });
         }
@@ -299,11 +299,12 @@ class GameState {
 
 // 棋子类
 class ChessPiece {
-    constructor(type, player, x, y) {
+    constructor(type, player, x, y, facing = null) {
         this.type = type;
         this.player = player;
         this.x = x;
         this.y = y;
+        this.facing = facing; // 兵/卒的固定朝向：'up'|'down'|'left'|'right'（由初始格决定）
         this.id = Utils.generateId();
     }
     

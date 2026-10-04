@@ -233,41 +233,27 @@ class ChessGameApp {
      */
     checkAutoSavedGame() {
         try {
-            const savedGame = localStorage.getItem('fourPlayerChess_autoSave');
-            if (savedGame) {
-                const gameData = JSON.parse(savedGame);
-                const saveTime = new Date(gameData.timestamp);
-                const now = new Date();
-                
-                // 如果保存时间在24小时内，询问是否继续
-                if (now - saveTime < 24 * 60 * 60 * 1000) {
-                    const shouldContinue = confirm(
-                        `发现自动保存的游戏（${saveTime.toLocaleString()}）\n是否继续之前的游戏？`
-                    );
-                    
-                    if (shouldContinue) {
-                        this.loadAutoSavedGame(gameData);
-                    }
+            const persistence = (this.gameEngine && this.gameEngine.persistence) || new GameStatePersistence();
+            const savedData = persistence.loadGameState();
+            if (!savedData) return;
+            
+            const saveTime = new Date(savedData.timestamp || Date.now());
+            const shouldContinue = confirm(
+                `发现自动保存的对局（${saveTime.toLocaleString()}）\n是否继续之前的游戏？`
+            );
+            
+            if (shouldContinue && this.gameEngine) {
+                if (persistence.restoreGameState(this.gameEngine, savedData)) {
+                    this.isInitialized = true;
+                    Utils.showMessage('已恢复上次对局', 'success');
+                } else {
+                    Utils.showMessage('无法恢复上次对局', 'error');
                 }
+            } else {
+                persistence.clearSavedState();
             }
         } catch (error) {
             console.warn('检查自动保存失败:', error);
-        }
-    }
-    
-    /**
-     * 加载自动保存的游戏
-     */
-    loadAutoSavedGame(gameData) {
-        try {
-            // 这里需要实现游戏状态的恢复逻辑
-            // 暂时显示消息
-            Utils.showMessage('自动保存功能暂未完全实现', 'warning');
-            
-            console.log('发现自动保存的游戏数据:', gameData);
-        } catch (error) {
-            console.error('加载自动保存失败:', error);
-            Utils.showMessage('无法加载之前的游戏', 'error');
         }
     }
     

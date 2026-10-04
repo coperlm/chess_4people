@@ -80,7 +80,7 @@ class PieceManager {
             case Config.PIECE_TYPES.CANNON:
                 return this.canCannonAttack(fromX, fromY, toX, toY);
             case Config.PIECE_TYPES.PAWN:
-                return this.canPawnAttack(fromX, fromY, toX, toY, piece.player);
+                return this.canPawnAttack(piece, fromX, fromY, toX, toY);
             default:
                 return false;
         }
@@ -177,8 +177,10 @@ class PieceManager {
     /**
      * 兵/卒攻击范围检查
      */
-    canPawnAttack(fromX, fromY, toX, toY, player) {
-        const directions = CoordinateMapper.getPawnMoveDirections(fromX, fromY, player);
+    canPawnAttack(piece, fromX, fromY, toX, toY) {
+        const facing = piece.facing || CoordinateMapper.getDefaultPawnFacing(piece.player);
+        const crossed = CoordinateMapper.isPawnCrossedRiver(fromX, fromY, piece.player);
+        const directions = CoordinateMapper.getPawnMoveDirections(facing, crossed);
         
         for (const direction of directions) {
             const nextPos = CoordinateMapper.getNextPosition(fromX, fromY, direction, 1);
@@ -211,18 +213,21 @@ class PieceManager {
         
         for (const piece of playerPieces) {
             const possibleMoves = this.getValidMoves(piece.x, piece.y);
+            const fromX = piece.x;
+            const fromY = piece.y;
             
             for (const move of possibleMoves) {
-                // 模拟移动
+                // 模拟移动：先移除原位置，再放到目标位置
+                // 注意：setPiece 会改写 piece.x/piece.y，所以必须用固定的 fromX/fromY
                 const originalPiece = this.gameState.getPiece(move.x, move.y);
+                this.gameState.removePiece(fromX, fromY);
                 this.gameState.setPiece(move.x, move.y, piece);
-                this.gameState.removePiece(piece.x, piece.y);
                 
                 // 检查是否还在将军状态
                 const stillInCheck = this.isInCheck(player);
                 
-                // 恢复棋盘状态
-                this.gameState.setPiece(piece.x, piece.y, piece);
+                // 用固定的原始坐标恢复棋盘状态
+                this.gameState.setPiece(fromX, fromY, piece);
                 this.gameState.setPiece(move.x, move.y, originalPiece);
                 
                 if (!stillInCheck) {

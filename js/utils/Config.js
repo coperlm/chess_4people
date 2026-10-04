@@ -73,55 +73,57 @@ class Config {
         3: { x: [0, 2], y: [0, 2] }   // 黑方九宫格
     };
     
+    // 兵/卒固定朝向：由初始格决定，指向最近的相邻敌人（4 兵 = 2 管一个邻敌 + 2 管另一个）
+    // 未过河只能沿 facing 前进一格；过河后可前进 + 两侧垂直方向，永不后退
     // 初始棋子位置（基于旋转对称）
     static INITIAL_POSITIONS = {
-        3: [ // 黑方 - 左上角
+        3: [ // 黑方 - 左上角（邻敌：红方↓、蓝方→）
             { type: 'king', x: 0, y: 0 },
             { type: 'advisor', x: 1, y: 1 },
             { type: 'elephant', x: 0, y: 2 },
             { type: 'rook', x: 1, y: 0 },
             { type: 'horse', x: 2, y: 2 },
             { type: 'cannon', x: 1, y: 2 },
-            { type: 'pawn', x: 0, y: 3 },
-            { type: 'pawn', x: 2, y: 3 },
-            { type: 'pawn', x: 3, y: 0 },
-            { type: 'pawn', x: 3, y: 2 }
+            { type: 'pawn', x: 0, y: 3, facing: 'down' },
+            { type: 'pawn', x: 2, y: 3, facing: 'down' },
+            { type: 'pawn', x: 3, y: 0, facing: 'right' },
+            { type: 'pawn', x: 3, y: 2, facing: 'right' }
         ],
-        1: [ // 蓝方 - 右上角 (顺时针旋转90度)
+        1: [ // 蓝方 - 右上角 (顺时针旋转90度)（邻敌：黑方←、绿方↓）
             { type: 'king', x: 9, y: 0 },
             { type: 'advisor', x: 8, y: 1 },
             { type: 'elephant', x: 7, y: 0 },
             { type: 'rook', x: 9, y: 1 },
             { type: 'horse', x: 7, y: 2 },
             { type: 'cannon', x: 7, y: 1 },
-            { type: 'pawn', x: 6, y: 0 },
-            { type: 'pawn', x: 6, y: 2 },
-            { type: 'pawn', x: 9, y: 3 },
-            { type: 'pawn', x: 7, y: 3 }
+            { type: 'pawn', x: 6, y: 0, facing: 'left' },
+            { type: 'pawn', x: 6, y: 2, facing: 'left' },
+            { type: 'pawn', x: 9, y: 3, facing: 'down' },
+            { type: 'pawn', x: 7, y: 3, facing: 'down' }
         ],
-        2: [ // 绿方 - 右下角 (旋转180度)
+        2: [ // 绿方 - 右下角 (旋转180度)（邻敌：蓝方↑、红方←）
             { type: 'king', x: 9, y: 9 },
             { type: 'advisor', x: 8, y: 8 },
             { type: 'elephant', x: 9, y: 7 },
             { type: 'rook', x: 8, y: 9 },
             { type: 'horse', x: 7, y: 7 },
             { type: 'cannon', x: 8, y: 7 },
-            { type: 'pawn', x: 9, y: 6 },
-            { type: 'pawn', x: 7, y: 6 },
-            { type: 'pawn', x: 6, y: 9 },
-            { type: 'pawn', x: 6, y: 7 }
+            { type: 'pawn', x: 9, y: 6, facing: 'up' },
+            { type: 'pawn', x: 7, y: 6, facing: 'up' },
+            { type: 'pawn', x: 6, y: 9, facing: 'left' },
+            { type: 'pawn', x: 6, y: 7, facing: 'left' }
         ],
-        0: [ // 红方 - 左下角 (逆时针旋转90度)
+        0: [ // 红方 - 左下角 (逆时针旋转90度)（邻敌：黑方↑、绿方→）
             { type: 'king', x: 0, y: 9 },
             { type: 'advisor', x: 1, y: 8 },
             { type: 'elephant', x: 2, y: 9 },
             { type: 'rook', x: 0, y: 8 },
             { type: 'horse', x: 2, y: 7 },
             { type: 'cannon', x: 2, y: 8 },
-            { type: 'pawn', x: 3, y: 9 },
-            { type: 'pawn', x: 3, y: 7 },
-            { type: 'pawn', x: 0, y: 6 },
-            { type: 'pawn', x: 2, y: 6 }
+            { type: 'pawn', x: 3, y: 9, facing: 'right' },
+            { type: 'pawn', x: 3, y: 7, facing: 'right' },
+            { type: 'pawn', x: 0, y: 6, facing: 'up' },
+            { type: 'pawn', x: 2, y: 6, facing: 'up' }
         ]
     };
 }

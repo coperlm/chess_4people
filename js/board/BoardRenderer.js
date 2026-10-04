@@ -9,7 +9,7 @@ class BoardRenderer {
         
         // 网络模式相关
         this.isNetworkMode = false;
-        this.myPlayerPosition = -1;
+        this.myColors = [];
         
         // 防抖定时器
         this.resizeTimer = null;
@@ -42,19 +42,17 @@ class BoardRenderer {
     }
     
     /**
-     * 设置网络模式（已移除，保留方法以防调用）
+     * 设置网络模式
      */
     setNetworkMode(enabled) {
-        // 网络模式已移除
-        this.isNetworkMode = false;
+        this.isNetworkMode = !!enabled;
     }
     
     /**
-     * 设置玩家位置（已移除，保留方法以防调用）
+     * 设置本端控制的颜色（联机用，支持一人控制多色，如 2 人局各控一队）
      */
-    setPlayerPosition(position) {
-        // 网络模式已移除
-        return;
+    setPlayerPosition(colors) {
+        this.myColors = Array.isArray(colors) ? colors.slice() : (colors == null ? [] : [colors]);
     }
     
     /**
@@ -62,7 +60,7 @@ class BoardRenderer {
      */
     canControlPiece(piece) {
         if (!this.isNetworkMode) return true;
-        return piece && piece.player === this.myPlayerPosition;
+        return !!piece && this.myColors.includes(piece.player);
     }
     
     /**
@@ -70,7 +68,7 @@ class BoardRenderer {
      */
     isMyTurn() {
         if (!this.isNetworkMode) return true;
-        return this.gameState.currentPlayer === this.myPlayerPosition;
+        return this.myColors.includes(this.gameState.currentPlayer);
     }
     
     /**
@@ -392,6 +390,10 @@ class BoardRenderer {
                 Utils.showMessage('只能选择自己的棋子', 'warning');
                 return;
             }
+            if (piece.player !== this.gameState.currentPlayer) {
+                Utils.showMessage('还没轮到你', 'warning');
+                return;
+            }
         } else {
             // 单机模式下只能选择当前玩家的棋子
             if (!piece || piece.player !== this.gameState.currentPlayer) {
@@ -428,7 +430,13 @@ class BoardRenderer {
         
         // 尝试移动
         if (this.ruleValidator.isValidMove(selected.x, selected.y, x, y)) {
-            this.executeMove(selected.x, selected.y, x, y);
+            if (this.isNetworkMode && window.onlineSession && window.onlineSession.active) {
+                // 联机：不本地执行，交给房主权威校验后广播
+                window.onlineSession.requestMove(selected.x, selected.y, x, y);
+                this.clearSelection();
+            } else {
+                this.executeMove(selected.x, selected.y, x, y);
+            }
         } else {
             Utils.showMessage('无效移动！', 'error');
         }
