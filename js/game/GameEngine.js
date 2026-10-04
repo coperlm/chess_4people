@@ -186,9 +186,8 @@ class GameEngine {
             this.gameState.reset();
             console.log('✅ 游戏状态重置完成');
             
-            // 应用房间规则（联机时用房间设置，否则用默认）
-            const online = window.onlineSession && window.onlineSession.active;
-            this.gameState.setRules(online ? window.onlineSession.settings : Config.DEFAULT_RULES);
+            // 应用房间规则（本地与联机统一取设置，设置由“对局设置”弹窗维护）
+            this.gameState.setRules(window.onlineSession ? window.onlineSession.settings : Config.DEFAULT_RULES);
             
             // 新开一局，清掉旧存档
             if (this.persistence) this.persistence.clearSavedState();
@@ -253,7 +252,7 @@ class GameEngine {
      */
     surrender() {
         if (window.onlineSession && window.onlineSession.active) {
-            window.onlineSession.requestResign(this.gameState.currentPlayer);
+            window.onlineSession.requestResignSelf();
             return;
         }
         if (!this.isGameActive || this.gameState.gamePhase !== 'playing') {
@@ -430,6 +429,17 @@ class GameEngine {
         this.updateGameStatus();
         this.updatePieceCount();
         this.updateButtons();
+        this.updateBoardEnabled();
+    }
+    
+    /**
+     * 只有对局进行中才允许操作棋盘（回放时由 Replay 接管）
+     */
+    updateBoardEnabled() {
+        const br = this.boardRenderer;
+        if (!br || !br.setEnabled) return;
+        if (window.replay && window.replay.active) return;
+        br.setEnabled(this.gameState.gamePhase === 'playing');
     }
     
     /**
@@ -470,7 +480,7 @@ class GameEngine {
             
             switch (this.gameState.gamePhase) {
                 case 'ready':
-                    status = '准备开始';
+                    status = '等待开始（点击『对局设置』）';
                     break;
                 case 'playing':
                     status = `第${this.gameState.turn}回合`;

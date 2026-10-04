@@ -78,9 +78,10 @@ class OnlineSession {
     _syncSettingsUI() {
         if (!this.el) return;
         const ffa = this.settings.mode === Config.MODES.FFA;
-        if (this.el.victory) { this.el.victory.value = this.settings.victory; this.el.victory.disabled = !this.isHost || ffa; }
-        if (this.el.ff) { this.el.ff.checked = !!this.settings.friendlyFire; this.el.ff.disabled = !this.isHost || ffa; }
-        if (this.el.mode) this.el.mode.disabled = !this.isHost;
+        const locked = this.active && !this.isHost; // 只有“在房间里且非房主”才锁定，未联机时可自由设置
+        if (this.el.mode) { this.el.mode.value = this.settings.mode; this.el.mode.disabled = locked; }
+        if (this.el.victory) { this.el.victory.value = this.settings.victory; this.el.victory.disabled = locked || ffa; }
+        if (this.el.ff) { this.el.ff.checked = !!this.settings.friendlyFire; this.el.ff.disabled = locked || ffa; }
     }
 
     // ================= token / 记录 =================
@@ -133,6 +134,12 @@ class OnlineSession {
         const abc = 'abcdefghjkmnpqrstuvwxyz23456789';
         let s = '';
         for (let i = 0; i < 4; i++) s += abc[Math.floor(Math.random() * abc.length)];
+        return s;
+    }
+    _randomId() {
+        const hex = '0123456789abcdef';
+        let s = '';
+        for (let i = 0; i < 6; i++) s += hex[Math.floor(Math.random() * 16)];
         return s;
     }
     _validCode(c) { return /^[a-z0-9]{3,8}$/i.test(c || ''); }
@@ -188,7 +195,7 @@ class OnlineSession {
         this.myColors = [];
         this.participants = [];
         this.token = this.token || this._loadToken();
-        this.name = (this.el && this.el.name && this.el.name.value.trim()) || this.name || '';
+        this.name = (this.el && this.el.name && this.el.name.value.trim()) || this.name || this._randomId();
         if (!this._resuming) { this.started = false; if (isHost) this._readSettingsFromUI(); }
 
         try {
@@ -269,6 +276,11 @@ class OnlineSession {
         this._updateStartBtn();
         this._saveRecord();
         if (!this._resuming) this._sendHello();
+        // 进入房间后，界面切到“联机”、关掉设置弹窗
+        if (window.gameInterface && window.gameInterface._setSetupMode) {
+            window.gameInterface._setSetupMode('online');
+            if (window.gameInterface.closeSetup) window.gameInterface.closeSetup();
+        }
     }
 
     async leave() {
@@ -494,6 +506,8 @@ class OnlineSession {
         } else if (d.kind === 'undo') {
             this._doUndo(true);
         } else if (d.kind === 'resign') {
+            const p = this.participants.find(p => p.id === peerId);
+            if (!p || !p.colors.includes(d.color)) return this._reject(peerId, '不能替别人认输');
             this._hostEliminate(d.color, 'resign');
         } else if (d.kind === 'resync') {
             this.actState.send(this._snapshot(), { target: peerId });
@@ -571,6 +585,17 @@ class OnlineSession {
         if (!this.active || !this.started) return;
         if (this.isHost) this._hostEliminate(color, 'resign');
         else this.actIntent.send({ kind: 'resign', color });
+    }
+
+    /**
+     * 认输：只认输自己控制的颜色（优先当前回合的颜色）
+     */
+    requestResignSelf() {
+        if (!this.active || !this.started) return;
+        if (!this.myColors || !this.myColors.length) { this._setStatus('你没有可认输的颜色', 'error'); return; }
+        const color = this.myColors.includes(this.gameState.currentPlayer)
+            ? this.gameState.currentPlayer : this.myColors[0];
+        this.requestResign(color);
     }
 
     _hostEliminate(player, reason) {

@@ -67,29 +67,12 @@
                     </div>
                 </div>
 
-                <!-- 联机对局 -->
-                <div class="online-panel">
+                <!-- 联机对局（选择“联机对战”后显示） -->
+                <div id="onlinePanel" class="online-panel hidden">
                     <h3 class="online-title">联机对局</h3>
-
-                    <label class="online-label" for="playerNameInput">昵称（可留空，刷新即重置）</label>
-                    <input id="playerNameInput" class="online-input" type="text" maxlength="12" placeholder="例如 小明">
 
                     <label class="online-label" for="roomCodeInput">房间号</label>
                     <input id="roomCodeInput" class="online-input" type="text" maxlength="8" placeholder="例如 ab3k（创建时自动生成）">
-
-                    <label class="online-label" for="modeSelect">对战模式（房主选择）</label>
-                    <select id="modeSelect" class="online-input">
-                        <option value="team">两两组队（红蓝 vs 绿黑）</option>
-                        <option value="ffa">四人混战（各自为战）</option>
-                    </select>
-
-                    <label class="online-label" for="victorySelect">胜利条件</label>
-                    <select id="victorySelect" class="online-input">
-                        <option value="any_king">将死任意一方即结束</option>
-                        <option value="last_team">仅剩一队</option>
-                    </select>
-
-                    <label class="online-check"><input id="friendlyFireCheck" type="checkbox"> 友伤（可以吃队友棋子）</label>
 
                     <div class="online-row">
                         <button id="createRoomBtn" class="online-btn online-btn--create">创建房间</button>
@@ -183,6 +166,101 @@
     <!-- 游戏消息提示 -->
     <div id="messageToast" class="fixed bottom-4 right-4 bg-blue-500 text-white px-6 py-3 rounded-lg shadow-lg transform translate-y-full transition-transform duration-300">
         <p id="messageText">游戏消息</p>
+    </div>
+
+    <!-- 对局设置弹窗 -->
+    <div id="setupModal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <h3 class="modal-title">对局设置</h3>
+
+            <div class="setup-group">
+                <div class="setup-label">对局方式</div>
+                <div class="online-row">
+                    <button id="modeLocalBtn" class="online-btn online-btn--join setup-mode">本地对战</button>
+                    <button id="modeOnlineBtn" class="online-btn online-btn--create setup-mode">联机对战</button>
+                </div>
+                <div id="setupModeHint" class="online-status"></div>
+            </div>
+
+            <div class="setup-group">
+                <div class="setup-label">规则</div>
+                <label class="online-label" for="modeSelect">对战模式</label>
+                <select id="modeSelect" class="online-input">
+                    <option value="team">两两组队（红蓝 vs 绿黑）</option>
+                    <option value="ffa">四人混战（各自为战）</option>
+                </select>
+                <label class="online-label" for="victorySelect">胜利条件</label>
+                <select id="victorySelect" class="online-input">
+                    <option value="any_king">将死任意一方即结束</option>
+                    <option value="last_team">仅剩一队</option>
+                </select>
+                <label class="online-check"><input id="friendlyFireCheck" type="checkbox"> 友伤（可以吃队友棋子）</label>
+            </div>
+
+            <div class="setup-group">
+                <label class="online-label" for="playerNameInput">昵称（留空则随机生成 6 位十六进制 ID）</label>
+                <input id="playerNameInput" class="online-input" type="text" maxlength="12" placeholder="例如 小明">
+            </div>
+
+            <div class="modal-actions">
+                <button id="startLocalBtn" class="online-btn online-btn--start hidden">开始本地对局</button>
+                <button id="openRulesBtn" class="online-btn online-btn--copy">游戏规则</button>
+                <button id="setupCloseBtn" class="online-btn online-btn--leave">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 游戏规则弹窗 -->
+    <div id="rulesModal" class="modal-overlay hidden">
+        <div class="modal-box modal-box--wide">
+            <h3 class="modal-title">游戏规则</h3>
+            <div class="rules-body">
+                <h4>棋盘</h4>
+                <ul>
+                    <li>10×10 网格；中间横竖各一条“楚河汉界”作为分隔线，河界上不可落子。</li>
+                    <li>四个 5×5 象限：红方（左下）、蓝方（右上）、绿方（右下）、黑方（左上）。</li>
+                </ul>
+                <h4>棋子走法</h4>
+                <ul>
+                    <li><b>帅/将</b>：九宫格内直线走一格，不能出九宫。</li>
+                    <li><b>士/仕</b>：九宫格内斜走一格。</li>
+                    <li><b>相/象</b>：走“田”字，不能过河，象眼被占则不能走。</li>
+                    <li><b>马</b>：走“日”字，蹩马腿时不能走。</li>
+                    <li><b>车</b>：直线任意格，路径上不能有子。</li>
+                    <li><b>炮</b>：直线走；吃子必须隔且仅隔一个子。</li>
+                    <li><b>兵/卒</b>：未过河只能向前走一格；过河后可向前或向两侧走一格，<b>永不后退</b>。每个兵的朝向由初始位置固定，指向相邻的敌人。</li>
+                </ul>
+                <h4>对战模式</h4>
+                <ul>
+                    <li><b>两两组队</b>：红蓝为一队、绿黑为一队，对角线是队友。</li>
+                    <li><b>四人混战</b>：各自为战，每人自成一队。</li>
+                    <li><b>友伤</b>：开启后允许吃队友的棋子（仅影响吃子，不改胜利条件）。</li>
+                </ul>
+                <h4>胜负与排名</h4>
+                <ul>
+                    <li><b>将死任意一方即结束</b>：任意一名玩家的将/帅被将死或被吃，其所属队伍判负。</li>
+                    <li><b>仅剩一队</b>：打到只剩一队（混战则只剩一人）才结束。</li>
+                    <li>被将死或被吃 = 出局（其全部棋子移出棋盘）；混战按死亡顺序排名第 1–4 名。</li>
+                </ul>
+                <h4>联机</h4>
+                <ul>
+                    <li>房间号即邀请码，也可在创建后点“复制邀请链接”分享；打开带 <code>?room=</code> 的链接会自动加入。</li>
+                    <li>房主是裁判，其他端会复核每手合法性；房主掉线 20 秒后由在线玩家自动接任，刷新会自动续局。</li>
+                    <li>身份用本机保存的 token 识别（换设备/清缓存会变成新身份）。</li>
+                </ul>
+                <h4>回放</h4>
+                <ul>
+                    <li>可导出为纯文本（含签名）；导入后可逐手查看；文件被修改会提示“签名不匹配”。</li>
+                </ul>
+                <h4>操作</h4>
+                <ul>
+                    <li>点击棋子选中，再点目标位置落子；<b>ESC</b> 取消选择，<b>Ctrl+Z</b> 悔棋，<b>Ctrl+N</b> 开新局。</li>
+                </ul>
+            </div>
+            <div class="modal-actions">
+                <button id="rulesCloseBtn" class="online-btn online-btn--leave">关闭</button>
+            </div>
+        </div>
     </div>
 
     <!-- JavaScript模块 -->

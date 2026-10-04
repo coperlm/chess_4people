@@ -1567,6 +1567,24 @@ video {
 /* 网格棋盘：格子尺寸由 JS 统一控制，禁用媒体查询里的 min-height 以免撑破网格 */
 .chess-cell { min-height: 0; }
 
+/* ===== 弹窗 ===== */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, .5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 1rem; }
+.modal-overlay.hidden { display: none; }
+.modal-box { background: #fff; border-radius: .5rem; box-shadow: 0 20px 25px -5px rgb(0 0 0 / .3); padding: 1.5rem; width: 100%; max-width: 26rem; max-height: 90vh; overflow-y: auto; }
+.modal-box--wide { max-width: 42rem; }
+.modal-title { font-size: 1.25rem; font-weight: 700; margin: 0 0 1rem; }
+.setup-group { margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid #e5e7eb; }
+.setup-group:last-of-type { border-bottom: 0; }
+.setup-label { font-weight: 600; font-size: .95rem; margin-bottom: .5rem; }
+.setup-mode.active { outline: 3px solid #111827; outline-offset: 1px; }
+.modal-actions { display: flex; gap: .5rem; margin-top: 1rem; }
+.modal-actions .online-btn { flex: 1; margin-top: 0; }
+.rules-body { font-size: .9rem; color: #374151; line-height: 1.7; }
+.rules-body h4 { font-weight: 700; margin: .8rem 0 .3rem; color: #111827; }
+.rules-body ul { margin: .2rem 0; padding-left: 1.2rem; list-style: disc; }
+.rules-body code { background: #f3f4f6; padding: 0 .2rem; border-radius: .2rem; }
+
+
 
 .hover\:bg-amber-800:hover {
   --tw-bg-opacity: 1;

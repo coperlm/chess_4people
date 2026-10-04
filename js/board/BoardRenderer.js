@@ -72,6 +72,13 @@ class BoardRenderer {
     }
     
     /**
+     * 启用/禁用棋盘交互
+     */
+    setEnabled(on) {
+        if (this.boardElement) this.boardElement.style.pointerEvents = on ? '' : 'none';
+    }
+
+    /**
      * 计算最佳棋盘尺寸（根据屏幕自动适配）
      */
     calculateBoardSize() {

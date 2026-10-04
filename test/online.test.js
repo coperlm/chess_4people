@@ -112,6 +112,7 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   await tick(); await tick();
 
   t('房主看到 2 名参与者', host.participants.length === 2, JSON.stringify(host.participants.map(p => p.id)));
+  t('昵称留空生成 6 位 hex id', /^[0-9a-f]{6}$/.test(host._randomId()), host._randomId());
 
   // 昵称：玩家侧上报，房主记录
   host.name = '甲'; peer.name = '乙';

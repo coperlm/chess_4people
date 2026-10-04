@@ -31,6 +31,71 @@ class GameInterface {
         this.bindInterfaceEvents();
         this.initializeTooltips();
         this.updateInterface();
+        this._wireSetup();
+        this.openSetup(); // 默认不开始，先让玩家设置
+    }
+
+    // ================= 对局设置弹窗 =================
+    _wireSetup() {
+        const $ = id => document.getElementById(id);
+        this.setupEls = {
+            modal: $('setupModal'),
+            local: $('modeLocalBtn'),
+            online: $('modeOnlineBtn'),
+            hint: $('setupModeHint'),
+            startLocal: $('startLocalBtn'),
+            close: $('setupCloseBtn'),
+            onlinePanel: $('onlinePanel')
+        };
+        if (this.setupEls.local) this.setupEls.local.addEventListener('click', () => this._setSetupMode('local'));
+        if (this.setupEls.online) this.setupEls.online.addEventListener('click', () => this._setSetupMode('online'));
+        if (this.setupEls.startLocal) this.setupEls.startLocal.addEventListener('click', () => this.startLocal());
+        if (this.setupEls.close) this.setupEls.close.addEventListener('click', () => this.closeSetup());
+        const rules = $('openRulesBtn'); if (rules) rules.addEventListener('click', () => this.openRules());
+        const rulesClose = $('rulesCloseBtn'); if (rulesClose) rulesClose.addEventListener('click', () => this.closeRules());
+    }
+
+    openSetup() {
+        const m = document.getElementById('setupModal');
+        if (!m) return;
+        m.classList.remove('hidden');
+        const online = window.onlineSession && window.onlineSession.active;
+        this._setSetupMode(online ? 'online' : this.setupMode || null);
+    }
+    closeSetup() {
+        const m = document.getElementById('setupModal');
+        if (m) m.classList.add('hidden');
+    }
+    _setSetupMode(mode) {
+        this.setupMode = mode;
+        const e = this.setupEls || {};
+        if (e.local) e.local.classList.toggle('active', mode === 'local');
+        if (e.online) e.online.classList.toggle('active', mode === 'online');
+        if (e.startLocal) e.startLocal.classList.toggle('hidden', mode !== 'local');
+        if (e.onlinePanel) e.onlinePanel.classList.toggle('hidden', mode !== 'online');
+        if (e.hint) {
+            e.hint.textContent = mode === 'local'
+                ? '本地对战：同一设备轮流操作四个颜色，点“开始本地对局”。'
+                : mode === 'online'
+                    ? '联机对战：在下方『联机对局』创建或加入房间。'
+                    : '请选择对局方式。';
+        }
+    }
+    async startLocal() {
+        const os = window.onlineSession;
+        if (os && os.active) await os.leave();
+        if (os && os._readSettingsFromUI) os._readSettingsFromUI();
+        this._setSetupMode('local');
+        this.gameEngine.startNewGame();
+        this.closeSetup();
+    }
+    openRules() {
+        const m = document.getElementById('rulesModal');
+        if (m) m.classList.remove('hidden');
+    }
+    closeRules() {
+        const m = document.getElementById('rulesModal');
+        if (m) m.classList.add('hidden');
     }
     
     /**
@@ -146,10 +211,10 @@ class GameInterface {
         const settingsBtn = document.createElement('button');
         settingsBtn.id = 'settingsBtn';
         settingsBtn.className = 'w-full bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600 transition-colors';
-        settingsBtn.textContent = '游戏设置';
+        settingsBtn.textContent = '对局设置';
         
         settingsBtn.addEventListener('click', () => {
-            this.showSettingsModal();
+            this.openSetup();
         });
         
         controlPanel.appendChild(settingsBtn);
@@ -360,10 +425,10 @@ class GameInterface {
         
         const helpBtn = document.createElement('button');
         helpBtn.className = 'mt-4 w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 transition-colors text-sm';
-        helpBtn.textContent = '详细帮助';
+        helpBtn.textContent = '游戏规则';
         
         helpBtn.addEventListener('click', () => {
-            this.showHelpModal();
+            this.openRules();
         });
         
         rulesPanel.appendChild(helpBtn);
