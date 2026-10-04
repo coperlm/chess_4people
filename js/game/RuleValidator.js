@@ -66,8 +66,8 @@ class RuleValidator {
             return false;
         }
         
-        // 不能吃队友的棋子
-        if (targetPiece && Utils.isTeammate(piece.player, targetPiece.player)) {
+        // 不能吃队友的棋子（开启“友伤”后允许）
+        if (targetPiece && !this.gameState.canCaptureTarget(piece.player, targetPiece.player)) {
             return false;
         }
         

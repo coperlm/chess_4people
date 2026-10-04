@@ -120,14 +120,14 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const peerEntry = host.participants.find(p => p.id !== host.selfId);
   t('房主收到玩家昵称', !!peerEntry && peerEntry.name === '乙', JSON.stringify(host.participants.map(p => p.name)));
 
-  // 模式=四人 但只有 2 人 -> 应拒绝开始
-  host.mode = '4';
+  // 模式=四人混战 但只有 2 人 -> 应拒绝开始
+  host.settings.mode = 'ffa';
   host.startMatch();
   await tick();
-  t('四人对战人数不足时拒绝开始', host.started === false && hostEngine.gameState.gamePhase === 'ready');
+  t('混战模式人数不足时拒绝开始', host.started === false && hostEngine.gameState.gamePhase === 'ready');
 
-  // 模式=两人（各控一队）
-  host.mode = '2';
+  // 模式=两两组队（2 人各控一队）
+  host.settings.mode = 'team';
   host.startMatch();
   await tick(); await tick();
 
@@ -161,9 +161,21 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const dst = hostEngine.gameState.getPiece(4, 9);
   t('越权走子被拒绝（红兵仍在原位、目标为空）', hostEngine.gameState.turn === before && !!src && src.player === 0 && dst === null);
 
-  // 离开房间
+  // 房主自身走非法棋也会被拦（防经由界面/接口做非法操作）
+  const t1 = hostEngine.gameState.turn;
+  host.requestMove(3, 7, 4, 7); // 此时并非红方回合
+  await tick();
+  t('房主自身的非法走棋被拦', hostEngine.gameState.turn === t1 && hostEngine.gameState.getPiece(4, 7) === null);
+
+  // 房主淘汰（认输）会广播到各端
+  host.requestResign(2);
+  await tick(); await tick();
+  t('淘汰结果已广播到玩家端', peerEngine.gameState.pieceCounts[2] === 0 && peerEngine.gameState.getPiece(9, 9) === null);
+
+  // 离开房间：房主保留席位（等待重连），只是标记离线
   await peer.leave(); await tick();
-  t('玩家离开后房主名册减少', host.participants.length === 1, 'count=' + host.participants.length);
+  const seat = host.participants.find(p => p.token !== host.token);
+  t('玩家离开后席位保留但标记离线', host.participants.length === 2 && !!seat && seat.id === null, JSON.stringify(host.participants.map(p => ({ id: p.id }))));
 
   console.log(`\n联机协议测试: ${pass} 通过, ${fail} 失败`);
   if (fail) { console.log('\n失败项:'); failures.forEach(f => console.log('  ✗ ' + f)); process.exit(1); }

@@ -79,10 +79,17 @@
 
                     <label class="online-label" for="modeSelect">对战模式（房主选择）</label>
                     <select id="modeSelect" class="online-input">
-                        <option value="auto">自动（按人数）</option>
-                        <option value="2">两人对战（各控一队）</option>
-                        <option value="4">四人对战（各控一色）</option>
+                        <option value="team">两两组队（红蓝 vs 绿黑）</option>
+                        <option value="ffa">四人混战（各自为战）</option>
                     </select>
+
+                    <label class="online-label" for="victorySelect">胜利条件</label>
+                    <select id="victorySelect" class="online-input">
+                        <option value="any_king">将死任意一方即结束</option>
+                        <option value="last_team">仅剩一队</option>
+                    </select>
+
+                    <label class="online-check"><input id="friendlyFireCheck" type="checkbox"> 友伤（可以吃队友棋子）</label>
 
                     <div class="online-row">
                         <button id="createRoomBtn" class="online-btn online-btn--create">创建房间</button>
@@ -93,6 +100,24 @@
 
                     <div id="onlineStatus" class="online-status">未联机</div>
                     <div id="onlineRoster" class="online-roster"></div>
+                </div>
+
+                <!-- 对局记录 / 回放 -->
+                <div class="online-panel">
+                    <h3 class="online-title">对局记录</h3>
+                    <div class="online-row">
+                        <button id="exportReplayBtn" class="online-btn online-btn--create">导出回放</button>
+                        <button id="importReplayBtn" class="online-btn online-btn--join">导入回放</button>
+                    </div>
+                    <input id="importReplayInput" type="file" accept=".txt,text/plain" class="hidden">
+                    <div id="replayControls" class="online-row hidden">
+                        <button id="replayFirstBtn" class="online-btn online-btn--leave">⏮</button>
+                        <button id="replayPrevBtn" class="online-btn online-btn--leave">◀</button>
+                        <button id="replayNextBtn" class="online-btn online-btn--leave">▶</button>
+                        <button id="replayLastBtn" class="online-btn online-btn--leave">⏭</button>
+                        <button id="replayExitBtn" class="online-btn online-btn--start">退出回放</button>
+                    </div>
+                    <div id="replayStatus" class="online-status"></div>
                 </div>
 
                 <!-- 玩家信息 -->
@@ -172,6 +197,7 @@
     <script src="js/ui/GameInterface.js"></script>
     <script src="vendor/trystero.nostr.iife.js"></script>
     <script src="js/net/OnlineSession.js"></script>
+    <script src="js/game/Replay.js"></script>
     <!-- 主程序 -->
     <script src="js/main.js"></script>
     

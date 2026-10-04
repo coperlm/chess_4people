@@ -57,8 +57,9 @@ class ChessGameApp {
             
             console.log('🎯 四人象棋游戏初始化完成！');
             
-            // 如果有自动保存的游戏，询问是否继续
-            this.checkAutoSavedGame();
+            // 优先尝试恢复联机对局；否则检查单机自动存档
+            const resumed = window.onlineSession && window.onlineSession.resumeIfAny && window.onlineSession.resumeIfAny();
+            if (!resumed) this.checkAutoSavedGame();
             
         } catch (error) {
             console.error('❌ 游戏初始化失败:', error);

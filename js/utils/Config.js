@@ -18,6 +18,21 @@ class Config {
         TEAM2: [2, 3]  // 绿方 + 黑方
     };
     
+    // 对战模式
+    static MODES = {
+        TEAM: 'team', // 两两组队（红蓝 vs 绿黑）
+        FFA: 'ffa'    // 四人混战（各自为战）
+    };
+    
+    // 胜利条件
+    static VICTORY = {
+        ANY_KING: 'any_king', // 将死任意一方即结束（默认）
+        LAST_TEAM: 'last_team' // 仅剩一队/一人
+    };
+    
+    // 默认房间规则
+    static DEFAULT_RULES = { mode: 'team', victory: 'any_king', friendlyFire: false };
+    
     // 玩家颜色配置
     static PLAYER_COLORS = {
         0: { name: '红方', color: 'text-red-600', bg: 'bg-red-100', border: 'border-red-400' },

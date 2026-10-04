@@ -10,6 +10,11 @@ class GameState {
         this.winner = null;
         this.turn = 1;
         
+        // 房间规则（模式 / 胜利条件 / 友伤）
+        this.rules = Object.assign({}, Config.DEFAULT_RULES);
+        this.eliminationOrder = []; // 被淘汰玩家的先后顺序
+        this.ranking = null;        // 结算排名（从高到低）
+        
         // 玩家棋子计数
         this.pieceCounts = {
             0: 10, // 红方
@@ -126,18 +131,137 @@ class GameState {
     }
     
     /**
-     * 切换到下一个玩家（顺时针轮转）
+     * 设置房间规则
+     */
+    setRules(rules) {
+        this.rules = Object.assign({}, Config.DEFAULT_RULES, rules || {});
+        if (this.rules.mode === Config.MODES.FFA) {
+            this.rules.victory = Config.VICTORY.LAST_TEAM; // 混战固定“仅剩一人”
+        }
+    }
+    
+    /**
+     * 玩家所属阵营键：组队模式为 TEAM1/TEAM2，混战模式为 P0..P3
+     */
+    teamKey(player) {
+        if (this.rules.mode === Config.MODES.FFA) return 'P' + player;
+        return Config.TEAMS.TEAM1.includes(player) ? 'TEAM1' : 'TEAM2';
+    }
+    
+    /**
+     * 是否队友（混战模式无队友）
+     */
+    isTeammate(a, b) {
+        if (a === b) return false;
+        if (this.rules.mode === Config.MODES.FFA) return false;
+        return this.teamKey(a) === this.teamKey(b);
+    }
+    
+    /**
+     * 是否敌人
+     */
+    isEnemy(a, b) {
+        return a !== b && !this.isTeammate(a, b);
+    }
+    
+    /**
+     * 能否吃掉目标（友伤开启时允许吃队友）
+     */
+    canCaptureTarget(attacker, target) {
+        if (attacker === target) return false;
+        if (this.isEnemy(attacker, target)) return true;
+        return this.isTeammate(attacker, target) && !!this.rules.friendlyFire;
+    }
+    
+    /**
+     * 某玩家是否还有将/帅在场
+     */
+    hasKing(player) {
+        for (let x = 0; x < Config.BOARD_SIZE; x++) {
+            for (let y = 0; y < Config.BOARD_SIZE; y++) {
+                const pc = this.board[x][y];
+                if (pc && pc.player === player && pc.type === Config.PIECE_TYPES.KING) return true;
+            }
+        }
+        return false;
+    }
+    
+    /**
+     * 淘汰一名玩家（移除其全部棋子）
+     */
+    eliminatePlayer(player) {
+        for (let x = 0; x < Config.BOARD_SIZE; x++) {
+            for (let y = 0; y < Config.BOARD_SIZE; y++) {
+                const pc = this.board[x][y];
+                if (pc && pc.player === player) this.board[x][y] = null;
+            }
+        }
+        this.pieceCounts[player] = 0;
+        if (!this.eliminationOrder.includes(player)) this.eliminationOrder.push(player);
+    }
+    
+    /**
+     * 切换到下一个玩家（顺时针轮转；跳过已被淘汰者）
      */
     nextPlayer() {
         // 顺时针轮转顺序：红(0) → 绿(2) → 蓝(1) → 黑(3)
         const clockwiseOrder = [0, 2, 1, 3];
         const currentIndex = clockwiseOrder.indexOf(this.currentPlayer);
-        const nextIndex = (currentIndex + 1) % 4;
-        this.currentPlayer = clockwiseOrder[nextIndex];
+        for (let step = 1; step <= 4; step++) {
+            const cand = clockwiseOrder[(currentIndex + step) % 4];
+            if (this.hasKing(cand) || step === 4) { this.currentPlayer = cand; break; }
+        }
         
         this.selectedPiece = null;
         this.possibleMoves = [];
         this.turn++;
+    }
+    
+    /**
+     * 检查游戏是否结束
+     */
+    checkGameEnd() {
+        // 记录淘汰顺序
+        for (let p = 0; p < 4; p++) {
+            if (!this.hasKing(p) && !this.eliminationOrder.includes(p)) {
+                this.eliminationOrder.push(p);
+            }
+        }
+        
+        const alive = [0, 1, 2, 3].filter(p => this.hasKing(p));
+        
+        if (this.rules.mode === Config.MODES.FFA) {
+            if (alive.length <= 1) {
+                this.gamePhase = 'finished';
+                this.winner = alive.length === 1 ? alive[0] : null;
+                this.ranking = alive.slice().concat(this.eliminationOrder.slice().reverse());
+                return true;
+            }
+            return false;
+        }
+        
+        // 两两组队
+        const aliveTeams = new Set(alive.map(p => this.teamKey(p)));
+        
+        if (this.rules.victory === Config.VICTORY.ANY_KING) {
+            if (this.eliminationOrder.length > 0) {
+                const lostTeam = this.teamKey(this.eliminationOrder[0]);
+                this.gamePhase = 'finished';
+                this.winner = lostTeam === 'TEAM1' ? 'TEAM2' : 'TEAM1';
+                this.ranking = [this.winner, this.winner === 'TEAM1' ? 'TEAM2' : 'TEAM1'];
+                return true;
+            }
+            return false;
+        }
+        
+        // 仅剩一队
+        if (aliveTeams.size <= 1) {
+            this.gamePhase = 'finished';
+            this.winner = aliveTeams.size === 1 ? [...aliveTeams][0] : null;
+            this.ranking = this.winner ? [this.winner, this.winner === 'TEAM1' ? 'TEAM2' : 'TEAM1'] : [];
+            return true;
+        }
+        return false;
     }
     
     /**
@@ -178,53 +302,6 @@ class GameState {
     }
     
     /**
-     * 检查游戏是否结束
-     */
-    checkGameEnd() {
-        // 检查是否有玩家的将/帅被吃掉
-        const kings = [];
-        for (let x = 0; x < Config.BOARD_SIZE; x++) {
-            for (let y = 0; y < Config.BOARD_SIZE; y++) {
-                const piece = this.getPiece(x, y);
-                if (piece && piece.type === Config.PIECE_TYPES.KING) {
-                    kings.push(piece.player);
-                }
-            }
-        }
-        
-        // 找出被消灭的玩家
-        const eliminatedPlayers = [];
-        for (let player = 0; player < 4; player++) {
-            if (!kings.includes(player)) {
-                eliminatedPlayers.push(player);
-            }
-        }
-        
-        // 如果有玩家被消灭，检查获胜条件
-        if (eliminatedPlayers.length > 0) {
-            this.gamePhase = 'finished';
-            this.determineWinner(eliminatedPlayers);
-            return true;
-        }
-        
-        return false;
-    }
-    
-    /**
-     * 确定获胜者
-     */
-    determineWinner(eliminatedPlayers) {
-        // 如果队伍1的任一成员被消灭，队伍2获胜
-        if (eliminatedPlayers.some(p => Config.TEAMS.TEAM1.includes(p))) {
-            this.winner = 'TEAM2';
-        }
-        // 如果队伍2的任一成员被消灭，队伍1获胜
-        else if (eliminatedPlayers.some(p => Config.TEAMS.TEAM2.includes(p))) {
-            this.winner = 'TEAM1';
-        }
-    }
-    
-    /**
      * 重置游戏
      */
     reset() {
@@ -236,6 +313,8 @@ class GameState {
         this.possibleMoves = [];
         this.winner = null;
         this.turn = 1;
+        this.eliminationOrder = [];
+        this.ranking = null;
         this.pieceCounts = { 0: 10, 1: 10, 2: 10, 3: 10 };
         this.initializePieces();
     }

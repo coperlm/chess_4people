@@ -12,6 +12,14 @@ class GameInterface {
             window.onlineSession = this.onlineSession;
         }
         
+        // 对局回放
+        this.replay = null;
+        if (typeof Replay !== 'undefined') {
+            this.replay = new Replay(gameEngine);
+            this.replay.init();
+            window.replay = this.replay;
+        }
+        
         this.initialize();
     }
     

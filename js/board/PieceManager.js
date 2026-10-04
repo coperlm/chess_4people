@@ -51,7 +51,7 @@ class PieceManager {
         for (let px = 0; px < Config.BOARD_SIZE; px++) {
             for (let py = 0; py < Config.BOARD_SIZE; py++) {
                 const piece = this.gameState.getPiece(px, py);
-                if (piece && Utils.isEnemy(piece.player, player)) {
+                if (piece && this.gameState.isEnemy(piece.player, player)) {
                     if (this.canPieceAttackPosition(piece, px, py, x, y)) {
                         return true;
                     }

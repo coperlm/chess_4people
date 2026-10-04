@@ -215,6 +215,54 @@ t('全部兵/卒均可后退走法总数为 0', backwardTotal === 0, 'count=' + 
   t('开局无人被将军', [0, 1, 2, 3].every(p => pm.isInCheck(p) === false));
 }
 
+// =====================================================================
+// 7. 房间规则：友伤 / 模式(组队·混战) / 胜利条件 / 排名
+// =====================================================================
+{
+  const { gs, rv } = makeGame(); emptyBoard(gs);
+  gs.setRules({ mode: 'team', victory: 'any_king', friendlyFire: false });
+  put(gs, 'king', 0, 0, 9); put(gs, 'king', 1, 9, 0); put(gs, 'king', 2, 9, 9); put(gs, 'king', 3, 0, 0);
+  put(gs, 'rook', 0, 0, 5);
+  put(gs, 'pawn', 1, 0, 6); // 蓝方是红方队友
+  gs.currentPlayer = 0; gs.gamePhase = 'playing';
+  t('友伤关：不能吃队友棋子', rv.isValidMove(0, 5, 0, 6) === false);
+  gs.setRules({ mode: 'team', victory: 'any_king', friendlyFire: true });
+  t('友伤开：可以吃队友棋子', rv.isValidMove(0, 5, 0, 6) === true);
+}
+{
+  const { gs } = makeGame(); emptyBoard(gs);
+  gs.setRules({ mode: 'ffa' });
+  t('FFA: 胜利条件被强制为 last_team', gs.rules.victory === 'last_team');
+  put(gs, 'king', 0, 0, 9); put(gs, 'king', 1, 9, 0); put(gs, 'king', 2, 9, 9); put(gs, 'king', 3, 0, 0);
+  t('FFA: 0 与 1 不是队友', gs.isTeammate(0, 1) === false);
+  t('FFA: 0 与 1 互为敌人', gs.isEnemy(0, 1) === true);
+  gs.eliminatePlayer(3); t('FFA: 淘汰 3 后未结束', gs.checkGameEnd() === false);
+  gs.eliminatePlayer(1); t('FFA: 淘汰 1 后未结束', gs.checkGameEnd() === false);
+  gs.eliminatePlayer(2); t('FFA: 只剩 0 -> 结束且 0 获胜', gs.checkGameEnd() === true && gs.winner === 0);
+  t('FFA: 排名=[0,2,1,3]（存活者在前，按死亡逆序）', JSON.stringify(gs.ranking) === JSON.stringify([0, 2, 1, 3]), JSON.stringify(gs.ranking));
+}
+{
+  const { gs } = makeGame(); emptyBoard(gs);
+  gs.setRules({ mode: 'team', victory: 'last_team' });
+  put(gs, 'king', 0, 0, 9); put(gs, 'king', 1, 9, 0); put(gs, 'king', 2, 9, 9); put(gs, 'king', 3, 0, 0);
+  gs.eliminatePlayer(0); t('last_team: 红出局但蓝还在 -> 未结束', gs.checkGameEnd() === false);
+  gs.eliminatePlayer(1); t('last_team: 红蓝全灭 -> 绿黑获胜', gs.checkGameEnd() === true && gs.winner === 'TEAM2');
+}
+{
+  const { gs } = makeGame(); emptyBoard(gs);
+  gs.setRules({ mode: 'team', victory: 'any_king' });
+  put(gs, 'king', 0, 0, 9); put(gs, 'king', 1, 9, 0); put(gs, 'king', 2, 9, 9); put(gs, 'king', 3, 0, 0);
+  gs.eliminatePlayer(2); t('any_king: 淘汰绿 -> 红蓝获胜并结束', gs.checkGameEnd() === true && gs.winner === 'TEAM1');
+}
+{
+  const { gs } = makeGame(); emptyBoard(gs);
+  put(gs, 'king', 0, 0, 9); put(gs, 'king', 1, 9, 0); put(gs, 'king', 2, 9, 9); put(gs, 'king', 3, 0, 0);
+  gs.eliminatePlayer(2); // 绿被淘汰
+  gs.currentPlayer = 0;
+  gs.nextPlayer();
+  t('nextPlayer 跳过被淘汰的绿(2)', gs.currentPlayer === 1, 'got ' + gs.currentPlayer);
+}
+
 // ---- 汇总 ----
 console.log(`\n规则回归测试: ${pass} 通过, ${fail} 失败`);
 if (fail) { console.log('\n失败项:'); failures.forEach(f => console.log('  ✗ ' + f)); process.exit(1); }

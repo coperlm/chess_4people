@@ -186,6 +186,10 @@ class GameEngine {
             this.gameState.reset();
             console.log('✅ 游戏状态重置完成');
             
+            // 应用房间规则（联机时用房间设置，否则用默认）
+            const online = window.onlineSession && window.onlineSession.active;
+            this.gameState.setRules(online ? window.onlineSession.settings : Config.DEFAULT_RULES);
+            
             // 新开一局，清掉旧存档
             if (this.persistence) this.persistence.clearSavedState();
             
@@ -259,19 +263,16 @@ class GameEngine {
         const currentPlayer = this.gameState.currentPlayer;
         const playerName = Config.PLAYER_COLORS[currentPlayer].name;
         
-        if (confirm(`${playerName}确定要认输吗？`)) {
-            this.gameState.gamePhase = 'finished';
-            
-            // 确定获胜队伍
-            if (Config.TEAMS.TEAM1.includes(currentPlayer)) {
-                this.gameState.winner = 'TEAM2';
-                Utils.showMessage('绿黑队获胜！红蓝队认输', 'success');
-            } else {
-                this.gameState.winner = 'TEAM1';
-                Utils.showMessage('红蓝队获胜！绿黑队认输', 'success');
-            }
-            
+        if (!confirm(`${playerName}确定要认输吗？`)) return;
+        
+        this.gameState.eliminatePlayer(currentPlayer);
+        Utils.showMessage(`${playerName}认输`, 'warning');
+        if (this.gameState.checkGameEnd()) {
             this.endGame();
+        } else {
+            this.gameState.nextPlayer();
+            this.boardRenderer.renderPieces();
+            this.updateUI();
         }
     }
     
@@ -329,26 +330,25 @@ class GameEngine {
      * 检查将军状态
      */
     checkForCheck() {
-        const currentPlayer = this.gameState.currentPlayer;
+        const p = this.gameState.currentPlayer;
+        if (!this.pieceManager.isInCheck(p)) return;
+        const playerName = Config.PLAYER_COLORS[p].name;
         
-        if (this.pieceManager.isInCheck(currentPlayer)) {
-            const playerName = Config.PLAYER_COLORS[currentPlayer].name;
-            
-            if (this.pieceManager.isCheckmate(currentPlayer)) {
-                // 将死
-                Utils.showMessage(`${playerName}被将死！`, 'error');
-                this.gameState.gamePhase = 'finished';
-                
-                // 确定获胜队伍
-                if (Config.TEAMS.TEAM1.includes(currentPlayer)) {
-                    this.gameState.winner = 'TEAM2';
-                } else {
-                    this.gameState.winner = 'TEAM1';
-                }
-            } else {
-                // 将军
-                Utils.showMessage(`${playerName}被将军！`, 'warning');
-            }
+        if (!this.pieceManager.isCheckmate(p)) {
+            Utils.showMessage(`${playerName}被将军！`, 'warning');
+            return;
+        }
+        
+        // 将死 = 该玩家被淘汰
+        Utils.showMessage(`${playerName}被将死！`, 'error');
+        this.gameState.eliminatePlayer(p);
+        if (window.onlineSession && window.onlineSession.active && window.onlineSession.isHost) {
+            window.onlineSession._broadcastEliminate(p, 'checkmate');
+        }
+        if (this.gameState.checkGameEnd()) {
+            this.endGame();
+        } else {
+            this.gameState.nextPlayer(); // 跳过被淘汰者
         }
     }
     
@@ -371,25 +371,42 @@ class GameEngine {
         
         // 记录游戏统计
         this.recordGameStats();
+        
+        if (window.onlineSession && window.onlineSession.active) {
+            window.onlineSession.onGameEnd();
+        }
     }
     
     /**
      * 显示游戏结果
      */
     showGameResult() {
-        const winner = this.gameState.winner;
+        const gs = this.gameState;
+        const winner = gs.winner;
         let message = '游戏结束！';
+        if (winner === 'TEAM1') message = '🎉 红蓝队获胜！';
+        else if (winner === 'TEAM2') message = '🎉 绿黑队获胜！';
+        else if (typeof winner === 'number') message = `🎉 ${Config.PLAYER_COLORS[winner].name} 获胜！`;
         
-        if (winner === 'TEAM1') {
-            message = '🎉 红蓝队获胜！';
-        } else if (winner === 'TEAM2') {
-            message = '🎉 绿黑队获胜！';
+        let rankText = '';
+        if (gs.ranking && gs.ranking.length) {
+            rankText = '\n\n排名：\n' + gs.ranking.map((k, i) => `  ${i + 1}. ${this._rankLabel(k)}`).join('\n');
         }
         
-        // 创建结果弹窗
         setTimeout(() => {
-            alert(`${message}\n\n总回合数: ${this.gameState.turn - 1}\n游戏时长: ${this.getGameDuration()}`);
+            alert(`${message}${rankText}\n\n总回合数: ${gs.turn - 1}\n游戏时长: ${this.getGameDuration()}`);
         }, 1000);
+    }
+    
+    /**
+     * 排名标签
+     */
+    _rankLabel(key) {
+        if (key === 'TEAM1') return '红蓝队';
+        if (key === 'TEAM2') return '绿黑队';
+        if (typeof key === 'number') return Config.PLAYER_COLORS[key].name;
+        if (typeof key === 'string' && /^P\d$/.test(key)) return Config.PLAYER_COLORS[+key.slice(1)].name;
+        return String(key);
     }
     
     /**

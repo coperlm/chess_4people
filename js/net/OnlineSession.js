@@ -1,10 +1,13 @@
-// 联机对局（Trystero 免服务器 P2P，房主权威）
-// - 房主：持有权威 GameState/RuleValidator，校验并广播状态
-// - 玩家：只发送“意图”，接收并应用房主广播的状态快照
+// 联机对局（Trystero 免服务器 P2P，房主权威 + 各端复核）
+// - 房主：持有权威 GameState/RuleValidator，校验并广播“走子”
+// - 玩家：收到走子后，用同一套 RuleValidator 复核再落子；非法则拒绝并要求重同步
+// - 房主刷新：凭本地 token/记录自动重连同房间并续局
 class OnlineSession {
     constructor(gameEngine) {
         this.gameEngine = gameEngine;
         this.appId = 'chess-4people-v1';
+        this.RECORD_KEY = 'chess_online_room';
+        this.TOKEN_KEY = 'chess_online_token';
 
         this.room = null;
         this.roomId = null;
@@ -13,17 +16,19 @@ class OnlineSession {
         this.started = false;
         this.selfId = null;
         this.hostId = null;
+        this.token = '';
         this.myColors = [];
         this.name = '';
-        this.mode = 'auto';       // 'auto' | '2' | '4'
-        this.participants = [];   // 房主维护：[{ id, colors:[], name }]
-        this._roster = null;      // 玩家侧收到的名册
+        this.settings = Object.assign({}, Config.DEFAULT_RULES);
+        this.participants = [];   // 房主维护：[{ token, id, colors:[], name }]
+        this._roster = null;      // 玩家侧名册
         this.seq = 0;
         this._lastSeq = 0;
         this._bound = false;
+        this._resuming = false;
     }
 
-    // ================= 初始化 / UI 绑定 =================
+    // ================= 初始化 =================
     init() {
         if (this._bound || typeof document === 'undefined') return;
         this._bound = true;
@@ -32,6 +37,8 @@ class OnlineSession {
             code: $('roomCodeInput'),
             name: $('playerNameInput'),
             mode: $('modeSelect'),
+            victory: $('victorySelect'),
+            ff: $('friendlyFireCheck'),
             create: $('createRoomBtn'),
             join: $('joinRoomBtn'),
             status: $('onlineStatus'),
@@ -39,11 +46,77 @@ class OnlineSession {
             start: $('startOnlineBtn'),
             leave: $('leaveRoomBtn')
         };
-        if (this.el.mode) this.el.mode.addEventListener('change', () => this._updateStartBtn());
+        if (this.el.mode) this.el.mode.addEventListener('change', () => { this._readSettingsFromUI(); this._syncSettingsUI(); this._updateStartBtn(); });
+        if (this.el.victory) this.el.victory.addEventListener('change', () => { this._readSettingsFromUI(); this._broadcastRoster(); });
+        if (this.el.ff) this.el.ff.addEventListener('change', () => { this._readSettingsFromUI(); this._broadcastRoster(); });
         if (this.el.create) this.el.create.addEventListener('click', () => this._onCreate());
         if (this.el.join) this.el.join.addEventListener('click', () => this._onJoin());
         if (this.el.start) this.el.start.addEventListener('click', () => this.startMatch());
         if (this.el.leave) this.el.leave.addEventListener('click', () => this.leave());
+        this._syncSettingsUI();
+    }
+
+    _readSettingsFromUI() {
+        if (!this.el) return;
+        if (this.el.mode) this.settings.mode = this.el.mode.value;
+        if (this.settings.mode === Config.MODES.FFA) {
+            this.settings.victory = Config.VICTORY.LAST_TEAM;
+        } else {
+            if (this.el.victory) this.settings.victory = this.el.victory.value;
+            if (this.el.ff) this.settings.friendlyFire = !!this.el.ff.checked;
+        }
+    }
+    _syncSettingsUI() {
+        if (!this.el) return;
+        const ffa = this.settings.mode === Config.MODES.FFA;
+        if (this.el.victory) { this.el.victory.value = this.settings.victory; this.el.victory.disabled = !this.isHost || ffa; }
+        if (this.el.ff) { this.el.ff.checked = !!this.settings.friendlyFire; this.el.ff.disabled = !this.isHost || ffa; }
+        if (this.el.mode) this.el.mode.disabled = !this.isHost;
+    }
+
+    // ================= token / 记录 =================
+    _loadToken() {
+        try {
+            let t = localStorage.getItem(this.TOKEN_KEY);
+            if (!t) { t = Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem(this.TOKEN_KEY, t); }
+            return t;
+        } catch (e) { return 'tok' + Math.random().toString(36).slice(2); }
+    }
+    _saveRecord() {
+        if (!this.active) return;
+        try {
+            localStorage.setItem(this.RECORD_KEY, JSON.stringify({
+                roomId: this.roomId,
+                isHost: this.isHost,
+                token: this.token,
+                started: this.started,
+                settings: this.settings,
+                roster: this.isHost ? this.participants.map(p => ({ token: p.token, name: p.name, colors: p.colors })) : undefined,
+                seq: this.seq,
+                savedAt: Date.now()
+            }));
+        } catch (e) { /* ignore */ }
+    }
+    _clearRecord() {
+        try { localStorage.removeItem(this.RECORD_KEY); } catch (e) { /* ignore */ }
+    }
+    _loadRecord() {
+        try { return JSON.parse(localStorage.getItem(this.RECORD_KEY) || 'null'); } catch (e) { return null; }
+    }
+
+    /**
+     * 页面加载时调用：若有近期联机记录则自动重连续局
+     * @returns {boolean} 是否已尝试恢复
+     */
+    resumeIfAny() {
+        const rec = this._loadRecord();
+        if (!rec || !rec.roomId) return false;
+        if (Date.now() - (rec.savedAt || 0) > 2 * 60 * 60 * 1000) { this._clearRecord(); return false; }
+        this._resuming = true;
+        this.settings = Object.assign({}, Config.DEFAULT_RULES, rec.settings || {});
+        this.token = rec.token || this._loadToken();
+        this._open(rec.roomId, !!rec.isHost, rec);
+        return true;
     }
 
     // ================= 房间创建 / 加入 =================
@@ -56,18 +129,18 @@ class OnlineSession {
     _validCode(c) { return /^[a-z0-9]{3,8}$/i.test(c || ''); }
 
     _onCreate() {
-        const code = (this.el.code && this.el.code.value.trim()) || this._genCode();
+        const code = (this.el && this.el.code && this.el.code.value.trim()) || this._genCode();
         if (!this._validCode(code)) return this._setStatus('房间号需为 3-8 位字母或数字', 'error');
-        if (this.el.code) this.el.code.value = code;
+        if (this.el && this.el.code) this.el.code.value = code;
         this._open(code.toLowerCase(), true);
     }
     _onJoin() {
-        const code = this.el.code ? this.el.code.value.trim() : '';
+        const code = (this.el && this.el.code && this.el.code.value.trim()) || '';
         if (!this._validCode(code)) return this._setStatus('请输入正确的房间号', 'error');
         this._open(code.toLowerCase(), false);
     }
 
-    _open(roomId, isHost) {
+    _open(roomId, isHost, record) {
         if (typeof Trystero === 'undefined' || !Trystero.joinRoom) {
             this._setStatus('联机组件未加载（vendor/trystero.nostr.iife.js）', 'error');
             return;
@@ -76,15 +149,14 @@ class OnlineSession {
 
         this.roomId = roomId;
         this.isHost = isHost;
-        this.hostId = isHost ? null : null;
         this.active = true;
-        this.started = false;
         this.seq = 0;
         this._lastSeq = 0;
         this.myColors = [];
         this.participants = [];
-        this.name = (this.el && this.el.name && this.el.name.value.trim()) || '';
-        if (isHost && this.el && this.el.mode) this.mode = this.el.mode.value;
+        this.token = this.token || this._loadToken();
+        this.name = (this.el && this.el.name && this.el.name.value.trim()) || this.name || '';
+        if (!this._resuming) { this.started = false; if (isHost) this._readSettingsFromUI(); }
 
         try {
             this.room = Trystero.joinRoom({ appId: this.appId, password: this.roomId }, this.roomId);
@@ -95,42 +167,70 @@ class OnlineSession {
         }
         this.selfId = this.room.selfId || Trystero.selfId;
 
-        // 动作通道
+        this.actHello = this.room.makeAction('hello');
         this.actAssign = this.room.makeAction('assign');
         this.actRoster = this.room.makeAction('roster');
         this.actIntent = this.room.makeAction('intent');
+        this.actMove = this.room.makeAction('move');
+        this.actUndo = this.room.makeAction('undo');
+        this.actEliminate = this.room.makeAction('eliminate');
         this.actState = this.room.makeAction('state');
         this.actNotice = this.room.makeAction('notice');
-        this.actHello = this.room.makeAction('hello');
 
+        this.actHello.onMessage = (d, ctx) => this._onHello(d, ctx.peerId);
         this.actAssign.onMessage = d => this._onAssign(d);
         this.actRoster.onMessage = d => this._onRoster(d);
         this.actState.onMessage = d => this._onState(d);
         this.actNotice.onMessage = d => this._onNotice(d);
         this.actIntent.onMessage = (d, ctx) => this._onIntent(d, ctx.peerId);
-        this.actHello.onMessage = (d, ctx) => this._onHello(d, ctx.peerId);
+        this.actMove.onMessage = d => this._onMove(d);
+        this.actUndo.onMessage = d => this._onUndo(d);
+        this.actEliminate.onMessage = d => this._onEliminate(d);
 
         this.room.onPeerJoin = id => this._onPeerJoin(id);
         this.room.onPeerLeave = id => this._onPeerLeave(id);
 
         if (isHost) {
             this.hostId = this.selfId;
-            this.participants = [{ id: this.selfId, colors: [], name: this.name }];
-            this._setStatus(`已创建房间「${this.roomId}」，把房间号发给朋友，等待加入…`, 'ok');
+            const roster = (record && record.roster) || [];
+            this.participants = [{ token: this.token, id: this.selfId, colors: [], name: this.name }];
+            for (const r of roster) {
+                if (r.token === this.token) continue;
+                this.participants.push({ token: r.token, id: null, colors: r.colors || [], name: r.name || '' });
+            }
+            if (this._resuming) {
+                this.started = !!(record && record.started);
+                this.settings = Object.assign({}, Config.DEFAULT_RULES, (record && record.settings) || {});
+                // 恢复本局棋盘（权威状态）
+                const saved = this.gameEngine.persistence.loadGameState();
+                if (saved && saved.gamePhase === 'playing') {
+                    this.gameEngine.persistence.restoreGameState(this.gameEngine, saved);
+                    this.gameEngine.gameState.setRules(this.settings);
+                    this.gameEngine.isGameActive = true;
+                } else {
+                    this.started = false; // 游戏已结束，退回到等待开局
+                }
+                this._setStatus(`已恢复房间「${this.roomId}」，等待玩家重连…`, 'ok');
+            } else {
+                this._setStatus(`已创建房间「${this.roomId}」，把房间号发给朋友，等待加入…`, 'ok');
+            }
         } else {
             this._setStatus(`正在加入房间「${this.roomId}」…`, 'ok');
         }
-        if (this.el && this.el.mode) this.el.mode.disabled = !isHost;
 
         this._applyNetworkMode(true);
+        const show = (el, on) => { if (el) el.classList.toggle('hidden', !on); };
         if (this.el) {
-            if (this.el.leave) this.el.leave.classList.remove('hidden');
+            show(this.el.leave, true);
             if (this.el.create) this.el.create.disabled = true;
             if (this.el.join) this.el.join.disabled = true;
-            if (this.el.start) this.el.start.classList.toggle('hidden', !isHost);
+            show(this.el.start, isHost);
         }
+        this._syncSettingsUI();
         this._renderRoster();
         this._updateStartBtn();
+        this._saveRecord();
+        if (!this._resuming) this._sendHello();
     }
 
     async leave() {
@@ -145,21 +245,23 @@ class OnlineSession {
         this._roster = null;
         this._lastSeq = 0;
         this._applyNetworkMode(false);
+        this._clearRecord();
         if (this.el) {
             if (this.el.leave) this.el.leave.classList.add('hidden');
             if (this.el.create) this.el.create.disabled = false;
             if (this.el.join) this.el.join.disabled = false;
             if (this.el.start) this.el.start.classList.add('hidden');
-            if (this.el.mode) this.el.mode.disabled = false;
         }
+        this._syncSettingsUI();
         this._renderRoster();
         if (this._bound) this._setStatus('未联机', '');
     }
 
     // ================= 座位 / 开局 =================
+    _minPlayers() { return this.settings.mode === Config.MODES.FFA ? 4 : 2; }
+
     _groupsFor(n) {
-        if (this.mode === '2') return [[0, 1], [2, 3]];
-        if (this.mode === '4') return [[0], [1], [2], [3]];
+        if (this.settings.mode === Config.MODES.FFA) return [[0], [1], [2], [3]];
         if (n >= 4) return [[0], [1], [2], [3]];
         if (n === 3) return [[0], [1], [2, 3]];
         if (n === 2) return [[0, 1], [2, 3]];
@@ -168,26 +270,27 @@ class OnlineSession {
 
     startMatch() {
         if (!this.active || !this.isHost || this.started) return;
-        if (this.el && this.el.mode) this.mode = this.el.mode.value;
+        this._readSettingsFromUI();
         const n = this.participants.length;
-        if (n < 2) { this._setStatus('至少需要 2 名玩家才能开始', 'error'); return; }
-        if (this.mode === '4' && n < 4) { this._setStatus(`四人对战需要 4 名玩家（当前 ${n} 人）`, 'error'); return; }
+        const min = this._minPlayers();
+        if (n < min) { this._setStatus(`当前模式至少需要 ${min} 名玩家（当前 ${n} 人）`, 'error'); return; }
 
         const groups = this._groupsFor(n);
         this.participants.forEach((p, i) => { p.colors = groups[i] || []; });
 
         for (const p of this.participants) {
-            if (p.id === this.selfId) this._setMyColors(p.colors);
-            else this.actAssign.send({ colors: p.colors, hostId: this.selfId }, { target: p.id });
+            if (p.token === this.token) this._setMyColors(p.colors);
+            else if (p.id) this.actAssign.send({ colors: p.colors, hostId: this.selfId, settings: this.settings }, { target: p.id });
         }
 
         this.started = true;
-        this.gameEngine.startNewGame();   // 房主权威开局
+        this.gameEngine.startNewGame();   // 房主权威开局（会应用 settings）
         this._broadcastRoster();
-        this._broadcastState();
+        this._broadcastState();           // 同步开局局面与规则给各端
         this.actNotice.send({ text: '对局开始！' });
         this._renderRoster();
         this._updateStartBtn();
+        this._saveRecord();
     }
 
     _setMyColors(colors) {
@@ -210,55 +313,60 @@ class OnlineSession {
         ge.setControlledColors(on ? this.myColors : null);
     }
 
-    // ================= 消息处理 =================
+    // ================= 成员 =================
+    _findByToken(token) { return this.participants.find(p => p.token === token); }
+
     _onPeerJoin(peerId) {
         if (this.isHost) {
-            if (!this.participants.some(p => p.id === peerId)) {
-                this.participants.push({ id: peerId, colors: [], name: '' });
-            }
-            this._broadcastRoster();
-            if (this.started) {
-                const p = this.participants.find(p => p.id === peerId);
-                if (p) this.actAssign.send({ colors: p.colors, hostId: this.selfId }, { target: peerId });
-                this.actState.send(this._snapshot(), { target: peerId });
-            }
+            // 等待对方 hello（带回 token 以便恢复席位）
             this._renderRoster();
             this._updateStartBtn();
         } else {
-            // 玩家侧：向房主报到昵称
             this._sendHello();
         }
     }
     _onPeerLeave(peerId) {
         if (this.isHost) {
-            this.participants = this.participants.filter(p => p.id !== peerId);
-            this._broadcastRoster();
+            const p = this.participants.find(p => p.id === peerId);
+            if (p) p.id = null; // 断线，保留席位等待重连
             this._renderRoster();
             this._updateStartBtn();
         } else if (peerId === this.hostId) {
-            this._setStatus('房主已离开，对局结束', 'error');
-            this.active = false;
-            this.started = false;
-            this._applyNetworkMode(false);
+            this._setStatus('房主已离开，正在等待其重连…', 'error');
         }
     }
 
     _sendHello() {
-        if (!this.isHost && this.room) this.actHello.send({ name: this.name });
+        if (this.isHost || !this.room) return;
+        this.actHello.send({ name: this.name, token: this.token, wantHost: false });
     }
+
     _onHello(d, peerId) {
         if (!this.isHost || !d) return;
-        const p = this.participants.find(p => p.id === peerId);
-        if (p) {
-            p.name = d.name || '';
-            this._broadcastRoster();
-            this._renderRoster();
+        const token = d.token || peerId;
+        let p = this._findByToken(token);
+        if (!p) {
+            p = { token, id: peerId, colors: [], name: d.name || '' };
+            this.participants.push(p);
+        } else {
+            p.id = peerId;
+            if (d.name) p.name = d.name;
         }
+        // 回执：分配席位（若已开局）
+        if (this.started) {
+            this.actAssign.send({ colors: p.colors, hostId: this.selfId, settings: this.settings }, { target: peerId });
+            this.actState.send(this._snapshot(), { target: peerId });
+        }
+        this._broadcastRoster();
+        this._renderRoster();
+        this._updateStartBtn();
+        this._saveRecord();
     }
 
     _onAssign(d) {
-        if (this.isHost) return;
+        if (this.isHost || !d) return;
         if (d.hostId) this.hostId = d.hostId;
+        if (d.settings) { this.settings = Object.assign({}, Config.DEFAULT_RULES, d.settings); this.gameEngine.gameState.setRules(this.settings); }
         this.started = true;
         this._setMyColors(d.colors || []);
     }
@@ -266,91 +374,157 @@ class OnlineSession {
     _onRoster(d) {
         this._roster = d;
         if (d && d.hostId) this.hostId = d.hostId;
+        if (d && d.settings) { this.settings = Object.assign({}, Config.DEFAULT_RULES, d.settings); this.gameEngine.gameState.setRules(this.settings); }
         if (!this.isHost) {
             if (d && d.started) this.started = true;
             this._renderRoster();
         }
     }
 
-    _onNotice(d) {
-        if (d && d.text) {
-            Utils.showMessage(d.text, 'info');
-            this._setStatus(d.text, 'ok');
+    _onNotice(d) { if (d && d.text) { Utils.showMessage(d.text, 'info'); this._setStatus(d.text, 'ok'); } }
+
+    // ================= 走子 =================
+    requestMove(fromX, fromY, toX, toY) {
+        if (!this.active || !this.started) return;
+        // 房主自己也必须走合法棋（防止通过界面/接口做非法操作）
+        if (!this.gameEngine.ruleValidator.isValidMove(fromX, fromY, toX, toY)) {
+            this._setStatus('非法走法，已阻止', 'error');
+            return;
         }
+        if (this.isHost) this._hostApplyAndBroadcast(fromX, fromY, toX, toY);
+        else this.actIntent.send({ kind: 'move', from: [fromX, fromY], to: [toX, toY] });
     }
 
     _onIntent(d, peerId) {
         if (!this.isHost || !this.started || !d) return;
         const gs = this.gameEngine.gameState;
-
         if (d.kind === 'move') {
             const p = this.participants.find(p => p.id === peerId);
             const piece = gs.getPiece(d.from[0], d.from[1]);
             if (!piece || !p || !p.colors.includes(piece.player)) return this._reject(peerId, '只能移动自己的棋子');
             if (piece.player !== gs.currentPlayer) return this._reject(peerId, '还没轮到你');
             if (!this.gameEngine.ruleValidator.isValidMove(d.from[0], d.from[1], d.to[0], d.to[1])) return this._reject(peerId, '非法走法');
-            this._hostApply(d.from[0], d.from[1], d.to[0], d.to[1]);
+            this._hostApplyAndBroadcast(d.from[0], d.from[1], d.to[0], d.to[1]);
         } else if (d.kind === 'undo') {
-            if (gs.undoMove()) {
-                this.gameEngine.boardRenderer.renderPieces();
-                this.gameEngine.updateUI();
-                this._broadcastState();
-                this.actNotice.send({ text: '已悔棋' });
-            }
+            this._doUndo(true);
         } else if (d.kind === 'resign') {
-            this._hostResign(d.color);
+            this._hostEliminate(d.color, 'resign');
+        } else if (d.kind === 'resync') {
+            this.actState.send(this._snapshot(), { target: peerId });
         }
     }
 
-    _reject(peerId, text) {
-        this.actNotice.send({ text }, { target: peerId });
-    }
+    _reject(peerId, text) { this.actNotice.send({ text }, { target: peerId }); }
 
-    // ================= 走子（房主侧） =================
-    _hostApply(fromX, fromY, toX, toY) {
+    _hostApplyAndBroadcast(fromX, fromY, toX, toY) {
         const ge = this.gameEngine;
         const gs = ge.gameState;
         if (!gs.movePiece(fromX, fromY, toX, toY)) return;
+        this.seq++;
         ge.boardRenderer.clearSelection();
         ge.boardRenderer.renderPieces();
-        ge.onMoveCompleted();          // 将死/结束/历史/存档/UI
-        this._broadcastState();
+        ge.onMoveCompleted();               // 将军/将死淘汰/结束/历史/存档/UI
+        this.actMove.send({ seq: this.seq, from: [fromX, fromY], to: [toX, toY] });
+        this._saveRecord();
     }
 
-    _hostResign(color) {
-        const gs = this.gameEngine.gameState;
-        if (gs.gamePhase !== 'playing') return;
-        gs.gamePhase = 'finished';
-        gs.winner = Config.TEAMS.TEAM1.includes(color) ? 'TEAM2' : 'TEAM1';
-        this.gameEngine.endGame();
-        this.actNotice.send({ text: `${Config.PLAYER_COLORS[color].name} 认输` });
-        this._broadcastState();
+    _onMove(d) {
+        if (this.isHost || !d) return;
+        if (d.seq <= this._lastSeq) return;
+        const ge = this.gameEngine, gs = ge.gameState;
+        // 复核房主广播：非法则拒绝并请求重同步
+        if (!ge.ruleValidator.isValidMove(d.from[0], d.from[1], d.to[0], d.to[1])) {
+            Utils.showMessage('房主的操作非法，已拒绝', 'error');
+            this.actIntent.send({ kind: 'resync' });
+            return;
+        }
+        this._lastSeq = d.seq;
+        gs.movePiece(d.from[0], d.from[1], d.to[0], d.to[1]);
+        this._clientAfterApply();
     }
 
-    // ================= 玩家侧请求 =================
-    requestMove(fromX, fromY, toX, toY) {
-        if (!this.active || !this.started) return;
-        if (this.isHost) this._hostApply(fromX, fromY, toX, toY);
-        else this.actIntent.send({ kind: 'move', from: [fromX, fromY], to: [toX, toY] });
+    _clientAfterApply() {
+        const ge = this.gameEngine, gs = ge.gameState;
+        ge.boardRenderer.clearSelection();
+        ge.boardRenderer.renderPieces();
+        ge.updateUI();
+        if (ge.updateMoveHistory) ge.updateMoveHistory();
+        if (ge.boardRenderer.highlightLastMove) ge.boardRenderer.highlightLastMove();
+        if (ge.autoSave) ge.autoSave();
+        if (gs.checkGameEnd()) ge.endGame();
     }
+
     requestUndo() {
         if (!this.active || !this.started) return;
-        if (this.isHost) {
-            const gs = this.gameEngine.gameState;
-            if (gs.undoMove()) {
-                this.gameEngine.boardRenderer.renderPieces();
-                this.gameEngine.updateUI();
-                this._broadcastState();
-            }
-        } else this.actIntent.send({ kind: 'undo' });
+        if (this.isHost) this._doUndo(true);
+        else this.actIntent.send({ kind: 'undo' });
     }
+    _doUndo(broadcast) {
+        const ge = this.gameEngine, gs = ge.gameState;
+        if (!gs.undoMove()) return;
+        this.seq++;
+        ge.boardRenderer.clearSelection();
+        ge.boardRenderer.renderPieces();
+        ge.updateUI();
+        if (ge.updateMoveHistory) ge.updateMoveHistory();
+        if (broadcast) this.actUndo.send({ seq: this.seq });
+    }
+    _onUndo(d) {
+        if (this.isHost || !d) return;
+        if (d.seq <= this._lastSeq) return;
+        this._lastSeq = d.seq;
+        const ge = this.gameEngine, gs = ge.gameState;
+        gs.undoMove();
+        ge.boardRenderer.clearSelection();
+        ge.boardRenderer.renderPieces();
+        ge.updateUI();
+        if (ge.updateMoveHistory) ge.updateMoveHistory();
+    }
+
     requestResign(color) {
         if (!this.active || !this.started) return;
-        if (this.isHost) this._hostResign(color);
+        if (this.isHost) this._hostEliminate(color, 'resign');
         else this.actIntent.send({ kind: 'resign', color });
     }
 
-    // ================= 状态快照 =================
+    _hostEliminate(player, reason) {
+        const ge = this.gameEngine, gs = ge.gameState;
+        if (gs.gamePhase !== 'playing') return;
+        gs.eliminatePlayer(player);
+        Utils.showMessage(`${Config.PLAYER_COLORS[player].name}${reason === 'resign' ? '认输' : '被将死'}`, 'warning');
+        this.seq++;
+        ge.boardRenderer.renderPieces();
+        if (gs.checkGameEnd()) {
+            ge.endGame();
+        } else {
+            gs.nextPlayer();
+            ge.updateUI();
+        }
+        this.actEliminate.send({ player, reason, seq: this.seq });
+        this._saveRecord();
+    }
+    /** 供 GameEngine.checkForCheck 调用（房主侧已本地淘汰，仅广播） */
+    _broadcastEliminate(player, reason) {
+        this.seq++;
+        this.actEliminate.send({ player, reason, seq: this.seq });
+        this._saveRecord();
+    }
+    _onEliminate(d) {
+        if (this.isHost || !d) return;
+        if (d.seq <= this._lastSeq) return;
+        this._lastSeq = d.seq;
+        const ge = this.gameEngine, gs = ge.gameState;
+        gs.eliminatePlayer(d.player);
+        ge.boardRenderer.renderPieces();
+        if (gs.checkGameEnd()) {
+            ge.endGame();
+        } else {
+            gs.nextPlayer();
+            ge.updateUI();
+        }
+    }
+
+    // ================= 快照（仅加入/重同步用） =================
     _snapshot() {
         const gs = this.gameEngine.gameState;
         return {
@@ -359,22 +533,22 @@ class OnlineSession {
             turn: gs.turn,
             gamePhase: gs.gamePhase,
             winner: gs.winner,
+            ranking: gs.ranking,
+            settings: this.settings,
+            eliminationOrder: gs.eliminationOrder,
             pieceCounts: gs.pieceCounts,
             board: gs.board.map(col => col.map(p => p ? { t: p.type, p: p.player, f: p.facing || null } : null))
         };
     }
-    _broadcastState() {
-        this.seq++;
-        this.actState.send(this._snapshot());
-    }
+    _broadcastState() { this.seq++; this.actState.send(this._snapshot()); }
 
     _onState(d) {
         if (this.isHost || !d) return;
-        if (d.seq <= this._lastSeq) return;
+        if (d.seq < this._lastSeq) return;
         this._lastSeq = d.seq;
+        if (d.settings) { this.settings = Object.assign({}, Config.DEFAULT_RULES, d.settings); }
 
-        const ge = this.gameEngine;
-        const gs = ge.gameState;
+        const ge = this.gameEngine, gs = ge.gameState;
         for (let x = 0; x < Config.BOARD_SIZE; x++) {
             for (let y = 0; y < Config.BOARD_SIZE; y++) {
                 const c = d.board[x][y];
@@ -385,7 +559,10 @@ class OnlineSession {
         gs.turn = d.turn;
         gs.gamePhase = d.gamePhase;
         gs.winner = d.winner;
+        gs.ranking = d.ranking || null;
+        gs.eliminationOrder = d.eliminationOrder || [];
         gs.pieceCounts = Object.assign({ 0: 0, 1: 0, 2: 0, 3: 0 }, d.pieceCounts);
+        gs.setRules(this.settings);
         gs.selectedPiece = null;
         gs.possibleMoves = [];
 
@@ -394,20 +571,26 @@ class OnlineSession {
         ge.boardRenderer.renderPieces();
         ge.updateUI();
         if (ge.updateMoveHistory) ge.updateMoveHistory();
-
         if (d.gamePhase === 'finished') {
-            const w = d.winner === 'TEAM1' ? '红蓝队获胜' : d.winner === 'TEAM2' ? '绿黑队获胜' : '对局结束';
-            this._setStatus(w, 'ok');
+            ge.showGameResult ? ge.showGameResult() : null;
+            this._setStatus('对局结束', 'ok');
         }
+    }
+
+    // ================= 结束 =================
+    onGameEnd() {
+        this._clearRecord();
+        if (this.isHost) this._broadcastState();
     }
 
     // ================= 名册 / UI =================
     _broadcastRoster() {
+        if (!this.isHost || !this.room) return;
         this.actRoster.send({
             hostId: this.selfId,
             count: this.participants.length,
             started: this.started,
-            mode: this.mode,
+            settings: this.settings,
             seats: this.participants.map(p => ({ name: p.name || '', colors: p.colors }))
         });
     }
@@ -417,12 +600,13 @@ class OnlineSession {
         if (this.isHost) {
             this.el.roster.innerHTML = this.participants.map((p, i) => {
                 const role = p.colors.length ? p.colors.map(c => Config.PLAYER_COLORS[c].name).join('+') : '待分配';
-                return `<div>#${i + 1} ${nameOf(p.name, i)} ${p.id === this.selfId ? '(房主/你)' : ''} — ${Utils.escapeHtml(role)}</div>`;
+                const online = p.token === this.token || p.id ? '' : '（离线）';
+                return `<div>#${i + 1} ${nameOf(p.name, i)} ${p.token === this.token ? '(房主/你)' : online} — ${Utils.escapeHtml(role)}</div>`;
             }).join('');
         } else if (this._roster) {
             const d = this._roster;
-            let html = `<div>房间内 ${d.count} 人${d.mode && d.mode !== 'auto' ? '（' + d.mode + '人模式）' : ''}</div>`;
-            const seats = d.seats || (d.assignments || []).map(cs => ({ name: '', colors: cs }));
+            let html = `<div>房间内 ${d.count} 人</div>`;
+            const seats = d.seats || [];
             html += seats.map((s, i) => {
                 const role = (s.colors || []).length ? s.colors.map(c => Config.PLAYER_COLORS[c].name).join('+') : '待分配';
                 return `<div>#${i + 1} ${nameOf(s.name, i)} — ${Utils.escapeHtml(role)}</div>`;
@@ -434,15 +618,14 @@ class OnlineSession {
     }
     _updateStartBtn() {
         if (!this.el || !this.el.start) return;
-        const mode = this.el.mode ? this.el.mode.value : this.mode;
-        const min = mode === '4' ? 4 : 2;
+        const min = this._minPlayers();
         this.el.start.disabled = !(this.isHost && this.active && !this.started && this.participants.length >= min);
     }
     _setStatus(text, kind) {
         if (this.el && this.el.status) {
             this.el.status.textContent = text;
-            this.el.status.className = 'text-xs mt-2 ' +
-                (kind === 'error' ? 'text-red-600' : kind === 'ok' ? 'text-green-700' : 'text-gray-600');
+            this.el.status.className = 'online-status ' +
+                (kind === 'error' ? 'online-status--error' : kind === 'ok' ? 'online-status--ok' : '');
         }
     }
 }

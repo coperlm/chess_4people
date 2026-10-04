@@ -16,6 +16,7 @@ const PRECACHE = [
   './js/utils/Config.js',
   './js/utils/Utils.js',
   './js/utils/GameStatePersistence.js',
+  './js/game/Replay.js',
   './js/net/OnlineSession.js',
   './vendor/trystero.nostr.iife.js'
 ];
