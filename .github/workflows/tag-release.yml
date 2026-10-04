@@ -31,8 +31,5 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag "$TAG"
           git push origin "$TAG"
-          if [ -f CHANGELOG.md ]; then
-            gh release create "$TAG" --title "$TAG" --notes-file CHANGELOG.md || true
-          else
-            gh release create "$TAG" --title "$TAG" --generate-notes || true
-          fi
+          # 发布说明由 GitHub 依据“上一个标签以来的提交”自动生成，保证每个版本都有更新日志
+          gh release create "$TAG" --title "$TAG" --generate-notes || true

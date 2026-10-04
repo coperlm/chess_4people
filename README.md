@@ -69,7 +69,7 @@ npm run serve        # 打开 http://localhost:8080
 git commit -am "chore: bump version to 2.0.3"
 git push
 ```
-推送后（工作流 `Auto Tag & Release`）会自动：**打标签 `v2.0.3` → 创建 Release**。
+推送后（工作流 `Auto Tag & Release`）会自动：**打标签 `v2.0.3` → 创建 Release**；**发布说明由 GitHub 依据"上一个标签以来的提交"自动生成**（也可之后在 Release 页手动编辑）。
 > 同一版本重复推送时（标签已存在）会跳过，不会报错或重复。
 
 ## 🛠️ 开发
