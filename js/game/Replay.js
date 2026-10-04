@@ -32,7 +32,7 @@ class Replay {
             export: $('exportReplayBtn'),
             import: $('importReplayBtn'),
             file: $('importReplayInput'),
-            controls: $('replayControls'),
+            controls: $('replayBar'),
             first: $('replayFirstBtn'),
             prev: $('replayPrevBtn'),
             next: $('replayNextBtn'),
@@ -202,6 +202,8 @@ class Replay {
             if (this.el.export) this.el.export.disabled = true;
             if (this.el.import) this.el.import.disabled = true;
         }
+        // 关掉弹窗露出棋盘
+        if (window.gameInterface && window.gameInterface.closeReplay) window.gameInterface.closeReplay();
         Utils.showMessage('已载入回放，可逐手查看', 'success');
     }
 

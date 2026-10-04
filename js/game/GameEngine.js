@@ -176,6 +176,11 @@ class GameEngine {
      * 开始新游戏
      */
     startNewGame() {
+        // 未做任何设置前不能开局：直接跳到“对局设置”弹窗
+        if (window.gameInterface && !window.gameInterface.configured) {
+            window.gameInterface.openSetup();
+            return;
+        }
         if (window.onlineSession && window.onlineSession.active && !window.onlineSession.isHost) {
             Utils.showMessage('只有房主能开新局', 'warning');
             return;

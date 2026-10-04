@@ -3,6 +3,7 @@ class GameInterface {
     constructor(gameEngine) {
         this.gameEngine = gameEngine;
         this.gameEngine.gameInterface = this;
+        this.configured = false;   // 是否已做过对局设置（未设置不允许开局）
         
         // 联机会话（Trystero）
         this.onlineSession = null;
@@ -67,6 +68,7 @@ class GameInterface {
 
     openSetup() {
         this.openModal('setupModal');
+        if (window.onlineSession && window.onlineSession._syncSettingsUI) window.onlineSession._syncSettingsUI();
         const online = window.onlineSession && window.onlineSession.active;
         this._setSetupMode(online ? 'online' : this.setupMode || null);
     }
@@ -97,6 +99,7 @@ class GameInterface {
         if (os && os.active) await os.leave();
         if (os && os._readSettingsFromUI) os._readSettingsFromUI();
         this._setSetupMode('local');
+        this.configured = true;
         this.gameEngine.startNewGame();
         this.closeSetup();
     }

@@ -50,9 +50,9 @@ class OnlineSession {
             start: $('startOnlineBtn'),
             leave: $('leaveRoomBtn')
         };
-        if (this.el.mode) this.el.mode.addEventListener('change', () => { this._readSettingsFromUI(); this._syncSettingsUI(); this._updateStartBtn(); });
-        if (this.el.victory) this.el.victory.addEventListener('change', () => { this._readSettingsFromUI(); this._broadcastRoster(); });
-        if (this.el.ff) this.el.ff.addEventListener('change', () => { this._readSettingsFromUI(); this._broadcastRoster(); });
+        if (this.el.mode) this.el.mode.addEventListener('change', () => { this._readSettingsFromUI(); this._syncSettingsUI(); this._updateStartBtn(); this._warnSettingsNextGame(); });
+        if (this.el.victory) this.el.victory.addEventListener('change', () => { this._readSettingsFromUI(); this._broadcastRoster(); this._warnSettingsNextGame(); });
+        if (this.el.ff) this.el.ff.addEventListener('change', () => { this._readSettingsFromUI(); this._broadcastRoster(); this._warnSettingsNextGame(); });
         if (this.el.name) this.el.name.addEventListener('change', () => {
             this.name = this.el.name.value.trim();
             if (this.active && !this.isHost) this._sendHello();
@@ -65,8 +65,7 @@ class OnlineSession {
         this._syncSettingsUI();
     }
 
-    _readSettingsFromUI() {
-        if (!this.el) return;
+    _readSettingsFromUI() {        if (!this.el) return;
         if (this.el.mode) this.settings.mode = this.el.mode.value;
         if (this.settings.mode === Config.MODES.FFA) {
             this.settings.victory = Config.VICTORY.LAST_TEAM;
@@ -82,6 +81,9 @@ class OnlineSession {
         if (this.el.mode) { this.el.mode.value = this.settings.mode; this.el.mode.disabled = locked; }
         if (this.el.victory) { this.el.victory.value = this.settings.victory; this.el.victory.disabled = locked || ffa; }
         if (this.el.ff) { this.el.ff.checked = !!this.settings.friendlyFire; this.el.ff.disabled = locked || ffa; }
+    }
+    _warnSettingsNextGame() {
+        if (this.active && this.started) Utils.showMessage('设置更改将在下一局生效', 'info');
     }
 
     // ================= token / 记录 =================
@@ -137,9 +139,9 @@ class OnlineSession {
         return s;
     }
     _randomId() {
-        const hex = '0123456789abcdef';
+        const cs = 'abcdefghijklmnopqrstuvwxyz0123456789';
         let s = '';
-        for (let i = 0; i < 6; i++) s += hex[Math.floor(Math.random() * 16)];
+        for (let i = 0; i < 6; i++) s += cs[Math.floor(Math.random() * cs.length)];
         return s;
     }
     _validCode(c) { return /^[a-z0-9]{3,8}$/i.test(c || ''); }
@@ -277,8 +279,9 @@ class OnlineSession {
         this._saveRecord();
         if (!this._resuming) this._sendHello();
         // 进入房间后，界面切到“联机”、关掉设置弹窗
-        if (window.gameInterface && window.gameInterface.openOnline) {
-            window.gameInterface.openOnline();
+        if (window.gameInterface) {
+            window.gameInterface.configured = true;
+            if (window.gameInterface.openOnline) window.gameInterface.openOnline();
             if (window.gameInterface.closeSetup) window.gameInterface.closeSetup();
         }
     }
@@ -459,7 +462,8 @@ class OnlineSession {
     _onAssign(d) {
         if (this.isHost || !d) return;
         if (d.hostId) this.hostId = d.hostId;
-        if (d.settings) { this.settings = Object.assign({}, Config.DEFAULT_RULES, d.settings); this.gameEngine.gameState.setRules(this.settings); }
+        // 只记录设置；真正应用以房主广播的局面快照为准（避免局中改设置导致两端规则不一致）
+        if (d.settings) this.settings = Object.assign({}, Config.DEFAULT_RULES, d.settings);
         this.started = true;
         this._setMyColors(d.colors || []);
     }
@@ -472,7 +476,7 @@ class OnlineSession {
             this._clearFailoverTimer();
             if (!this.isHost && changed) this._sendHello(); // 新接任的房主需要认识我
         }
-        if (d && d.settings) { this.settings = Object.assign({}, Config.DEFAULT_RULES, d.settings); this.gameEngine.gameState.setRules(this.settings); }
+        if (d && d.settings) this.settings = Object.assign({}, Config.DEFAULT_RULES, d.settings);
         if (!this.isHost) {
             if (d && d.started) this.started = true;
             this._renderRoster();

@@ -225,18 +225,21 @@
                 <button id="importReplayBtn" class="online-btn online-btn--join">导入回放</button>
             </div>
             <input id="importReplayInput" type="file" accept=".txt,text/plain" class="hidden">
-            <div id="replayControls" class="online-row hidden">
-                <button id="replayFirstBtn" class="online-btn online-btn--leave">⏮</button>
-                <button id="replayPrevBtn" class="online-btn online-btn--leave">◀</button>
-                <button id="replayNextBtn" class="online-btn online-btn--leave">▶</button>
-                <button id="replayLastBtn" class="online-btn online-btn--leave">⏭</button>
-                <button id="replayExitBtn" class="online-btn online-btn--start">退出回放</button>
-            </div>
-            <div id="replayStatus" class="online-status"></div>
+            <div class="online-status">导出为带签名的纯文本；导入后底部会出现回放控制条。</div>
             <div class="modal-actions">
                 <button id="replayCloseBtn" class="online-btn online-btn--leave">关闭</button>
             </div>
         </div>
+    </div>
+
+    <!-- 回放控制条（回放时显示在底部） -->
+    <div id="replayBar" class="replay-bar hidden">
+        <button id="replayFirstBtn" class="online-btn online-btn--leave">⏮</button>
+        <button id="replayPrevBtn" class="online-btn online-btn--leave">◀</button>
+        <span id="replayStatus" class="online-status"></span>
+        <button id="replayNextBtn" class="online-btn online-btn--leave">▶</button>
+        <button id="replayLastBtn" class="online-btn online-btn--leave">⏭</button>
+        <button id="replayExitBtn" class="online-btn online-btn--start">退出回放</button>
     </div>
 
     <!-- JavaScript模块 -->

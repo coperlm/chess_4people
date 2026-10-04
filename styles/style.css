@@ -1570,6 +1570,12 @@ video {
 .pc--green { color: #16a34a; }
 .pc--black { color: #111827; }
 .move-history { max-height: 68vh; display: flex; flex-direction: column; gap: .15rem; }
+
+/* 回放控制条 */
+.replay-bar { position: fixed; left: 50%; bottom: 1rem; transform: translateX(-50%); display: flex; align-items: center; gap: .5rem; background: #fff; padding: .5rem .75rem; border-radius: .5rem; box-shadow: 0 10px 15px -3px rgb(0 0 0 / .3); z-index: 1100; }
+.replay-bar.hidden { display: none; }
+.replay-bar .online-btn { margin-top: 0; }
+.replay-bar #replayStatus { margin: 0; white-space: nowrap; }
 .online-roster { font-size: .8rem; margin-top: .25rem; color: #374151; }
 .online-roster > div { margin-top: .15rem; }
 
