@@ -1673,14 +1673,13 @@ main h3{ color:var(--walnut-2); letter-spacing:.04em; }
 
 #messageToast{ border-radius:12px; box-shadow:var(--shadow); font-weight:600; max-width:calc(100vw - 2rem); }
 
-/* 轮到该方：棋子柔和高亮（淡金环 + 轻微呼吸，不张扬） */
-@keyframes turnPulse{
-  0%,100%{ box-shadow:0 0 0 2px rgba(255,255,255,.85), 0 0 0 4px rgba(217,119,6,.30), 0 2px 6px rgba(0,0,0,.25); }
-  50%{ box-shadow:0 0 0 2px rgba(255,255,255,.95), 0 0 0 6px rgba(217,119,6,.16), 0 2px 6px rgba(0,0,0,.25); }
+/* 轮到该方：整方棋子加“实心一圈”——紧贴棋子外缘、无间隙（只大一圈） */
+.chess-piece::after{
+  content:""; position:absolute; inset:-2px; border-radius:50%; pointer-events:none;
+  opacity:0; transition:opacity .2s ease;
 }
-.chess-piece.turn-active{ animation:turnPulse 2s ease-in-out infinite; }
-@media (prefers-reduced-motion: reduce){
-  .chess-piece.turn-active{ animation:none; box-shadow:0 0 0 2px rgba(255,255,255,.85), 0 0 0 4px rgba(217,119,6,.30), 0 2px 6px rgba(0,0,0,.25); }
+.chess-piece.turn-active::after{
+  opacity:1; box-shadow:0 0 0 .2em rgba(217,119,6,.92);
 }
 .replay-bar{ border:1px solid rgba(138,90,43,.18); }
 .modal-box{ border-radius:16px; box-shadow:0 24px 60px -20px rgba(40,20,5,.6); }
