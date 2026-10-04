@@ -278,11 +278,11 @@ class OnlineSession {
         this._updateStartBtn();
         this._saveRecord();
         if (!this._resuming) this._sendHello();
-        // 进入房间后，界面切到“联机”、关掉设置弹窗
+        // 进入房间后：确保在“对局设置”弹窗的联机页
         if (window.gameInterface) {
             window.gameInterface.configured = true;
-            if (window.gameInterface.openOnline) window.gameInterface.openOnline();
-            if (window.gameInterface.closeSetup) window.gameInterface.closeSetup();
+            if (window.gameInterface._setSetupMode) window.gameInterface._setSetupMode('online');
+            if (window.gameInterface.openSetup) window.gameInterface.openSetup();
         }
     }
 

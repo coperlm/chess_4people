@@ -48,13 +48,12 @@ class GameInterface {
             close: $('setupCloseBtn')
         };
         if (this.setupEls.local) this.setupEls.local.addEventListener('click', () => this._setSetupMode('local'));
-        if (this.setupEls.online) this.setupEls.online.addEventListener('click', () => { this.closeSetup(); this.openOnline(); });
+        if (this.setupEls.online) this.setupEls.online.addEventListener('click', () => this._setSetupMode('online'));
         if (this.setupEls.startLocal) this.setupEls.startLocal.addEventListener('click', () => this.startLocal());
         if (this.setupEls.close) this.setupEls.close.addEventListener('click', () => this.closeSetup());
 
         const bind = (id, fn) => { const el = $(id); if (el) el.addEventListener('click', fn); };
         bind('setupOpenBtn', () => this.openSetup());
-        bind('onlineOpenBtn', () => this.openOnline());
         bind('replayOpenBtn', () => this.openReplay());
         bind('rulesOpenBtn', () => this.openRules());
         bind('openRulesBtn', () => this.openRules());
@@ -78,8 +77,6 @@ class GameInterface {
         this._setSetupMode(online ? 'online' : this.setupMode || null);
     }
     closeSetup() { this.closeModalById('setupModal'); }
-    openOnline() { this.openModal('onlineModal'); }
-    closeOnline() { this.closeModalById('onlineModal'); }
     openReplay() { this.openModal('replayModal'); }
     closeReplay() { this.closeModalById('replayModal'); }
     openRules() { this.openModal('rulesModal'); }
@@ -88,14 +85,16 @@ class GameInterface {
     _setSetupMode(mode) {
         this.setupMode = mode;
         const e = this.setupEls || {};
+        const onlineSetup = document.getElementById('onlineSetup');
         if (e.local) e.local.classList.toggle('active', mode === 'local');
         if (e.online) e.online.classList.toggle('active', mode === 'online');
         if (e.startLocal) e.startLocal.classList.toggle('hidden', mode !== 'local');
+        if (onlineSetup) onlineSetup.classList.toggle('hidden', mode !== 'online');
         if (e.hint) {
             e.hint.textContent = mode === 'local'
                 ? '本地对战：同一设备轮流操作四个颜色，点“开始本地对局”。'
                 : mode === 'online'
-                    ? '联机对战：在弹出的窗口里创建或加入房间。'
+                    ? '联机对战：创建或加入房间，房主点“开始 / 重开对局”。'
                     : '请选择对局方式。';
         }
     }
