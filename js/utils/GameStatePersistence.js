@@ -27,7 +27,6 @@ class GameStatePersistence {
             };
             
             localStorage.setItem(this.storageKey, JSON.stringify(saveData));
-            console.log('Game state saved successfully');
             return true;
         } catch (error) {
             console.error('Failed to save game state:', error);
@@ -111,7 +110,6 @@ class GameStatePersistence {
             if (gameEngine.boardRenderer) gameEngine.boardRenderer.reset();
             if (gameEngine.updateMoveHistory) gameEngine.updateMoveHistory();
             
-            console.log('Game state restored successfully');
             return true;
         } catch (error) {
             console.error('Failed to restore game state:', error);
@@ -125,7 +123,6 @@ class GameStatePersistence {
     clearSavedState() {
         try {
             localStorage.removeItem(this.storageKey);
-            console.log('Saved game state cleared');
         } catch (error) {
             console.error('Failed to clear saved state:', error);
         }

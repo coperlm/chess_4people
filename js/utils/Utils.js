@@ -173,7 +173,6 @@ class Utils {
         
         // 同时在控制台输出
         const prefix = type === 'error' ? '❌' : type === 'warning' ? '⚠️' : type === 'success' ? '✅' : 'ℹ️';
-        console.log(`${prefix} ${message}`);
     }
     
     /**

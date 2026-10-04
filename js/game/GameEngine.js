@@ -72,7 +72,6 @@ class GameEngine {
             return false;
         }
         
-        console.log('✅ 游戏组件初始化检查通过');
         return true;
     }
     
@@ -81,7 +80,6 @@ class GameEngine {
      */
     initialize() {
         try {
-            console.log('🔧 初始化游戏引擎...');
             
             // 检查初始化状态
             if (!this.checkInitialization()) {
@@ -90,15 +88,12 @@ class GameEngine {
             
             // 更新规则验证器和棋子管理器的引用
             this.updateReferences();
-            console.log('✅ 对象引用关系更新完成');
             
             // 绑定事件
             this.bindEvents();
-            console.log('✅ 事件绑定完成');
             
             // 初始化界面
             this.updateUI();
-            console.log('✅ 游戏引擎初始化完成');
             
         } catch (error) {
             console.error('❌ 游戏引擎初始化失败:', error);
@@ -155,33 +150,27 @@ class GameEngine {
             return;
         }
         try {
-            console.log('🎮 开始新游戏...');
             
             this.gameState.reset();
-            console.log('✅ 游戏状态重置完成');
             
             // 应用房间规则（本地与联机统一取设置，设置由“对局设置”弹窗维护）
             this.gameState.setRules(window.onlineSession ? window.onlineSession.settings : Config.DEFAULT_RULES);
+            
+            // 先进入 playing 再渲染，保证起手就高亮当前方
+            this.gameState.startGame();
             
             // 新开一局，清掉旧存档
             if (this.persistence) this.persistence.clearSavedState();
             
             this.boardRenderer.reset();
-            console.log('✅ 棋盘渲染器重置完成');
             
             this.isGameActive = true;
             this.gameStartTime = Date.now();
             
-            this.gameState.startGame();
-            console.log('✅ 游戏状态设置为playing');
-            
             this.updateUI();
-            console.log('✅ UI更新完成');
             
             Utils.showMessage('新游戏开始！红方先行', 'success');
             
-            console.log('🎯 游戏开始 - 初始棋盘状态：');
-            console.log(this.pieceManager.getBoardText());
             
             // 联机：房主开局后广播初始局面
             if (window.onlineSession && window.onlineSession.active && window.onlineSession.isHost) {
@@ -254,7 +243,6 @@ class GameEngine {
      */
     onMoveCompleted() {
         try {
-            console.log('🎯 处理移动完成，当前玩家:', this.gameState.currentPlayer);
             
             // 更新界面
             this.updateUI();
@@ -277,7 +265,6 @@ class GameEngine {
             // 自动保存游戏状态（如果需要）
             this.autoSave();
             
-            console.log('✅ 移动处理完成');
         } catch (error) {
             console.error('❌ 移动处理失败:', error);
             Utils.showMessage('移动处理出错: ' + error.message, 'error');
@@ -409,7 +396,6 @@ class GameEngine {
             const currentPlayerElement = document.getElementById('currentPlayer');
             if (currentPlayerElement) {
                 const currentPlayer = this.gameState.currentPlayer;
-                console.log(`🎯 更新当前玩家显示: ${currentPlayer}`);
                 
                 const playerInfo = Config.PLAYER_COLORS[currentPlayer];
                 if (!playerInfo) {
@@ -419,7 +405,6 @@ class GameEngine {
                 currentPlayerElement.textContent = playerInfo.name;
                 currentPlayerElement.className = playerInfo.color;
                 
-                console.log(`✅ 当前玩家显示更新为: ${playerInfo.name}`);
             } else {
                 console.warn('⚠️ 找不到 currentPlayer 元素');
             }
@@ -536,9 +521,9 @@ class GameEngine {
                 break;
             case 'n':
                 if (e.ctrlKey) {
-                    // Ctrl+N 新游戏
+                    // Ctrl+N 与「新游戏」按钮一致：打开对局设置
                     e.preventDefault();
-                    this.startNewGame();
+                    if (window.gameInterface && window.gameInterface.openSetup) window.gameInterface.openSetup();
                 }
                 break;
         }
@@ -568,7 +553,6 @@ class GameEngine {
                 endTime: Date.now()
             };
             
-            console.log('游戏统计:', stats);
             
             // 这里可以发送到服务器或保存到本地存储
         } catch (error) {

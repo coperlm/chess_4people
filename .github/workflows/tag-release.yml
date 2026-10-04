@@ -1,0 +1,38 @@
+name: Auto Tag & Release
+
+# 只要把 package.json 的 version 改大并 push，就自动打上同名 tag 并创建 Release。
+# 应用内的版本号是“运行时读取 package.json”，所以无需别处再改。
+on:
+  push:
+    branches: [ "回溯到不登录", main, master ]
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 按 package.json 自动打标签 / 发布
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v$VERSION"
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "标签 $TAG 已存在，跳过"
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "$TAG"
+          git push origin "$TAG"
+          if [ -f CHANGELOG.md ]; then
+            gh release create "$TAG" --title "$TAG" --notes-file CHANGELOG.md || true
+          else
+            gh release create "$TAG" --title "$TAG" --generate-notes || true
+          fi

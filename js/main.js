@@ -21,7 +21,6 @@ class ChessGameApp {
      */
     async initialize() {
         try {
-            console.log('🎮 四人象棋游戏初始化开始...');
             
             // 显示加载状态
             this.showInitialLoading();
@@ -33,11 +32,9 @@ class ChessGameApp {
             
             // 初始化游戏引擎（单机模式）
             this.gameEngine = new GameEngine();
-            console.log('✅ 游戏引擎初始化完成');
             
             // 初始化游戏界面
             this.gameInterface = new GameInterface(this.gameEngine);
-            console.log('✅ 游戏界面初始化完成');
             
             // 暴露到全局作用域（用于调试）
             window.gameEngine = this.gameEngine;
@@ -61,7 +58,6 @@ class ChessGameApp {
                 Utils.showMessage('🎉 四人象棋游戏加载完成！点击"新游戏"开始', 'success');
             }, 500);
             
-            console.log('🎯 四人象棋游戏初始化完成！');
             
             // 优先尝试恢复联机对局；否则用 ?room= 分享链接自动加入；否则检查单机自动存档
             const os = window.onlineSession;
@@ -210,8 +206,6 @@ class ChessGameApp {
                 
                 // 如果是开发环境，显示更详细的错误
                 if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-                    console.log('🔧 开发模式 - 详细错误信息:');
-                    console.log('Stack trace:', event.error?.stack);
                 }
             }
         });
@@ -302,13 +296,10 @@ class ChessGameApp {
 }
 
 // 创建并启动应用
-console.log('🚀 启动四人象棋游戏...');
 const chessApp = new ChessGameApp();
 
 // 开发环境下的调试工具
 if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    console.log('🔧 开发模式已启用');
-    
     // 添加调试快捷键
     document.addEventListener('keydown', (e) => {
         if (e.ctrlKey && e.shiftKey) {
@@ -321,22 +312,7 @@ if (window.location.hostname === 'localhost' || window.location.hostname === '12
                     e.preventDefault();
                     chessApp.restart();
                     break;
-                case 'D':
-                    e.preventDefault();
-                    console.log('当前游戏状态:', window.gameEngine ? window.gameEngine.gameState : '未初始化');
-                    break;
             }
         }
     });
-    
-    // 添加开发者工具提示
-    console.log(`
-    🛠️  开发者快捷键：
-    Ctrl+Shift+I - 显示应用信息
-    Ctrl+Shift+R - 重启应用
-    Ctrl+Shift+D - 显示游戏状态
-    Ctrl+Z - 悔棋
-    Ctrl+N - 新游戏
-    ESC - 取消选择
-    `);
 }

@@ -57,6 +57,21 @@ npm run serve        # 打开 http://localhost:8080
 
 > 更新后如仍看到旧界面：是浏览器/Service Worker 缓存，**刷新两次**或 Ctrl+Shift+R。
 
+## 🔖 发布新版本（版本号自动同步）
+
+版本号**只在一处维护**：`package.json` 的 `version`。
+- 页面顶部显示的版本号是**运行时读取 `package.json`**，自动跟着变；
+- CI 在 push 时会**按它自动打 tag（`vX.Y.Z`）并创建 Release（附 CHANGELOG）**，无需手动 `git tag`。
+
+```bash
+# 1) 改 package.json 的 "version"（例如 2.0.2 -> 2.0.3）
+# 2) 提交并推送
+git commit -am "chore: bump version to 2.0.3"
+git push
+```
+推送后（工作流 `Auto Tag & Release`）会自动：**打标签 `v2.0.3` → 创建 Release**。
+> 同一版本重复推送时（标签已存在）会跳过，不会报错或重复。
+
 ## 🛠️ 开发
 
 ```

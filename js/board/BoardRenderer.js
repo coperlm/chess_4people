@@ -27,7 +27,6 @@ class BoardRenderer {
             // 防抖：延迟300ms后重新渲染
             clearTimeout(this.resizeTimer);
             this.resizeTimer = setTimeout(() => {
-                console.log('屏幕尺寸改变，重新渲染棋盘');
                 this.initializeBoard();
             }, 300);
         });
@@ -35,7 +34,6 @@ class BoardRenderer {
         // 监听屏幕方向改变
         window.addEventListener('orientationchange', () => {
             setTimeout(() => {
-                console.log('屏幕方向改变，重新渲染棋盘');
                 this.initializeBoard();
             }, 100);
         });
@@ -108,8 +106,6 @@ class BoardRenderer {
         const finalCellSize = Math.max(24, Math.min(cellSize, 70));
         const finalRiverWidth = Math.max(2, Math.min(riverWidth, 5));
         
-        console.log('屏幕尺寸:', screenWidth, 'x', screenHeight);
-        console.log('计算棋盘 - 格子:', finalCellSize, 'px, 河界:', finalRiverWidth, 'px');
         
         return {
             cellSize: finalCellSize,
@@ -338,6 +334,11 @@ class BoardRenderer {
         pieceElement.classList.add(colorInfo.bg);
         pieceElement.classList.add(colorInfo.border);
         
+        // 轮到该方走棋时，其棋子加柔和高亮（便于识别现在轮到谁）
+        if (this.gameState.gamePhase === 'playing' && piece.player === this.gameState.currentPlayer) {
+            pieceElement.classList.add('turn-active');
+        }
+        
         // 设置棋子文字
         pieceElement.textContent = piece.getName();
         
@@ -473,17 +474,13 @@ class BoardRenderer {
      */
     executeMove(fromX, fromY, toX, toY) {
         try {
-            console.log(`🚀 执行移动: (${fromX},${fromY}) -> (${toX},${toY})`);
             
             const piece = this.gameState.getPiece(fromX, fromY);
             const capturedPiece = this.gameState.getPiece(toX, toY);
             
-            console.log('移动棋子:', piece ? `${piece.type}(${piece.player})` : 'null');
-            console.log('移动前当前玩家:', this.gameState.currentPlayer);
             
             // 执行移动
             if (this.gameState.movePiece(fromX, fromY, toX, toY)) {
-                console.log('移动后当前玩家:', this.gameState.currentPlayer);
                 
                 // 播放移动音效（如果有）
                 this.playMoveSound();
@@ -503,13 +500,11 @@ class BoardRenderer {
                 
                 // 通知游戏引擎更新状态
                 if (window.gameEngine) {
-                    console.log('📢 通知游戏引擎更新状态');
                     window.gameEngine.onMoveCompleted();
                 } else {
                     console.warn('⚠️ window.gameEngine 不存在');
                 }
             } else {
-                console.log('❌ 移动失败');
             }
         } catch (error) {
             console.error('❌ 执行移动时出错:', error);
@@ -617,20 +612,16 @@ class BoardRenderer {
      */
     reset() {
         try {
-            console.log('🔄 重置棋盘渲染器...');
             
             this.clearSelection();
-            console.log('✅ 清除选择状态完成');
             
             if (this.boardElement) {
                 this.boardElement.style.pointerEvents = 'auto';
-                console.log('✅ 启用棋盘交互');
             } else {
                 console.warn('⚠️ boardElement 不存在');
             }
             
             this.renderPieces();
-            console.log('✅ 棋盘重置完成');
             
         } catch (error) {
             console.error('❌ 重置棋盘时出错:', error);
