@@ -139,10 +139,19 @@ class Replay {
                 const data = this.parse(String(r.result));
                 if (data.signature) {
                     const ok = await this.verify(data);
-                    if (!ok) Utils.showMessage('⚠️ 回放签名不匹配，文件可能被修改过', 'error');
+                    if (!ok) {
+                        const go = confirm('⚠️ 回放签名不匹配，文件可能被修改过。\n仍要查看吗？');
+                        if (!go) { this._sigBad = false; return; }
+                        this._sigBad = true;
+                        Utils.showMessage('回放签名不匹配（文件可能被修改）', 'error');
+                    } else {
+                        this._sigBad = false;
+                    }
                 } else {
+                    this._sigBad = false;
                     Utils.showMessage('该回放没有签名（可能被手动编辑过）', 'warning');
                 }
+                if (!data.moves.length) { Utils.showMessage('该对局还没有走子记录', 'info'); return; }
                 this.enter(data);
             } catch (err) {
                 Utils.showMessage('回放文件解析失败: ' + err.message, 'error');
@@ -163,9 +172,11 @@ class Replay {
         const meta = {};
         const moves = [];
         const eliminations = [];
+        let headerSeen = false;
         for (const raw of body.split(/\r?\n/)) {
             const line = raw.trim();
             if (!line) continue;
+            if (/^四人象棋对局记录/.test(line)) { headerSeen = true; continue; }
             const m = line.match(/^(\d+)\.\s*\S+\s+\S+\s*\((\d+),(\d+)\)->\((\d+),(\d+)\)/);
             if (m) { moves.push({ from: [+m[2], +m[3]], to: [+m[4], +m[5]] }); continue; }
             const em = line.match(/^淘汰\s+(\S+)\s+(\d+)$/);
@@ -175,9 +186,13 @@ class Replay {
                 continue;
             }
             const kv = line.match(/^([^:：]+)[:：]\s*(.*)$/);
-            if (kv) meta[kv[1].trim()] = kv[2].trim();
+            if (kv) {
+                meta[kv[1].trim()] = kv[2].trim();
+                if (kv[1].trim() === '走子数') headerSeen = true;
+            }
         }
-        if (!moves.length) throw new Error('未找到走子记录');
+        // 完全没有走子时：只要有本平台的头部标记，就当作“空对局”而非报错
+        if (!moves.length && !headerSeen) throw new Error('不是有效的对局记录');
         const rules = Object.assign({}, Config.DEFAULT_RULES);
         if (meta['模式'] === '四人混战') rules.mode = Config.MODES.FFA;
         if (meta['胜利条件'] === '仅剩一队') rules.victory = Config.VICTORY.LAST_TEAM;
@@ -234,7 +249,8 @@ class Replay {
         if (this.el && this.el.status) {
             const last = index > 0 ? this.moves[index - 1] : null;
             const mv = last ? `(${last.from[0]},${last.from[1]})->(${last.to[0]},${last.to[1]})` : '初始局面';
-            this.el.status.textContent = `回放 ${index}/${this.moves.length} 步：${mv}`;
+            const flag = this._sigBad ? '⚠️ 签名不匹配 ' : '';
+            this.el.status.textContent = `${flag}回放 ${index}/${this.moves.length} 步：${mv}`;
         }
     }
 

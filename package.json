@@ -5,7 +5,7 @@
   "main": "index.html",
   "scripts": {
     "dev": "live-server --port=3000",
-    "test": "node test/logic.test.js && node test/online.test.js && node test/replay.test.js",    "build-css": "tailwindcss -i ./css/input.css -o ./css/output.css --watch",
+    "test": "node test/logic.test.js && node test/online.test.js && node test/replay.test.js && node test/deep.test.js",    "build-css": "tailwindcss -i ./css/input.css -o ./css/output.css --watch",
     "start": "electron .",
     "serve": "node server.js",
     "build:win": "electron-builder --win --x64",

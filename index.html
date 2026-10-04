@@ -53,9 +53,6 @@
                         <button id="onlineOpenBtn" class="online-btn online-btn--join">联机</button>
                     </div>
                     <div class="online-row">
-                        <button id="newGameBtn" class="online-btn online-btn--start">新游戏</button>
-                    </div>
-                    <div class="online-row">
                         <button id="undoBtn" class="online-btn online-btn--leave" disabled>悔棋</button>
                         <button id="surrenderBtn" class="online-btn online-btn--leave" disabled>认输</button>
                     </div>
@@ -89,10 +86,10 @@
                 <div class="bg-white rounded-lg shadow-lg p-4 mt-4">
                     <h3 class="text-base font-bold mb-2">玩家信息</h3>
                     <div class="piece-counts">
-                        <span class="pc pc--red">红(下) <b id="redPieces">10</b></span>
-                        <span class="pc pc--blue">蓝(上) <b id="bluePieces">10</b></span>
-                        <span class="pc pc--green">绿(右) <b id="greenPieces">10</b></span>
-                        <span class="pc pc--black">黑(左) <b id="blackPieces">10</b></span>
+                        <span class="pc pc--black">黑(左上) <b id="blackPieces">10</b></span>
+                        <span class="pc pc--blue">蓝(右上) <b id="bluePieces">10</b></span>
+                        <span class="pc pc--red">红(左下) <b id="redPieces">10</b></span>
+                        <span class="pc pc--green">绿(右下) <b id="greenPieces">10</b></span>
                     </div>
                 </div>
             </div>
@@ -107,7 +104,10 @@
     <!-- 对局设置弹窗 -->
     <div id="setupModal" class="modal-overlay hidden">
         <div class="modal-box">
-            <h3 class="modal-title">对局设置</h3>
+            <div class="modal-head">
+                <h3 class="modal-title">对局设置</h3>
+                <button class="modal-x" data-close="setupModal" title="关闭">✕</button>
+            </div>
 
             <div class="setup-group">
                 <div class="setup-label">对局方式</div>
@@ -141,7 +141,6 @@
             <div class="modal-actions">
                 <button id="startLocalBtn" class="online-btn online-btn--start hidden">开始本地对局</button>
                 <button id="openRulesBtn" class="online-btn online-btn--copy">游戏规则</button>
-                <button id="setupCloseBtn" class="online-btn online-btn--leave">关闭</button>
             </div>
         </div>
     </div>
@@ -149,7 +148,10 @@
     <!-- 游戏规则弹窗 -->
     <div id="rulesModal" class="modal-overlay hidden">
         <div class="modal-box modal-box--wide">
-            <h3 class="modal-title">游戏规则</h3>
+            <div class="modal-head">
+                <h3 class="modal-title">游戏规则</h3>
+                <button class="modal-x" data-close="rulesModal" title="关闭">✕</button>
+            </div>
             <div class="rules-body">
                 <h4>棋盘</h4>
                 <ul>
@@ -193,16 +195,16 @@
                     <li>点击棋子选中，再点目标位置落子；<b>ESC</b> 取消选择，<b>Ctrl+Z</b> 悔棋，<b>Ctrl+N</b> 开新局。</li>
                 </ul>
             </div>
-            <div class="modal-actions">
-                <button id="rulesCloseBtn" class="online-btn online-btn--leave">关闭</button>
-            </div>
         </div>
     </div>
 
     <!-- 联机弹窗 -->
     <div id="onlineModal" class="modal-overlay hidden">
         <div class="modal-box">
-            <h3 class="modal-title">联机对局</h3>
+            <div class="modal-head">
+                <h3 class="modal-title">联机对局</h3>
+                <button class="modal-x" data-close="onlineModal" title="关闭">✕</button>
+            </div>
             <label class="online-label" for="roomCodeInput">房间号</label>
             <input id="roomCodeInput" class="online-input" type="text" maxlength="8" placeholder="例如 ab3k（创建时自动生成）">
             <div class="online-row">
@@ -210,29 +212,26 @@
                 <button id="joinRoomBtn" class="online-btn online-btn--join">加入房间</button>
             </div>
             <button id="copyInviteBtn" class="online-btn online-btn--copy hidden">复制邀请链接</button>
-            <button id="startOnlineBtn" class="online-btn online-btn--start hidden" disabled>开始对局（房主）</button>
+            <button id="startOnlineBtn" class="online-btn online-btn--start hidden" disabled>开始 / 重开对局（房主）</button>
             <button id="leaveRoomBtn" class="online-btn online-btn--leave hidden">离开房间</button>
             <div id="onlineStatus" class="online-status">未联机</div>
             <div id="onlineRoster" class="online-roster"></div>
-            <div class="modal-actions">
-                <button id="onlineCloseBtn" class="online-btn online-btn--leave">关闭</button>
-            </div>
         </div>
     </div>
 
     <!-- 对局记录弹窗 -->
     <div id="replayModal" class="modal-overlay hidden">
         <div class="modal-box">
-            <h3 class="modal-title">对局记录</h3>
+            <div class="modal-head">
+                <h3 class="modal-title">对局记录</h3>
+                <button class="modal-x" data-close="replayModal" title="关闭">✕</button>
+            </div>
             <div class="online-row">
                 <button id="exportReplayBtn" class="online-btn online-btn--create">导出回放</button>
                 <button id="importReplayBtn" class="online-btn online-btn--join">导入回放</button>
             </div>
             <input id="importReplayInput" type="file" accept=".txt,text/plain" class="hidden">
             <div class="online-status">导出为带签名的纯文本；导入后底部会出现回放控制条。</div>
-            <div class="modal-actions">
-                <button id="replayCloseBtn" class="online-btn online-btn--leave">关闭</button>
-            </div>
         </div>
     </div>
 

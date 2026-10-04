@@ -324,7 +324,8 @@ class OnlineSession {
     }
 
     startMatch() {
-        if (!this.active || !this.isHost || this.started) return;
+        if (!this.active || !this.isHost) return;
+        if (this.started && this.gameEngine.gameState.gamePhase !== 'finished') return;
         this._readSettingsFromUI();
         const n = this.participants.length;
         const min = this._minPlayers();
@@ -758,7 +759,8 @@ class OnlineSession {
     _updateStartBtn() {
         if (!this.el || !this.el.start) return;
         const min = this._minPlayers();
-        this.el.start.disabled = !(this.isHost && this.active && !this.started && this.participants.length >= min);
+        const finished = this.gameEngine && this.gameEngine.gameState.gamePhase === 'finished';
+        this.el.start.disabled = !(this.isHost && this.active && this.participants.length >= min && (!this.started || finished));
     }
     _setStatus(text, kind) {
         if (this.el && this.el.status) {

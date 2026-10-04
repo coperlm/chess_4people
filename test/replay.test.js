@@ -90,6 +90,14 @@ const SAMPLE = [
   try { rp.parse('这不是回放文件'); } catch (e) { threw = true; }
   t('非法文件会抛错', threw);
 
+  // 空对局（有头部标记、0 步）应被接受为空，而非报错
+  const emptyTxt = ['四人象棋对局记录', '版本: 1', '走子数: 0', '走子:'].join('\n');
+  const de = rp.parse(emptyTxt);
+  t('空对局解析为 0 步且不报错', de.moves.length === 0);
+  let threw2 = false;
+  try { rp.parse('随便一段文字\n没有头部标记'); } catch (e) { threw2 = true; }
+  t('完全无头部的文件仍报错', threw2);
+
   console.log(`\n回放测试: ${pass} 通过, ${fail} 失败`);
   if (fail) { console.log('\n失败项:'); failures.forEach(f => console.log('  ✗ ' + f)); process.exit(1); }
   console.log('✅ 全部通过');

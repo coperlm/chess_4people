@@ -58,9 +58,14 @@ class GameInterface {
         bind('replayOpenBtn', () => this.openReplay());
         bind('rulesOpenBtn', () => this.openRules());
         bind('openRulesBtn', () => this.openRules());
-        bind('rulesCloseBtn', () => this.closeRules());
-        bind('onlineCloseBtn', () => this.closeOnline());
-        bind('replayCloseBtn', () => this.closeReplay());
+
+        // 统一：右上角 ✕ 关闭 + 点击遮罩关闭
+        document.querySelectorAll('.modal-x').forEach(btn => {
+            btn.addEventListener('click', () => this.closeModalById(btn.dataset.close));
+        });
+        document.querySelectorAll('.modal-overlay').forEach(ov => {
+            ov.addEventListener('click', (e) => { if (e.target === ov) ov.classList.add('hidden'); });
+        });
     }
 
     openModal(id) { const m = document.getElementById(id); if (m) m.classList.remove('hidden'); }
