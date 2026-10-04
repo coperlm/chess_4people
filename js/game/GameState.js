@@ -13,6 +13,7 @@ class GameState {
         // 房间规则（模式 / 胜利条件 / 友伤）
         this.rules = Object.assign({}, Config.DEFAULT_RULES);
         this.eliminationOrder = []; // 被淘汰玩家的先后顺序
+        this.eliminationLog = [];   // [{player, atMove}] 淘汰事件（用回放记录）
         this.ranking = null;        // 结算排名（从高到低）
         
         // 玩家棋子计数
@@ -198,6 +199,9 @@ class GameState {
         }
         this.pieceCounts[player] = 0;
         if (!this.eliminationOrder.includes(player)) this.eliminationOrder.push(player);
+        if (!this.eliminationLog.some(e => e.player === player)) {
+            this.eliminationLog.push({ player, atMove: this.moveHistory.length });
+        }
     }
     
     /**
@@ -314,6 +318,7 @@ class GameState {
         this.winner = null;
         this.turn = 1;
         this.eliminationOrder = [];
+        this.eliminationLog = [];
         this.ranking = null;
         this.pieceCounts = { 0: 10, 1: 10, 2: 10, 3: 10 };
         this.initializePieces();

@@ -153,6 +153,15 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   t('玩家的走子经房主校验后生效', !!hp && hp.player === 2, JSON.stringify(hp));
   t('房主端当前玩家轮转到 蓝(1)', hostEngine.gameState.currentPlayer === 1);
 
+  // 移动历史：玩家端也应同步（修“非房主历史为空”）
+  t('玩家端移动历史非空', peerEngine.gameState.moveHistory.length === 2, 'peer history=' + peerEngine.gameState.moveHistory.length);
+
+  // 快照携带 moveHistory（重连/重同步后历史不丢，且 captured 会被还原为棋子对象）
+  const snap = host._snapshot();
+  t('快照包含 moveHistory', Array.isArray(snap.moveHistory) && snap.moveHistory.length === 2);
+  peer._onState(Object.assign({}, snap, { seq: snap.seq }));
+  t('重同步后玩家端历史保留', peerEngine.gameState.moveHistory.length === 2, 'peer history=' + peerEngine.gameState.moveHistory.length);
+
   // 非法：玩家尝试移动红方(房主的颜色) -> 应被拒绝，不改变状态
   const before = hostEngine.gameState.turn;
   peer.requestMove(3, 9, 4, 9); // 红兵，属于[0,1]
@@ -171,6 +180,11 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   host.requestResign(2);
   await tick(); await tick();
   t('淘汰结果已广播到玩家端', peerEngine.gameState.pieceCounts[2] === 0 && peerEngine.gameState.getPiece(9, 9) === null);
+
+  // 房主失联接任：选举 + 接任
+  t('选举取最小 id', peer._leaderAmong(['c', 'a', 'b']) === 'a');
+  peer._becomeHost();
+  t('接任后 isHost=true 且名册含自己', peer.isHost === true && peer.participants.some(p => p.token === peer.token));
 
   // 离开房间：房主保留席位（等待重连），只是标记离线
   await peer.leave(); await tick();

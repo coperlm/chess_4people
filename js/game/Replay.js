@@ -1,4 +1,16 @@
-// 对局回放：导出为纯文本(.txt)、导入后逐手查看
+// 对局回放：导出为纯文本(.txt，带签名)、导入后逐手查看
+function cyrb53hex(str, seed = 0) {
+    let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
+    for (let i = 0; i < str.length; i++) {
+        const ch = str.charCodeAt(i);
+        h1 = Math.imul(h1 ^ ch, 2654435761);
+        h2 = Math.imul(h2 ^ ch, 1597334677);
+    }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16);
+}
+
 class Replay {
     constructor(gameEngine) {
         this.ge = gameEngine;
@@ -28,7 +40,7 @@ class Replay {
             exit: $('replayExitBtn'),
             status: $('replayStatus')
         };
-        if (this.el.export) this.el.export.addEventListener('click', () => this.exportFile());
+        if (this.el.export) this.el.export.addEventListener('click', () => { this.exportFile().catch(() => {}); });
         if (this.el.import) this.el.import.addEventListener('click', () => { if (this.el.file) this.el.file.click(); });
         if (this.el.file) this.el.file.addEventListener('change', e => this._onFile(e));
         if (this.el.first) this.el.first.addEventListener('click', () => this.goto(0));
@@ -49,7 +61,7 @@ class Replay {
     }
 
     // ---------- 导出 ----------
-    exportFile() {
+    async exportFile() {
         const gs = this.ge.gameState;
         const st = (window.onlineSession && window.onlineSession.settings) || Config.DEFAULT_RULES;
         const hist = gs.moveHistory || [];
@@ -73,8 +85,15 @@ class Replay {
             const cap = mv.captured ? ` 吃${Config.PIECE_NAMES[mv.captured.player][mv.captured.type]}` : '';
             lines.push(`${i + 1}. ${pname} ${piece} (${mv.from.x},${mv.from.y})->(${mv.to.x},${mv.to.y})${cap}`);
         });
+        if (gs.eliminationLog && gs.eliminationLog.length) {
+            gs.eliminationLog.forEach(e => lines.push(`淘汰 ${Config.PLAYER_COLORS[e.player].name} ${e.atMove}`));
+        }
 
-        const text = lines.join('\n') + '\n';
+        const content = lines.join('\n');
+        let signature = '';
+        try { signature = await this._sign(content); } catch (e) { signature = ''; }
+        const text = '签名: ' + signature + '\n' + content;
+
         try {
             const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
             const a = document.createElement('a');
@@ -84,10 +103,30 @@ class Replay {
             a.click();
             a.remove();
             setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-            Utils.showMessage('已导出回放', 'success');
+            Utils.showMessage('已导出回放（含签名）', 'success');
         } catch (e) {
             Utils.showMessage('导出失败: ' + e.message, 'error');
         }
+    }
+
+    /**
+     * 计算签名：SHA-256(盐 + 正文)；无 WebCrypto 时退回 cyrb53
+     */
+    async _sign(text) {
+        const full = Config.SIGN_SALT + '|' + text;
+        if (globalThis.crypto && globalThis.crypto.subtle && globalThis.TextEncoder) {
+            const buf = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(full));
+            return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+        return cyrb53hex(full);
+    }
+
+    /**
+     * 校验签名（自动把盐拼回正文再算哈希比对）
+     */
+    async verify(data) {
+        if (!data || !data.signature) return false;
+        try { return (await this._sign(data.body)) === data.signature; } catch (e) { return false; }
     }
 
     // ---------- 导入 ----------
@@ -95,9 +134,15 @@ class Replay {
         const f = e.target.files && e.target.files[0];
         if (!f) return;
         const r = new FileReader();
-        r.onload = () => {
+        r.onload = async () => {
             try {
                 const data = this.parse(String(r.result));
+                if (data.signature) {
+                    const ok = await this.verify(data);
+                    if (!ok) Utils.showMessage('⚠️ 回放签名不匹配，文件可能被修改过', 'error');
+                } else {
+                    Utils.showMessage('该回放没有签名（可能被手动编辑过）', 'warning');
+                }
                 this.enter(data);
             } catch (err) {
                 Utils.showMessage('回放文件解析失败: ' + err.message, 'error');
@@ -108,13 +153,27 @@ class Replay {
     }
 
     parse(text) {
+        let body = String(text);
+        let signature = null;
+        const nl = body.indexOf('\n');
+        if (nl >= 0) {
+            const sm = body.slice(0, nl).trim().match(/^签名[:：]\s*(.*)$/);
+            if (sm) { signature = sm[1].trim(); body = body.slice(nl + 1); }
+        }
         const meta = {};
         const moves = [];
-        for (const raw of String(text).split(/\r?\n/)) {
+        const eliminations = [];
+        for (const raw of body.split(/\r?\n/)) {
             const line = raw.trim();
             if (!line) continue;
             const m = line.match(/^(\d+)\.\s*\S+\s+\S+\s*\((\d+),(\d+)\)->\((\d+),(\d+)\)/);
             if (m) { moves.push({ from: [+m[2], +m[3]], to: [+m[4], +m[5]] }); continue; }
+            const em = line.match(/^淘汰\s+(\S+)\s+(\d+)$/);
+            if (em) {
+                const idx = Object.keys(Config.PLAYER_COLORS).find(k => Config.PLAYER_COLORS[k].name === em[1]);
+                if (idx !== undefined) eliminations.push({ player: +idx, atMove: +em[2] });
+                continue;
+            }
             const kv = line.match(/^([^:：]+)[:：]\s*(.*)$/);
             if (kv) meta[kv[1].trim()] = kv[2].trim();
         }
@@ -123,7 +182,7 @@ class Replay {
         if (meta['模式'] === '四人混战') rules.mode = Config.MODES.FFA;
         if (meta['胜利条件'] === '仅剩一队') rules.victory = Config.VICTORY.LAST_TEAM;
         if (meta['友伤'] === '开') rules.friendlyFire = true;
-        return { meta, moves, rules };
+        return { meta, moves, rules, eliminations, signature, body };
     }
 
     // ---------- 回放 ----------
@@ -131,6 +190,7 @@ class Replay {
         if (!data || !data.moves || !data.moves.length) return;
         this.meta = data.meta || {};
         this.moves = data.moves;
+        this.eliminations = data.eliminations || [];
         this.rules = data.rules || Config.DEFAULT_RULES;
         const br = this.ge.boardRenderer;
         this._live = br.gameState;
@@ -151,6 +211,16 @@ class Replay {
         const gs = new GameState();
         gs.setRules(this.rules);
         for (let k = 0; k < index; k++) this._applyRaw(gs, this.moves[k].from, this.moves[k].to);
+        // 应用已经发生的淘汰（atMove <= 当前步数）
+        const elims = (this.eliminations || []).filter(e => e.atMove <= index).sort((a, b) => a.atMove - b.atMove);
+        for (const e of elims) {
+            for (let x = 0; x < Config.BOARD_SIZE; x++) {
+                for (let y = 0; y < Config.BOARD_SIZE; y++) {
+                    const pc = gs.board[x][y];
+                    if (pc && pc.player === e.player) gs.board[x][y] = null;
+                }
+            }
+        }
         this.replayState = gs;
         this.index = index;
 

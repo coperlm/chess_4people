@@ -33,6 +33,9 @@ class Config {
     // 默认房间规则
     static DEFAULT_RULES = { mode: 'team', victory: 'any_king', friendlyFire: false };
     
+    // 回放签名用盐（写死在源码里：只防普通修改，不防专业攻击）
+    static SIGN_SALT = 'chess4p::2026::lin';
+    
     // 玩家颜色配置
     static PLAYER_COLORS = {
         0: { name: '红方', color: 'text-red-600', bg: 'bg-red-100', border: 'border-red-400' },

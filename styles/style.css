@@ -1554,6 +1554,7 @@ video {
 .online-btn--create { background: #6366f1; flex: 1; }
 .online-btn--join { background: #14b8a6; flex: 1; }
 .online-btn--start { background: #16a34a; width: 100%; margin-top: .75rem; }
+.online-btn--copy { background: #0ea5e9; width: 100%; margin-top: .5rem; }
 .online-btn--leave { background: #9ca3af; width: 100%; margin-top: .5rem; }
 .online-status { font-size: .8rem; margin-top: .6rem; color: #4b5563; }
 .online-status--error { color: #dc2626; }

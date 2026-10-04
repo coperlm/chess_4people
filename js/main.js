@@ -57,9 +57,11 @@ class ChessGameApp {
             
             console.log('🎯 四人象棋游戏初始化完成！');
             
-            // 优先尝试恢复联机对局；否则检查单机自动存档
-            const resumed = window.onlineSession && window.onlineSession.resumeIfAny && window.onlineSession.resumeIfAny();
-            if (!resumed) this.checkAutoSavedGame();
+            // 优先尝试恢复联机对局；否则用 ?room= 分享链接自动加入；否则检查单机自动存档
+            const os = window.onlineSession;
+            const resumed = os && os.resumeIfAny && os.resumeIfAny();
+            const joined = !resumed && os && os.autoJoinFromUrl && os.autoJoinFromUrl();
+            if (!resumed && !joined) this.checkAutoSavedGame();
             
         } catch (error) {
             console.error('❌ 游戏初始化失败:', error);
