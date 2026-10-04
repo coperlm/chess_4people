@@ -92,15 +92,11 @@ class GameInterface {
      * 调整棋盘大小
      */
     adjustBoardSize() {
-        const boardContainer = document.querySelector('.lg\\:w-2\\/4');
-        const board = document.getElementById('chessBoard');
-        
-        if (board && boardContainer) {
-            const containerWidth = boardContainer.clientWidth;
-            const maxSize = Math.min(containerWidth - 40, window.innerHeight - 200);
-            
-            board.style.maxWidth = `${maxSize}px`;
-            board.style.maxHeight = `${maxSize}px`;
+        // 棋盘尺寸由 BoardRenderer 按屏幕/所在栏宽度统一计算。
+        // 不再用 maxWidth 裁剪容器：那会把底板压小、而网格仍是固定像素，导致“棋子超出底板”。
+        const renderer = this.gameEngine && this.gameEngine.boardRenderer;
+        if (renderer && typeof renderer.initializeBoard === 'function') {
+            renderer.initializeBoard();
         }
     }
     

@@ -1518,6 +1518,51 @@ video {
   background-color: rgb(180 83 9 / var(--tw-bg-opacity, 1));
 }
 
+/* ===== 联机对局面板（不依赖 Tailwind，避免编译后的工具类缺失导致按钮不可见） ===== */
+.online-panel {
+  background: #fff;
+  border-radius: .5rem;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / .1), 0 4px 6px -4px rgb(0 0 0 / .1);
+  padding: 1.5rem;
+  margin-top: 1.5rem;
+}
+.online-title { font-size: 1.125rem; font-weight: 700; margin: 0 0 1rem; }
+.online-label { display: block; font-size: .875rem; color: #4b5563; margin: .6rem 0 .35rem; }
+.online-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #d1d5db;
+  border-radius: .375rem;
+  padding: .5rem .75rem;
+  font-size: .875rem;
+  background: #fff;
+  color: #111827;
+}
+.online-row { display: flex; gap: .5rem; margin-top: .6rem; }
+.online-btn {
+  border: 0;
+  border-radius: .375rem;
+  color: #fff;
+  padding: .55rem .75rem;
+  font-size: .875rem;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: filter .15s;
+}
+.online-btn:disabled { opacity: .5; cursor: not-allowed; }
+.online-btn:not(:disabled):hover { filter: brightness(1.1); }
+.online-btn--create { background: #6366f1; flex: 1; }
+.online-btn--join { background: #14b8a6; flex: 1; }
+.online-btn--start { background: #16a34a; width: 100%; margin-top: .75rem; }
+.online-btn--leave { background: #9ca3af; width: 100%; margin-top: .5rem; }
+.online-status { font-size: .8rem; margin-top: .6rem; color: #4b5563; }
+.online-roster { font-size: .8rem; margin-top: .25rem; color: #374151; }
+.online-roster > div { margin-top: .15rem; }
+
+/* 网格棋盘：格子尺寸由 JS 统一控制，禁用媒体查询里的 min-height 以免撑破网格 */
+.chess-cell { min-height: 0; }
+
+
 .hover\:bg-amber-800:hover {
   --tw-bg-opacity: 1;
   background-color: rgb(146 64 14 / var(--tw-bg-opacity, 1));

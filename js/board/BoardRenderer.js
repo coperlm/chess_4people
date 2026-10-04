@@ -80,8 +80,14 @@ class BoardRenderer {
         
         // 预留空间给标题、按钮、侧边栏等（根据屏幕方向调整）
         const isPortrait = screenHeight > screenWidth;
-        const availableWidth = isPortrait ? screenWidth * 0.95 : screenWidth * 0.6;
-        const availableHeight = isPortrait ? screenHeight * 0.5 : screenHeight * 0.7;
+        let availableWidth = isPortrait ? screenWidth * 0.95 : screenWidth * 0.6;
+        let availableHeight = isPortrait ? screenHeight * 0.5 : screenHeight * 0.7;
+        
+        // 以“棋盘所在栏”的实际宽度为上限，避免网格超出底板
+        const holder = this.boardElement && this.boardElement.closest('[class*="w-2/4"]');
+        if (holder && holder.clientWidth > 0) {
+            availableWidth = Math.min(availableWidth, holder.clientWidth - 30);
+        }
         
         // 取较小值作为棋盘可用空间
         const availableSize = Math.min(availableWidth, availableHeight);

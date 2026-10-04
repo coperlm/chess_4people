@@ -1,5 +1,5 @@
 // Service Worker：网络优先（保证代码更新能生效），离线时回退缓存
-const CACHE_NAME = 'chess-4p-v2';
+const CACHE_NAME = 'chess-4p-v3';
 const PRECACHE = [
   './',
   './index.html',
@@ -45,7 +45,8 @@ self.addEventListener('fetch', event => {
   if (url.origin !== self.location.origin) return;
 
   event.respondWith(
-    fetch(req)
+    // no-cache：每次都向服务器校验（走 304），避免浏览器 HTTP 缓存把旧代码一直返回
+    fetch(req, { cache: 'no-cache' })
       .then(res => {
         if (res && res.status === 200 && res.type === 'basic') {
           const copy = res.clone();

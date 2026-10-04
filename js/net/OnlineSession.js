@@ -14,7 +14,9 @@ class OnlineSession {
         this.selfId = null;
         this.hostId = null;
         this.myColors = [];
-        this.participants = [];   // 房主维护：[{ id, colors:[] }]
+        this.name = '';
+        this.mode = 'auto';       // 'auto' | '2' | '4'
+        this.participants = [];   // 房主维护：[{ id, colors:[], name }]
         this._roster = null;      // 玩家侧收到的名册
         this.seq = 0;
         this._lastSeq = 0;
@@ -28,6 +30,8 @@ class OnlineSession {
         const $ = id => document.getElementById(id);
         this.el = {
             code: $('roomCodeInput'),
+            name: $('playerNameInput'),
+            mode: $('modeSelect'),
             create: $('createRoomBtn'),
             join: $('joinRoomBtn'),
             status: $('onlineStatus'),
@@ -35,6 +39,7 @@ class OnlineSession {
             start: $('startOnlineBtn'),
             leave: $('leaveRoomBtn')
         };
+        if (this.el.mode) this.el.mode.addEventListener('change', () => this._updateStartBtn());
         if (this.el.create) this.el.create.addEventListener('click', () => this._onCreate());
         if (this.el.join) this.el.join.addEventListener('click', () => this._onJoin());
         if (this.el.start) this.el.start.addEventListener('click', () => this.startMatch());
@@ -78,6 +83,8 @@ class OnlineSession {
         this._lastSeq = 0;
         this.myColors = [];
         this.participants = [];
+        this.name = (this.el && this.el.name && this.el.name.value.trim()) || '';
+        if (isHost && this.el && this.el.mode) this.mode = this.el.mode.value;
 
         try {
             this.room = Trystero.joinRoom({ appId: this.appId, password: this.roomId }, this.roomId);
@@ -94,23 +101,26 @@ class OnlineSession {
         this.actIntent = this.room.makeAction('intent');
         this.actState = this.room.makeAction('state');
         this.actNotice = this.room.makeAction('notice');
+        this.actHello = this.room.makeAction('hello');
 
         this.actAssign.onMessage = d => this._onAssign(d);
         this.actRoster.onMessage = d => this._onRoster(d);
         this.actState.onMessage = d => this._onState(d);
         this.actNotice.onMessage = d => this._onNotice(d);
         this.actIntent.onMessage = (d, ctx) => this._onIntent(d, ctx.peerId);
+        this.actHello.onMessage = (d, ctx) => this._onHello(d, ctx.peerId);
 
         this.room.onPeerJoin = id => this._onPeerJoin(id);
         this.room.onPeerLeave = id => this._onPeerLeave(id);
 
         if (isHost) {
             this.hostId = this.selfId;
-            this.participants = [{ id: this.selfId, colors: [] }];
+            this.participants = [{ id: this.selfId, colors: [], name: this.name }];
             this._setStatus(`已创建房间「${this.roomId}」，把房间号发给朋友，等待加入…`, 'ok');
         } else {
             this._setStatus(`正在加入房间「${this.roomId}」…`, 'ok');
         }
+        if (this.el && this.el.mode) this.el.mode.disabled = !isHost;
 
         this._applyNetworkMode(true);
         if (this.el) {
@@ -140,6 +150,7 @@ class OnlineSession {
             if (this.el.create) this.el.create.disabled = false;
             if (this.el.join) this.el.join.disabled = false;
             if (this.el.start) this.el.start.classList.add('hidden');
+            if (this.el.mode) this.el.mode.disabled = false;
         }
         this._renderRoster();
         if (this._bound) this._setStatus('未联机', '');
@@ -147,6 +158,8 @@ class OnlineSession {
 
     // ================= 座位 / 开局 =================
     _groupsFor(n) {
+        if (this.mode === '2') return [[0, 1], [2, 3]];
+        if (this.mode === '4') return [[0], [1], [2], [3]];
         if (n >= 4) return [[0], [1], [2], [3]];
         if (n === 3) return [[0], [1], [2, 3]];
         if (n === 2) return [[0, 1], [2, 3]];
@@ -155,8 +168,10 @@ class OnlineSession {
 
     startMatch() {
         if (!this.active || !this.isHost || this.started) return;
+        if (this.el && this.el.mode) this.mode = this.el.mode.value;
         const n = this.participants.length;
         if (n < 2) { this._setStatus('至少需要 2 名玩家才能开始', 'error'); return; }
+        if (this.mode === '4' && n < 4) { this._setStatus(`四人对战需要 4 名玩家（当前 ${n} 人）`, 'error'); return; }
 
         const groups = this._groupsFor(n);
         this.participants.forEach((p, i) => { p.colors = groups[i] || []; });
@@ -199,7 +214,7 @@ class OnlineSession {
     _onPeerJoin(peerId) {
         if (this.isHost) {
             if (!this.participants.some(p => p.id === peerId)) {
-                this.participants.push({ id: peerId, colors: [] });
+                this.participants.push({ id: peerId, colors: [], name: '' });
             }
             this._broadcastRoster();
             if (this.started) {
@@ -209,6 +224,9 @@ class OnlineSession {
             }
             this._renderRoster();
             this._updateStartBtn();
+        } else {
+            // 玩家侧：向房主报到昵称
+            this._sendHello();
         }
     }
     _onPeerLeave(peerId) {
@@ -222,6 +240,19 @@ class OnlineSession {
             this.active = false;
             this.started = false;
             this._applyNetworkMode(false);
+        }
+    }
+
+    _sendHello() {
+        if (!this.isHost && this.room) this.actHello.send({ name: this.name });
+    }
+    _onHello(d, peerId) {
+        if (!this.isHost || !d) return;
+        const p = this.participants.find(p => p.id === peerId);
+        if (p) {
+            p.name = d.name || '';
+            this._broadcastRoster();
+            this._renderRoster();
         }
     }
 
@@ -376,34 +407,36 @@ class OnlineSession {
             hostId: this.selfId,
             count: this.participants.length,
             started: this.started,
-            assignments: this.participants.map(p => p.colors)
+            mode: this.mode,
+            seats: this.participants.map(p => ({ name: p.name || '', colors: p.colors }))
         });
     }
     _renderRoster() {
         if (!this.el || !this.el.roster) return;
+        const nameOf = (n, i) => Utils.escapeHtml(n ? n : `玩家${i + 1}`);
         if (this.isHost) {
             this.el.roster.innerHTML = this.participants.map((p, i) => {
                 const role = p.colors.length ? p.colors.map(c => Config.PLAYER_COLORS[c].name).join('+') : '待分配';
-                return `<div>#${i + 1} ${p.id === this.selfId ? '(房主/你)' : ''} ${Utils.escapeHtml(role)}</div>`;
+                return `<div>#${i + 1} ${nameOf(p.name, i)} ${p.id === this.selfId ? '(房主/你)' : ''} — ${Utils.escapeHtml(role)}</div>`;
             }).join('');
         } else if (this._roster) {
             const d = this._roster;
-            let html = `<div>房间内 ${d.count} 人</div>`;
-            if (d.assignments) {
-                html += d.assignments.map((cs, i) => {
-                    const role = (cs || []).length ? cs.map(c => Config.PLAYER_COLORS[c].name).join('+') : '待分配';
-                    return `<div>#${i + 1} ${Utils.escapeHtml(role)}</div>`;
-                }).join('');
-            }
+            let html = `<div>房间内 ${d.count} 人${d.mode && d.mode !== 'auto' ? '（' + d.mode + '人模式）' : ''}</div>`;
+            const seats = d.seats || (d.assignments || []).map(cs => ({ name: '', colors: cs }));
+            html += seats.map((s, i) => {
+                const role = (s.colors || []).length ? s.colors.map(c => Config.PLAYER_COLORS[c].name).join('+') : '待分配';
+                return `<div>#${i + 1} ${nameOf(s.name, i)} — ${Utils.escapeHtml(role)}</div>`;
+            }).join('');
             this.el.roster.innerHTML = html;
         } else {
             this.el.roster.innerHTML = '';
         }
     }
     _updateStartBtn() {
-        if (this.el && this.el.start) {
-            this.el.start.disabled = !(this.isHost && this.active && !this.started && this.participants.length >= 2);
-        }
+        if (!this.el || !this.el.start) return;
+        const mode = this.el.mode ? this.el.mode.value : this.mode;
+        const min = mode === '4' ? 4 : 2;
+        this.el.start.disabled = !(this.isHost && this.active && !this.started && this.participants.length >= min);
     }
     _setStatus(text, kind) {
         if (this.el && this.el.status) {

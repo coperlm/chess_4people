@@ -113,6 +113,21 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
   t('房主看到 2 名参与者', host.participants.length === 2, JSON.stringify(host.participants.map(p => p.id)));
 
+  // 昵称：玩家侧上报，房主记录
+  host.name = '甲'; peer.name = '乙';
+  peer._sendHello();
+  await tick(); await tick();
+  const peerEntry = host.participants.find(p => p.id !== host.selfId);
+  t('房主收到玩家昵称', !!peerEntry && peerEntry.name === '乙', JSON.stringify(host.participants.map(p => p.name)));
+
+  // 模式=四人 但只有 2 人 -> 应拒绝开始
+  host.mode = '4';
+  host.startMatch();
+  await tick();
+  t('四人对战人数不足时拒绝开始', host.started === false && hostEngine.gameState.gamePhase === 'ready');
+
+  // 模式=两人（各控一队）
+  host.mode = '2';
   host.startMatch();
   await tick(); await tick();
 
