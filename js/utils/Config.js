@@ -1,8 +1,7 @@
 // 游戏配置文件
 class Config {
-    static BOARD_SIZE = 10;  // 改为10x10，河界不再占用格子
+    static BOARD_SIZE = 10;  // 10x10，河界为两格之间的视觉分隔线
     static PLAYABLE_SIZE = 5;
-    static RIVER_POSITION = 5; // 河界在第5行/列之后（视觉分隔线）
     
     // 队伍配置（对角线队友）
     static TEAMS = {

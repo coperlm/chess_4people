@@ -1,7 +1,9 @@
 name: Deploy to GitHub Pages
 
 on:
+  # 只在“分支推送”时触发；标签推送不触发（GitHub Pages 环境不允许由 tag 部署）
   push:
+    branches: [ "回溯到不登录", main, master ]
   workflow_dispatch:
 
 permissions:
@@ -26,6 +28,8 @@ jobs:
 
   deploy:
     needs: test
+    # 兜底：仅分支可部署（tag/其它 ref 直接跳过）
+    if: github.ref_type == 'branch'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

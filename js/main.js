@@ -44,6 +44,12 @@ class ChessGameApp {
             window.gameInterface = this.gameInterface;
             window.chessApp = this;
             
+            // 顶部显示版本号（读取 package.json，单一来源）
+            fetch('./package.json')
+                .then(r => (r.ok ? r.json() : null))
+                .then(p => { const el = document.getElementById('appVersion'); if (el && p && p.version) el.textContent = 'v' + p.version; })
+                .catch(() => {});
+            
             // 隐藏加载状态
             this.hideInitialLoading();
             

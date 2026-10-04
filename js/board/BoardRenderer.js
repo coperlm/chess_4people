@@ -115,7 +115,7 @@ class BoardRenderer {
             cellSize: finalCellSize,
             riverWidth: finalRiverWidth,
             pieceSize: Math.floor(finalCellSize * 0.78), // 棋子是格子的78%
-            fontSize: Math.floor(finalCellSize * 0.3)    // 字体是格子的30%
+            fontSize: Math.floor(finalCellSize * 0.44)   // 字体随格子自适应
         };
     }
     

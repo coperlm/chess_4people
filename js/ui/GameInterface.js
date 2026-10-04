@@ -56,7 +56,6 @@ class GameInterface {
         bind('setupOpenBtn', () => this.openSetup());
         bind('replayOpenBtn', () => this.openReplay());
         bind('rulesOpenBtn', () => this.openRules());
-        bind('openRulesBtn', () => this.openRules());
 
         // 统一：右上角 ✕ 关闭 + 点击遮罩关闭
         document.querySelectorAll('.modal-x').forEach(btn => {
@@ -191,7 +190,6 @@ class GameInterface {
      */
     initializeTooltips() {
         // 为各种元素添加工具提示
-        this.addTooltip('#newGameBtn', '开始新的四人象棋游戏');
         this.addTooltip('#undoBtn', '撤销上一步移动');
         this.addTooltip('#surrenderBtn', '当前玩家认输');
     }

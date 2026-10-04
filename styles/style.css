@@ -1693,6 +1693,7 @@ main h3{ color:var(--walnut-2); letter-spacing:.04em; }
 .setup-label { font-weight: 600; font-size: .95rem; margin-bottom: .5rem; }
 .setup-mode.active { outline: 3px solid #111827; outline-offset: 1px; }
 .modal-actions { display: flex; gap: .5rem; margin-top: 1rem; }
+.modal-actions:empty { display: none; }
 .modal-actions .online-btn { flex: 1; margin-top: 0; }
 .rules-body { font-size: .9rem; color: #374151; line-height: 1.7; }
 .rules-body h4 { font-weight: 700; margin: .8rem 0 .3rem; color: #111827; }

@@ -152,13 +152,8 @@ class GameEngine {
      */
     bindEvents() {
         // 绑定按钮事件
-        const newGameBtn = document.getElementById('newGameBtn');
         const undoBtn = document.getElementById('undoBtn');
         const surrenderBtn = document.getElementById('surrenderBtn');
-        
-        if (newGameBtn) {
-            newGameBtn.addEventListener('click', () => this.startNewGame());
-        }
         
         if (undoBtn) {
             undoBtn.addEventListener('click', () => this.undoMove());
@@ -477,7 +472,7 @@ class GameEngine {
             
             switch (this.gameState.gamePhase) {
                 case 'ready':
-                    status = '等待开始（点击『对局设置』）';
+                    status = '等待开始（点击『新游戏』）';
                     break;
                 case 'playing':
                     status = `第${this.gameState.turn}回合`;
