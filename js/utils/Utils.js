@@ -192,9 +192,9 @@ class Utils {
             // 显示消息
             toast.style.transform = 'translateY(0)';
             
-            // 自动隐藏
+            // 自动隐藏（移出屏幕足够远，避免底部露出绿条）
             setTimeout(() => {
-                toast.style.transform = 'translateY(100%)';
+                toast.style.transform = 'translateY(200%)';
             }, duration);
         }
         
