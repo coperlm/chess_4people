@@ -9,7 +9,7 @@ class GameStatePersistence {
     /**
      * 保存游戏状态（紧凑格式）
      */
-    saveGameState(gameState) {
+    saveGameState(gameState, startedAt) {
         try {
             const pieces = [];
             for (let x = 0; x < Config.BOARD_SIZE; x++) {
@@ -34,6 +34,7 @@ class GameStatePersistence {
                 gamePhase: gameState.gamePhase,
                 currentPlayer: gameState.currentPlayer,
                 turn: gameState.turn,
+                gameStartTime: startedAt || null,   // 本局开始时间（用于“游戏时长”）
                 winner: gameState.winner === undefined ? null : gameState.winner,
                 isDraw: !!gameState.isDraw,
                 ranking: gameState.ranking || null,
@@ -138,6 +139,7 @@ class GameStatePersistence {
             gs.selectedPiece = null;
             gs.possibleMoves = [];
             gameEngine.isGameActive = gs.gamePhase === 'playing';
+            gameEngine.gameStartTime = savedData.gameStartTime || Date.now();
 
             gameEngine.updateUI();
             if (gameEngine.boardRenderer) gameEngine.boardRenderer.reset();

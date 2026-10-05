@@ -521,6 +521,8 @@ class OnlineSession {
         if (d.settings) this.settings = Object.assign({}, Config.DEFAULT_RULES, d.settings);
         if (typeof d.seat === 'number') this.mySeat = d.seat;
         this.started = true;
+        // 开局即记录开始时间（房主也由此兜底；快照里的 startedAt 会随后覆盖为权威值）
+        if (this.gameEngine && !this.gameEngine.gameStartTime) this.gameEngine.gameStartTime = Date.now();
         this._setMyColors(d.colors || []);
         // 开局：自动关闭设置弹窗，回主页面
         if (window.gameInterface) {
@@ -573,8 +575,9 @@ class OnlineSession {
             this._doUndo(true, p && p.name ? p.name : '玩家');
         } else if (d.kind === 'resign') {
             const p = this.participants.find(p => p.id === peerId);
-            if (!p || !p.colors.includes(d.color)) return this._reject(peerId, '不能替别人认输');
-            this._hostEliminate(d.color, 'resign');
+            const colors = d.colors || (d.color !== undefined ? [d.color] : []);
+            if (!p || !colors.length || !colors.every(c => p.colors.includes(c))) return this._reject(peerId, '不能替别人认输');
+            this._hostResignColors(colors);
         } else if (d.kind === 'resync') {
             this.actState.send(this._snapshot(), { target: peerId });
         }
@@ -671,40 +674,45 @@ class OnlineSession {
         if (ge.updateMoveHistory) ge.updateMoveHistory();
     }
 
-    requestResign(color) {
+    requestResign(colors) {
         if (!this.active || !this.started) return;
-        if (this.isHost) this._hostEliminate(color, 'resign');
-        else this.actIntent.send({ kind: 'resign', color });
+        const list = Array.isArray(colors) ? colors : [colors];
+        if (this.isHost) this._hostResignColors(list);
+        else this.actIntent.send({ kind: 'resign', colors: list });
     }
 
     /**
-     * 认输：只认输自己控制的颜色（优先当前回合的颜色）
+     * 认输：认输自己控制的**全部**颜色（2 人组队时一人控两色，认输应整队认输）
      */
     requestResignSelf() {
         if (!this.active || !this.started) return;
         if (!this.myColors || !this.myColors.length) { this._setStatus('你没有可认输的颜色', 'error'); return; }
-        const color = this.myColors.includes(this.gameState.currentPlayer)
-            ? this.gameState.currentPlayer : this.myColors[0];
-        this.requestResign(color);
+        this.requestResign(this.myColors.slice());
     }
 
-    _hostEliminate(player, reason) {
+    /**
+     * 房主：淘汰一整组颜色（认输）。先全部淘汰再判终局，避免“淘汰第一个颜色就结束、
+     * 第二个颜色没被处理”的问题。
+     */
+    _hostResignColors(colors) {
         const ge = this.gameEngine, gs = ge.gameState;
         if (gs.gamePhase !== 'playing') return;
-        gs.eliminatePlayer(player);
-        const label = reason === 'resign' ? '认输' : reason === 'captured' ? '将/帅被吃' : '无子可动（困毙）';
-        Utils.showMessage(`${Config.PLAYER_COLORS[player].name}${label}`, 'warning');
-        this.seq++;
-        ge.boardRenderer.renderPieces();
+        for (const c of colors) {
+            if (!gs.hasKing(c)) continue;          // 已出局，跳过
+            gs.eliminatePlayer(c);
+            Utils.showMessage(`${Config.PLAYER_COLORS[c].name}认输`, 'warning');
+            this._broadcastEliminate(c, 'resign');  // 直接广播（不依赖 window.onlineSession 耦合）
+        }
         if (gs.checkGameEnd()) {
             ge.endGame();
         } else {
-            gs.nextPlayer();
+            if (!gs.hasKing(gs.currentPlayer)) gs.nextPlayer();
+            ge.boardRenderer.renderPieces();
             ge.updateUI();
         }
-        this.actEliminate.send({ player, reason, seq: this.seq });
         this._saveRecord();
     }
+
     /** 供 GameEngine 结算时调用（房主侧已本地淘汰，仅广播） */
     _broadcastEliminate(player, reason) {
         this.seq++;
@@ -819,6 +827,7 @@ class OnlineSession {
             currentPlayer: gs.currentPlayer,
             turn: gs.turn,
             gamePhase: gs.gamePhase,
+            startedAt: (this.gameEngine && this.gameEngine.gameStartTime) || null,
             winner: gs.winner,
             ranking: gs.ranking,
             isDraw: !!gs.isDraw,
@@ -878,6 +887,9 @@ class OnlineSession {
         gs.possibleMoves = [];
 
         ge.isGameActive = d.gamePhase === 'playing';
+        // 同步本局开始时间（非房主原样没有 gameStartTime，导致结算显示“游戏时长：未知”）
+        if (d.startedAt) ge.gameStartTime = d.startedAt;
+        else if (!ge.gameStartTime && d.gamePhase === 'playing') ge.gameStartTime = Date.now();
         ge.boardRenderer.clearSelection();
         ge.boardRenderer.renderPieces();
         ge.updateUI();

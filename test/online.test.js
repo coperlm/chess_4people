@@ -88,7 +88,7 @@ function fakeEngine(sessionRef) {
   const br = { clearSelection() {}, renderPieces() {}, setNetworkMode() {}, setPlayerPosition() {} };
   return {
     gameState: gs, pieceManager: pm, ruleValidator: rv, boardRenderer: br,
-    isNetworkMode: false, controlledColors: null, isGameActive: false, _sessionRef: sessionRef,
+    isNetworkMode: false, controlledColors: null, isGameActive: false, gameStartTime: null, _sessionRef: sessionRef,
     setControlledColors(c) { this.controlledColors = c ? c.slice() : null; },
     canControl(p) { if (!this.isNetworkMode) return true; return !!this.controlledColors && this.controlledColors.includes(p); },
     updateUI() {}, updateMoveHistory() {},
@@ -144,6 +144,7 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   t('2 人局座位分配: 房主=[0,1]', eq(host.myColors, [0, 1]), JSON.stringify(host.myColors));
   t('2 人局座位分配: 玩家=[2,3]', eq(peer.myColors, [2, 3]), JSON.stringify(peer.myColors));
   t('玩家端网络模式已开启', peerEngine.isNetworkMode === true);
+  t('玩家端也有本局开始时间（避免结算“游戏时长：未知”）', typeof peerEngine.gameStartTime === 'number', String(peerEngine.gameStartTime));
   t('开局当前玩家=红(0)', hostEngine.gameState.currentPlayer === 0 && peerEngine.gameState.currentPlayer === 0);
   const peerPawn = peerEngine.gameState.getPiece(9, 6);
   t('快照保留兵/卒 facing', !!peerPawn && peerPawn.facing === 'up', JSON.stringify(peerPawn));
@@ -276,6 +277,22 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     s._open('room-b', true);   // 再次建房（旧 room 仍在）
     await tick(); await tick();
     t('再次建房：新会话未被旧收尾冲掉', s.active === true && s.roomId === 'room-b' && s.participants.length === 1 && s.participants[0].token === s.token, JSON.stringify({ active: s.active, room: s.roomId, n: s.participants.length }));
+  }
+
+  // === 回归：联机认输不应抛错（曾误用 this.gameState 导致“认输”直接报错） ===
+  {
+    const hEngine = fakeEngine(); const pEngine = fakeEngine();
+    const h = new OnlineSession(hEngine); const p = new OnlineSession(pEngine);
+    h._open('room-resign', true); p._open('room-resign', false);
+    await tick(); await tick();
+    h.name = '甲'; p.name = '乙'; p._sendHello(); await tick(); await tick();
+    h.settings.mode = 'team'; h.startMatch(); await tick(); await tick();
+    const peerColors = p.myColors.slice();
+    let threw = false;
+    try { p.requestResignSelf(); } catch (e) { threw = true; }
+    await tick(); await tick();
+    t('联机认输不抛错', threw === false);
+    t('认输后其颜色被淘汰', peerColors.every(c => hEngine.gameState.pieceCounts[c] === 0), JSON.stringify(hEngine.gameState.pieceCounts));
   }
 
   // === 房主管理：交换位置/颜色 + 踢人 + 全员在线状态 ===

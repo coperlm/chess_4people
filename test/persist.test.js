@@ -48,7 +48,8 @@ function engineStub(gs) {
   // 记一个淘汰（模拟有人被吃将）
   gs.eliminatePlayer(3);
 
-  const ok = p.saveGameState(gs);
+  const startAt = Date.now() - 65000;   // 模拟已开局 65 秒
+  const ok = p.saveGameState(gs, startAt);
   t('保存成功', ok === true);
 
   const raw = localStorage.getItem('chess_game_state');
@@ -62,6 +63,7 @@ function engineStub(gs) {
   const eng = engineStub(gs2);
   const restored = p.restoreGameState(eng, p.loadGameState());
   t('恢复成功', restored === true);
+  t('恢复后本局开始时间保留（用于“游戏时长”）', eng.gameStartTime === startAt, String(eng.gameStartTime));
   t('棋盘棋子数一致', (() => { let a = 0, b = 0; for (let x = 0; x < 10; x++) for (let y = 0; y < 10; y++) { if (gs.board[x][y]) a++; if (gs2.board[x][y]) b++; } return a === b; })());
   t('兵/卒 facing 保留', gs2.getPiece(0, 5) && gs2.getPiece(0, 5).facing === 'up');
   t('棋子计数重算正确', JSON.stringify(gs2.pieceCounts) === JSON.stringify(gs.pieceCounts), JSON.stringify(gs2.pieceCounts));

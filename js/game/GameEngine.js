@@ -336,6 +336,7 @@ class GameEngine {
         const name = Config.PLAYER_COLORS[player].name;
         const label = reason === 'captured' ? '将/帅被吃'
             : reason === 'kicked' ? '被房主移出'
+            : reason === 'resign' ? '认输'
             : '无子可动（困毙）';
         Utils.showMessage(`${name}${label}！`, 'error');
         if (window.onlineSession && window.onlineSession.active && window.onlineSession.isHost) {
@@ -609,7 +610,7 @@ class GameEngine {
     autoSave() {
         try {
             if (!this.persistence) this.persistence = new GameStatePersistence();
-            this.persistence.saveGameState(this.gameState);
+            this.persistence.saveGameState(this.gameState, this.gameStartTime);
         } catch (error) {
             console.warn('自动保存失败:', error);
         }
