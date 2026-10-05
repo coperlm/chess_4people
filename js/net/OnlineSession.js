@@ -29,6 +29,7 @@ class OnlineSession {
         this._bound = false;
         this._resuming = false;
         this._failoverTimer = null;
+        this._drawYes = null;   // 求和：已同意的 token 集合
     }
 
     // ================= 初始化 =================
@@ -206,6 +207,7 @@ class OnlineSession {
         this.actEliminate = this.room.makeAction('eliminate');
         this.actState = this.room.makeAction('state');
         this.actNotice = this.room.makeAction('notice');
+        this.actDraw = this.room.makeAction('draw');
 
         this.actHello.onMessage = (d, ctx) => this._onHello(d, ctx.peerId);
         this.actAssign.onMessage = d => this._onAssign(d);
@@ -216,6 +218,7 @@ class OnlineSession {
         this.actMove.onMessage = d => this._onMove(d);
         this.actUndo.onMessage = d => this._onUndo(d);
         this.actEliminate.onMessage = d => this._onEliminate(d);
+        this.actDraw.onMessage = d => this._onDraw(d);
 
         this.room.onPeerJoin = id => this._onPeerJoin(id);
         this.room.onPeerLeave = id => this._onPeerLeave(id);
@@ -371,11 +374,13 @@ class OnlineSession {
     }
 
     /** 走子提醒：自己的子用 success，别人的子用 info（提醒对手已走） */
-    _notifyMove(mover, fromX, fromY, toX, toY, pieceType) {
+    _notifyMove(mover, fromX, fromY, toX, toY, pieceType, captured) {
         const name = Config.PLAYER_COLORS[mover].name;
         const pname = (Config.PIECE_NAMES[mover] && Config.PIECE_NAMES[mover][pieceType]) || '';
         const mine = this.myColors.includes(mover);
-        Utils.showMessage(`${name} ${pname} (${fromX},${fromY})→(${toX},${toY})`, mine ? 'success' : 'info');
+        const style = (window.settings && window.settings.notation) || 'coord';
+        Utils.showMessage(`${name} ${pname} ${Notation.span({ x: fromX, y: fromY }, { x: toX, y: toY }, style)}`, mine ? 'success' : 'info');
+        if (window.sound) window.sound.play(captured ? 'capture' : 'move');
     }
 
     _applyNetworkMode(on) {
@@ -553,7 +558,9 @@ class OnlineSession {
         const piece = gs.getPiece(fromX, fromY);
         const mover = piece ? piece.player : gs.currentPlayer;
         const ptype = piece ? piece.type : 'pawn';
+        const captured = !!gs.getPiece(toX, toY);
         if (!gs.movePiece(fromX, fromY, toX, toY)) return;
+        this._drawYes = null;   // 有新走子，作废未完成的求和
 
         // 先广播走子（较小 seq），再做结算：若本手吃将/令对手困毙，
         // 结算会广播淘汰（seq 更大）——保证客户端严格按 seq 顺序“先落子、后淘汰”。
@@ -564,7 +571,7 @@ class OnlineSession {
         ge.boardRenderer.clearSelection();
         ge.boardRenderer.renderPieces();
         ge.onMoveCompleted();               // 结算：吃将/困毙淘汰、结束、历史、存档、UI（可能再 ++seq 广播 eliminate）
-        this._notifyMove(mover, fromX, fromY, toX, toY, ptype);
+        this._notifyMove(mover, fromX, fromY, toX, toY, ptype, captured);
         this._refreshStatus();
         this._saveRecord();
     }
@@ -583,9 +590,11 @@ class OnlineSession {
         const piece = gs.getPiece(d.from[0], d.from[1]);
         const mover = (d.by !== undefined) ? d.by : (piece ? piece.player : gs.currentPlayer);
         const ptype = piece ? piece.type : 'pawn';
+        const captured = !!gs.getPiece(d.to[0], d.to[1]);
         gs.movePiece(d.from[0], d.from[1], d.to[0], d.to[1]);
+        this._drawYes = null;   // 有新走子，作废未完成的求和
         this._clientAfterApply();
-        this._notifyMove(mover, d.from[0], d.from[1], d.to[0], d.to[1], ptype);
+        this._notifyMove(mover, d.from[0], d.from[1], d.to[0], d.to[1], ptype, captured);
         this._refreshStatus();
     }
 
@@ -608,6 +617,7 @@ class OnlineSession {
     _doUndo(broadcast, who) {
         const ge = this.gameEngine, gs = ge.gameState;
         if (!gs.undoMove()) return;
+        if (window.sound) window.sound.play('undo');
         this.seq++;
         ge.boardRenderer.clearSelection();
         ge.boardRenderer.renderPieces();
@@ -624,6 +634,7 @@ class OnlineSession {
         this._lastSeq = d.seq;
         const ge = this.gameEngine, gs = ge.gameState;
         gs.undoMove();
+        if (window.sound) window.sound.play('undo');
         ge.boardRenderer.clearSelection();
         ge.boardRenderer.renderPieces();
         ge.updateUI();
@@ -685,6 +696,62 @@ class OnlineSession {
         }
     }
 
+    // ================= 求和 =================
+    /**
+     * 发起求和：全体存活参与者同意则和棋（房主负责汇总判定）
+     */
+    requestDraw() {
+        if (!this.active || !this.started) return;
+        if (this.gameEngine.gameState.gamePhase !== 'playing') return;
+        this._drawYes = new Set([this.token]);
+        this.actDraw.send({ kind: 'offer', token: this.token, name: this.name || '玩家' });
+        Utils.showMessage('已发起求和，等待其他玩家同意…', 'info');
+    }
+    _onDraw(d) {
+        if (!d) return;
+        if (d.kind === 'offer') {
+            if (d.token === this.token) return;                 // 自己发起的，不弹
+            if (this.isHost) this._drawYes = this._drawYes || new Set();
+            if (this.isHost) this._drawYes.add(d.token);        // 提议者视为已同意
+            const who = Utils.escapeHtml(d.name || '对方');
+            if (confirm(`『${who}』提议和棋，是否同意？`)) {
+                if (this.isHost) { this._drawYes.add(this.token); this._tryResolveDraw(); }
+                else this.actDraw.send({ kind: 'accept', token: this.token }, { target: this.hostId });
+            } else {
+                if (this.isHost) this._rejectDraw(this.name || '房主');
+                else this.actDraw.send({ kind: 'reject', token: this.token, name: this.name || '玩家' }, { target: this.hostId });
+            }
+        } else if (d.kind === 'accept') {
+            if (!this.isHost) return;
+            this._drawYes = this._drawYes || new Set();
+            this._drawYes.add(d.token);
+            this._tryResolveDraw();
+        } else if (d.kind === 'reject') {
+            if (!this.isHost) return;
+            this._rejectDraw(d.name || '玩家');
+        } else if (d.kind === 'reject-notice') {
+            this._drawYes = null;
+            this._setStatus('求和被拒绝', 'error');
+            Utils.showMessage('求和被拒绝', 'warning');
+        }
+    }
+    _tryResolveDraw() {
+        const yes = this._drawYes || new Set();
+        const need = this.participants.filter(p => p.id).map(p => p.token);   // 已连上的参与者
+        if (need.length && need.every(t => yes.has(t))) {
+            this._drawYes = null;
+            this.gameEngine.gameState.declareDraw();
+            Utils.showMessage('全体同意，和棋', 'info');
+            this.gameEngine.endGame();   // → onGameEnd → 广播 state（含 isDraw）
+        }
+    }
+    _rejectDraw(who) {
+        this._drawYes = null;
+        this.actDraw.send({ kind: 'reject-notice' });
+        this._setStatus(`求和被 ${who} 拒绝`, 'error');
+        Utils.showMessage(`求和被 ${who} 拒绝`, 'warning');
+    }
+
     // ================= 快照（仅加入/重同步用） =================
     _snapshot() {
         const gs = this.gameEngine.gameState;
@@ -695,9 +762,11 @@ class OnlineSession {
             gamePhase: gs.gamePhase,
             winner: gs.winner,
             ranking: gs.ranking,
+            isDraw: !!gs.isDraw,
             settings: this.settings,
             eliminationOrder: gs.eliminationOrder,
             eliminationLog: gs.eliminationLog,
+            undoLog: gs.undoLog || [],
             pieceCounts: gs.pieceCounts,
             moveHistory: gs.moveHistory,
             board: gs.board.map(col => col.map(p => p ? { t: p.type, p: p.player, f: p.facing || null } : null))
@@ -739,8 +808,10 @@ class OnlineSession {
         gs.gamePhase = d.gamePhase;
         gs.winner = d.winner;
         gs.ranking = d.ranking || null;
+        gs.isDraw = !!d.isDraw;
         gs.eliminationOrder = d.eliminationOrder || [];
         gs.eliminationLog = d.eliminationLog || [];
+        gs.undoLog = Array.isArray(d.undoLog) ? d.undoLog : [];
         gs.pieceCounts = Object.assign({ 0: 0, 1: 0, 2: 0, 3: 0 }, d.pieceCounts);
         gs.moveHistory = this._deserializeHistory(d.moveHistory);
         gs.setRules(this.settings);

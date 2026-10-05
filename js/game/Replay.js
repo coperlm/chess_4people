@@ -72,32 +72,22 @@ class Replay {
         const hist = gs.moveHistory || [];
         const now = new Date();
         const pad = n => String(n).padStart(2, '0');
-        const ts = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
 
-        const lines = [];
-        lines.push('四人象棋对局记录');
-        lines.push('版本: 1');
-        lines.push('时间: ' + ts);
-        lines.push('模式: ' + this._modeText(st.mode));
-        lines.push('胜利条件: ' + this._victoryText(st.victory));
-        lines.push('友伤: ' + (st.friendlyFire ? '开' : '关'));
-        lines.push('结果: ' + (gs.gamePhase === 'finished' ? this._resultText(gs) : '未结束'));
-        lines.push('走子数: ' + hist.length);
-        lines.push('走子:');
-        hist.forEach((mv, i) => {
-            const pname = Config.PLAYER_COLORS[mv.player].name;
-            const piece = Config.PIECE_NAMES[mv.player][mv.piece];
-            const cap = mv.captured ? ` 吃${Config.PIECE_NAMES[mv.captured.player][mv.captured.type]}` : '';
-            lines.push(`${i + 1}. ${pname} ${piece} (${mv.from.x},${mv.from.y})->(${mv.to.x},${mv.to.y})${cap}`);
-        });
-        if (gs.eliminationLog && gs.eliminationLog.length) {
-            gs.eliminationLog.forEach(e => lines.push(`淘汰 ${Config.PLAYER_COLORS[e.player].name} ${e.atMove}`));
-        }
-
-        const content = lines.join('\n');
+        // 单行编码导出：<base64(JSON)>.<签名>。人不可读，但内容完整、校验不可篡改。
+        const payload = {
+            v: 1,
+            t: now.toISOString(),
+            r: { m: st.mode, v: st.victory, f: st.friendlyFire ? 1 : 0 },
+            w: gs.isDraw ? 'draw' : (gs.winner === null || gs.winner === undefined ? null : gs.winner),
+            g: gs.gamePhase === 'finished' ? 1 : 0,
+            moves: hist.map(mv => [mv.from.x, mv.from.y, mv.to.x, mv.to.y]),
+            elim: (gs.eliminationLog || []).map(e => [e.player, e.atMove])
+        };
+        let encoded = '';
+        try { encoded = btoa(JSON.stringify(payload)); } catch (e) { encoded = ''; }   // payload 全为 ASCII
         let signature = '';
-        try { signature = await this._sign(content); } catch (e) { signature = ''; }
-        const text = '签名: ' + signature + '\n' + content;
+        try { signature = await this._sign(encoded); } catch (e) { signature = ''; }
+        const text = encoded + '.' + signature;
 
         try {
             const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
@@ -178,6 +168,29 @@ class Replay {
     }
 
     parse(text) {
+        const rawText = String(text).trim();
+        // 新格式：单行 <base64>.<签名>
+        const single = rawText.match(/^([A-Za-z0-9+/=]+)\.([0-9a-f]{8,})$/);
+        if (single) {
+            const encoded = single[1], signature = single[2];
+            let obj = null;
+            try { obj = JSON.parse(atob(encoded)); } catch (e) { obj = null; }
+            if (obj && Array.isArray(obj.moves)) {
+                const rules = Object.assign({}, Config.DEFAULT_RULES);
+                if (obj.r) { rules.mode = obj.r.m; rules.victory = obj.r.v; rules.friendlyFire = !!obj.r.f; }
+                return {
+                    meta: { 时间: String(obj.t || ''), 版本: String(obj.v || 1) },
+                    moves: obj.moves.map(a => ({ from: [a[0], a[1]], to: [a[2], a[3]] })),
+                    rules,
+                    eliminations: (obj.elim || []).map(a => ({ player: a[0], atMove: a[1] })),
+                    signature, body: encoded,
+                    result: obj.w, finished: !!obj.g
+                };
+            }
+            throw new Error('回放数据解析失败');
+        }
+
+        // 旧格式（多行文本）兼容解析
         let body = String(text);
         let signature = null;
         const nl = body.indexOf('\n');
@@ -223,6 +236,7 @@ class Replay {
         this.moves = data.moves;
         this.eliminations = data.eliminations || [];
         this.rules = data.rules || Config.DEFAULT_RULES;
+        this.descriptors = this._buildDescriptors(this.moves);
         const br = this.ge.boardRenderer;
         this._live = br.gameState;
         this.active = true;
@@ -263,12 +277,60 @@ class Replay {
         br.renderPieces();
 
         if (this.el && this.el.status) {
+            const style = (window.settings && window.settings.notation) || 'coord';
             const last = index > 0 ? this.moves[index - 1] : null;
-            const mv = last ? `(${last.from[0]},${last.from[1]})->(${last.to[0]},${last.to[1]})` : '初始局面';
+            const mv = last ? Notation.span({ x: last.from[0], y: last.from[1] }, { x: last.to[0], y: last.to[1] }, style) : '初始局面';
             const flag = this._sigBad ? '⚠️ 签名不匹配 ' : '';
             this.el.status.textContent = `${flag}回放 ${index}/${this.moves.length} 步：${mv}`;
         }
+        this._renderMoveList();
     }
+
+    /** 预演一遍，得到每步的 颜色/棋子/是否吃子（用于按记谱方式渲染走法列表） */
+    _buildDescriptors(moves) {
+        const gs = new GameState();
+        gs.setRules(this.rules);
+        const out = [];
+        for (const mv of moves) {
+            const pc = gs.getPiece(mv.from[0], mv.from[1]);
+            const cap = gs.getPiece(mv.to[0], mv.to[1]);
+            if (!pc) { out.push(null); continue; }
+            out.push({
+                player: pc.player, piece: pc.type,
+                from: { x: mv.from[0], y: mv.from[1] },
+                to: { x: mv.to[0], y: mv.to[1] },
+                captured: cap ? { player: cap.player, type: cap.type } : null
+            });
+            gs.board[mv.to[0]][mv.to[1]] = pc; pc.x = mv.to[0]; pc.y = mv.to[1];
+            gs.board[mv.from[0]][mv.from[1]] = null;
+        }
+        return out;
+    }
+
+    /** 在“移动历史”面板按当前记谱方式列出回放走法，高亮当前步，点击可跳转 */
+    _renderMoveList() {
+        if (typeof document === 'undefined') return;
+        const el = document.getElementById('moveHistory');
+        if (!el) return;
+        const style = (window.settings && window.settings.notation) || 'coord';
+        const parts = [];
+        for (let i = 0; i < this.moves.length; i++) {
+            const d = this.descriptors && this.descriptors[i];
+            const txt = d ? Notation.format(d, style) : `(${this.moves[i].from.join(',')})→(${this.moves[i].to.join(',')})`;
+            const cls = d ? Config.PLAYER_COLORS[d.player].color : '';
+            const mark = (i + 1 === this.index) ? ' replay-move--active' : ((i + 1 < this.index) ? ' replay-move--past' : '');
+            parts.push(`<div class="text-sm replay-move${mark} ${cls}" data-idx="${i + 1}">${i + 1}. ${txt}</div>`);
+        }
+        el.innerHTML = parts.join('') || '<p class="text-gray-500 text-sm">（空对局）</p>';
+        el.querySelectorAll('.replay-move').forEach(node => {
+            node.addEventListener('click', () => this.goto(parseInt(node.dataset.idx, 10)));
+        });
+        const cur = el.querySelector('.replay-move--active');
+        if (cur && cur.scrollIntoView) cur.scrollIntoView({ block: 'nearest' });
+    }
+
+    /** 记谱方式变更后刷新回放走法列表 */
+    refreshView() { if (this.active) this._renderMoveList(); }
 
     _applyRaw(gs, from, to) {
         const pc = gs.getPiece(from[0], from[1]);
@@ -292,6 +354,8 @@ class Replay {
             if (this.el.import) this.el.import.disabled = false;
             if (this.el.status) this.el.status.textContent = '';
         }
+        // 恢复“实时对局”的移动历史显示
+        if (window.gameEngine && window.gameEngine.updateMoveHistory) window.gameEngine.updateMoveHistory();
         Utils.showMessage('已退出回放', 'info');
     }
 }

@@ -98,6 +98,26 @@ const SAMPLE = [
   try { rp.parse('随便一段文字\n没有头部标记'); } catch (e) { threw2 = true; }
   t('完全无头部的文件仍报错', threw2);
 
+  // 新版单行编码：<base64>.<签名> —— 解析 → 验签 → 回放
+  {
+    const mk = (moves) => Buffer.from(JSON.stringify({
+      v: 1, t: '2026-10-05T06:30:00.000Z', r: { m: 'team', v: 'any_king', f: 0 },
+      w: null, g: 0, moves, elim: []
+    })).toString('base64');
+    const enc = mk([[0, 6, 0, 5], [9, 6, 9, 5]]);
+    const sig2 = await rp._sign(enc);
+    const d4 = rp.parse(enc + '.' + sig2);
+    t('单行编码：解析出 2 步', d4.moves.length === 2, JSON.stringify(d4.moves));
+    t('单行编码：首步坐标正确', JSON.stringify(d4.moves[0]) === JSON.stringify({ from: [0, 6], to: [0, 5] }));
+    t('单行编码：模式=组队', d4.rules.mode === 'team');
+    t('单行编码：验签通过', (await rp.verify(d4)) === true);
+    const tampered = mk([[0, 6, 0, 4], [9, 6, 9, 5]]) + '.' + sig2;
+    t('单行编码：篡改后验签失败', (await rp.verify(rp.parse(tampered))) === false);
+    const p3 = new Replay(ge); p3.enter(d4); p3.goto(2);
+    t('单行编码：回放到第 2 步正确', !!p3.replayState.getPiece(9, 5) && p3.replayState.getPiece(9, 6) === null);
+    p3.exit();
+  }
+
   console.log(`\n回放测试: ${pass} 通过, ${fail} 失败`);
   if (fail) { console.log('\n失败项:'); failures.forEach(f => console.log('  ✗ ' + f)); process.exit(1); }
   console.log('✅ 全部通过');

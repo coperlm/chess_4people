@@ -15,6 +15,8 @@ class GameState {
         this.eliminationOrder = []; // 被淘汰玩家的先后顺序
         this.eliminationLog = [];   // [{player, atMove}] 淘汰事件（用回放记录）
         this.ranking = null;        // 结算排名（从高到低）
+        this.isDraw = false;        // 是否以和棋结束
+        this.undoLog = [];          // 悔棋记录（单独记录，不混入 moveHistory）
         
         // 玩家棋子计数
         this.pieceCounts = {
@@ -337,8 +339,22 @@ class GameState {
         this.eliminationOrder = [];
         this.eliminationLog = [];
         this.ranking = null;
+        this.isDraw = false;
+        this.undoLog = [];
         this.pieceCounts = { 0: 10, 1: 10, 2: 10, 3: 10 };
         this.initializePieces();
+    }
+
+    /**
+     * 和棋结束（本地直接和；联机由全体接受后调用）
+     */
+    declareDraw() {
+        if (this.gamePhase === 'playing' || this.gamePhase === 'ready') {
+            this.gamePhase = 'finished';
+            this.winner = null;
+            this.isDraw = true;
+            this.ranking = null;
+        }
     }
     
     /**
@@ -393,7 +409,17 @@ class GameState {
         this.turn = lastMove.turn;
         this.selectedPiece = null;
         this.possibleMoves = [];
-        
+
+        // 悔棋单独记录（不混入 moveHistory；moveHistory 已是“当前有效走子”）
+        this.undoLog.push({
+            player: lastMove.player,
+            piece: lastMove.piece,
+            from: { x: lastMove.from.x, y: lastMove.from.y },
+            to: { x: lastMove.to.x, y: lastMove.to.y },
+            atMove: this.moveHistory.length,
+            timestamp: Date.now()
+        });
+
         return true;
     }
 }

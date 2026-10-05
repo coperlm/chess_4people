@@ -20,6 +20,15 @@
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
     
     <link rel="stylesheet" href="styles/style.css">
+
+    <!-- 尽早应用深色模式，避免刷新时闪白 -->
+    <script>
+        try {
+            if ((JSON.parse(localStorage.getItem('chess4p_settings') || '{}').theme) === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        } catch (e) { /* ignore */ }
+    </script>
 </head>
 <body class="bg-gray-100 min-h-screen">
     <!-- 游戏标题 -->
@@ -51,10 +60,12 @@
                     <div class="online-row">
                         <button id="undoBtn" class="online-btn online-btn--leave" disabled>悔棋</button>
                         <button id="surrenderBtn" class="online-btn online-btn--danger" disabled>认输</button>
+                        <button id="drawBtn" class="online-btn online-btn--join" disabled>求和</button>
                     </div>
                     <div class="online-row">
                         <button id="replayOpenBtn" class="online-btn online-btn--copy">对局记录</button>
                         <button id="rulesOpenBtn" class="online-btn online-btn--copy">游戏规则</button>
+                        <button id="settingsOpenBtn" class="online-btn online-btn--copy">设置</button>
                     </div>
                 </div>
 
@@ -67,6 +78,7 @@
                         <span class="pc pc--red">红(左下) <b id="redPieces">10</b></span>
                         <span class="pc pc--green">绿(右下) <b id="greenPieces">10</b></span>
                     </div>
+                    <div id="capturedTray" class="captured-tray"></div>
                 </div>
 
                 <!-- 联机房间状态（联机时显示） -->
@@ -160,6 +172,30 @@
         </div>
     </div>
 
+    <!-- 设置弹窗 -->
+    <div id="settingsModal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <div class="modal-head">
+                <h3 class="modal-title">设置</h3>
+                <button class="modal-x" data-close="settingsModal" title="关闭">✕</button>
+            </div>
+            <div class="setup-group">
+                <label class="online-check"><input id="settingDark" type="checkbox"> 深色模式</label>
+            </div>
+            <div class="setup-group">
+                <label class="online-check"><input id="settingSound" type="checkbox"> 音效（默认关闭）</label>
+            </div>
+            <div class="setup-group">
+                <label class="online-label" for="settingNotation">记谱方式</label>
+                <select id="settingNotation" class="online-input">
+                    <option value="coord">坐标记谱：车 (9,5)→(9,2)</option>
+                    <option value="cn">中文记谱：车 (九,五)→(九,二)</option>
+                </select>
+            </div>
+            <div class="online-status">设置会自动保存。</div>
+        </div>
+    </div>
+
     <!-- 游戏规则弹窗 -->
     <div id="rulesModal" class="modal-overlay hidden">
         <div class="modal-box modal-box--wide">
@@ -200,6 +236,7 @@
                     <li><b>吃将任意一方即结束</b>：任意一名玩家的将/帅被吃，其所属队伍判负。</li>
                     <li><b>仅剩一队</b>：打到只剩一队（混战则只剩一人）才结束。</li>
                     <li>将/帅被吃或困毙 = 出局（其全部棋子移出棋盘）；混战按死亡顺序排名第 1–4 名。</li>
+                    <li><b>求和</b>：对局中可点「求和」，本地直接和棋；联机需其余玩家全部同意。</li>
                 </ul>
                 <h4>联机</h4>
                 <ul>
@@ -214,6 +251,7 @@
                 <h4>操作</h4>
                 <ul>
                     <li>点击棋子选中，再点目标位置落子；<b>ESC</b> 取消选择/关弹窗，<b>Ctrl+Z</b> 悔棋，<b>Ctrl+N</b> 对局设置。</li>
+                    <li>「设置」里可切换 <b>深色模式</b>、<b>音效</b>（默认关闭）、<b>记谱方式</b>（坐标 / 中文）；悔棋可连点多次（多步），每次都会记入「悔棋记录」。</li>
                 </ul>
             </div>
         </div>
@@ -231,7 +269,7 @@
                 <button id="importReplayBtn" class="online-btn online-btn--join">导入回放</button>
             </div>
             <input id="importReplayInput" type="file" accept=".txt,text/plain" class="hidden">
-            <div class="online-status">导出为带签名的纯文本；导入后底部会出现回放控制条。</div>
+            <div class="online-status">导出为单行编码（含签名，人不可读）；导入后按「设置」里的记谱方式列出走法，可逐手查看。</div>
             <div id="replaySig" class="online-status"></div>
         </div>
     </div>
@@ -249,8 +287,10 @@
     <!-- JavaScript模块 -->
     <script src="js/utils/Config.js"></script>
     <script src="js/utils/Utils.js"></script>
+    <script src="js/utils/Sound.js"></script>
     <script src="js/utils/GameStatePersistence.js"></script>
     <script src="js/board/CoordinateMapper.js"></script>
+    <script src="js/ui/Notation.js"></script>
     <script src="js/game/GameState.js"></script>
     <script src="js/board/PieceManager.js"></script>
     <script src="js/game/RuleValidator.js"></script>
@@ -260,6 +300,7 @@
     <script src="vendor/trystero.nostr.iife.js"></script>
     <script src="js/net/OnlineSession.js"></script>
     <script src="js/game/Replay.js"></script>
+    <script src="js/ui/Settings.js"></script>
     <!-- 主程序 -->
     <script src="js/main.js"></script>
     

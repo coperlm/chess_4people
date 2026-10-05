@@ -40,6 +40,11 @@ class ChessGameApp {
             window.gameEngine = this.gameEngine;
             window.gameInterface = this.gameInterface;
             window.chessApp = this;
+
+            // 音效 + 应用设置（深色模式 / 音效 / 记谱方式）
+            window.sound = new Sound();
+            window.settings = new Settings();
+            window.settings.init();
             
             // 顶部显示版本号（读取 package.json，单一来源）
             fetch('./package.json')

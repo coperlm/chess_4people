@@ -24,6 +24,7 @@ global.ChessPiece = ChessPiece;
 global.GameState = GameState;
 const PieceManager = require(path.join(ROOT, 'js/board/PieceManager.js'));
 const RuleValidator = require(path.join(ROOT, 'js/game/RuleValidator.js'));
+global.Notation = require(path.join(ROOT, 'js/ui/Notation.js'));
 
 // ---- 迷你断言 ----
 let pass = 0, fail = 0;
@@ -296,6 +297,28 @@ t('全部兵/卒均可后退走法总数为 0', backwardTotal === 0, 'count=' + 
   t('红蓝命名同款', Config.PIECE_NAMES[0].king === Config.PIECE_NAMES[1].king && Config.PIECE_NAMES[0].pawn === Config.PIECE_NAMES[1].pawn);
   t('绿黑命名同款', Config.PIECE_NAMES[2].king === Config.PIECE_NAMES[3].king && Config.PIECE_NAMES[2].pawn === Config.PIECE_NAMES[3].pawn);
   t('蓝方将=帅', Config.PIECE_NAMES[1].king === '帅', Config.PIECE_NAMES[1].king);
+}
+
+// =====================================================================
+// 9. 记谱（坐标/中文）+ 悔棋单独记录 + 和棋
+// =====================================================================
+{
+  const mv = { player: 0, piece: 'rook', from: { x: 9, y: 5 }, to: { x: 9, y: 2 }, captured: null };
+  t('坐标记谱', Notation.format(mv, 'coord') === '红方 车 (9,5)→(9,2)', Notation.format(mv, 'coord'));
+  t('中文记谱', Notation.format(mv, 'cn') === '红方 车 (九,五)→(九,二)', Notation.format(mv, 'cn'));
+  const cap = { player: 0, piece: 'rook', from: { x: 9, y: 5 }, to: { x: 9, y: 2 }, captured: { player: 2, type: 'pawn' } };
+  t('中文记谱含吃子', Notation.format(cap, 'cn').includes('吃绿方卒'), Notation.format(cap, 'cn'));
+  t('坐标记谱含吃子', Notation.format(cap, 'coord').includes('吃绿方卒'), Notation.format(cap, 'coord'));
+
+  const { gs } = makeGame(); gs.gamePhase = 'playing'; gs.currentPlayer = 0;
+  gs.movePiece(0, 6, 0, 5);
+  t('走子后历史 1 条、悔棋记录 0 条', gs.moveHistory.length === 1 && gs.undoLog.length === 0);
+  gs.undoMove();
+  t('悔棋写入 undoLog（单独记录）', gs.undoLog.length === 1 && gs.undoLog[0].player === 0 && gs.undoLog[0].piece === 'pawn', JSON.stringify(gs.undoLog));
+  t('悔棋后 moveHistory 清空', gs.moveHistory.length === 0);
+
+  gs.declareDraw();
+  t('和棋：finished + isDraw + 无 winner', gs.gamePhase === 'finished' && gs.isDraw === true && gs.winner === null);
 }
 
 // ---- 汇总 ----

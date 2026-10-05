@@ -118,13 +118,18 @@ class GameEngine {
         // 绑定按钮事件
         const undoBtn = document.getElementById('undoBtn');
         const surrenderBtn = document.getElementById('surrenderBtn');
-        
+        const drawBtn = document.getElementById('drawBtn');
+
         if (undoBtn) {
             undoBtn.addEventListener('click', () => this.undoMove());
         }
-        
+
         if (surrenderBtn) {
             surrenderBtn.addEventListener('click', () => this.surrender());
+        }
+
+        if (drawBtn) {
+            drawBtn.addEventListener('click', () => this.draw());
         }
         
         // 绑定键盘事件
@@ -165,6 +170,7 @@ class GameEngine {
             this.updateUI();
             
             Utils.showMessage('新游戏开始！红方先行', 'success');
+            if (window.sound) window.sound.play('start');
             
             
             // 联机：房主开局后广播初始局面
@@ -197,12 +203,28 @@ class GameEngine {
         }
         
         if (this.gameState.undoMove()) {
+            if (window.sound) window.sound.play('undo');
             this.boardRenderer.update();
             this.updateUI();
+            this.updateMoveHistory();
             Utils.showMessage('已悔棋', 'success');
         } else {
             Utils.showMessage('悔棋失败', 'error');
         }
+    }
+
+    /**
+     * 求和：本地直接和棋；联机发起/响应求和
+     */
+    draw() {
+        if (window.onlineSession && window.onlineSession.active) {
+            window.onlineSession.requestDraw();
+            return;
+        }
+        if (!this.isGameActive || this.gameState.gamePhase !== 'playing') return;
+        this.gameState.declareDraw();
+        Utils.showMessage('双方同意和棋', 'info');
+        this.endGame();
     }
     
     /**
@@ -290,6 +312,7 @@ class GameEngine {
                 const p = gs.currentPlayer;
                 if (this.pieceManager.isInCheck(p)) {
                     Utils.showMessage(`${Config.PLAYER_COLORS[p].name}被将军！`, 'warning');
+                    if (window.sound) window.sound.play('check');
                 }
                 break;
             }
@@ -322,7 +345,9 @@ class GameEngine {
      * 结束游戏
      */
     endGame() {
+        const wasActive = this.isGameActive;
         this.isGameActive = false;
+        if (wasActive && window.sound) window.sound.play('end');
         this.boardRenderer.clearSelection();
         
         // 禁用相关按钮
@@ -350,7 +375,8 @@ class GameEngine {
         const gs = this.gameState;
         const winner = gs.winner;
         let message = '游戏结束！';
-        if (winner === 'TEAM1') message = '🎉 红蓝队获胜！';
+        if (gs.isDraw) message = '🤝 和棋';
+        else if (winner === 'TEAM1') message = '🎉 红蓝队获胜！';
         else if (winner === 'TEAM2') message = '🎉 绿黑队获胜！';
         else if (typeof winner === 'number') message = `🎉 ${Config.PLAYER_COLORS[winner].name} 获胜！`;
         
@@ -395,6 +421,7 @@ class GameEngine {
         this.updateCurrentPlayerDisplay();
         this.updateGameStatus();
         this.updatePieceCount();
+        this.updateCapturedTray();
         this.updateButtons();
         this.updateBoardEnabled();
     }
@@ -481,45 +508,73 @@ class GameEngine {
     updateButtons() {
         const undoBtn = document.getElementById('undoBtn');
         const surrenderBtn = document.getElementById('surrenderBtn');
-        
-        const canUndo = this.isGameActive && 
-                       this.gameState.gamePhase === 'playing' && 
+        const drawBtn = document.getElementById('drawBtn');
+
+        const canUndo = this.isGameActive &&
+                       this.gameState.gamePhase === 'playing' &&
                        this.gameState.moveHistory.length > 0;
-        
+
         const canSurrender = this.isGameActive && this.gameState.gamePhase === 'playing';
-        
+
         if (undoBtn) undoBtn.disabled = !canUndo;
         if (surrenderBtn) surrenderBtn.disabled = !canSurrender;
+        if (drawBtn) drawBtn.disabled = !canSurrender;
     }
     
     /**
      * 更新移动历史显示
      */
+    /** 当前记谱方式（由设置决定；无设置时回退坐标记谱） */
+    _notationStyle() { return (window.settings && window.settings.notation) || 'coord'; }
+
     updateMoveHistory() {
         const historyElement = document.getElementById('moveHistory');
         if (!historyElement) return;
-        
+
         const history = this.gameState.moveHistory;
-        
-        if (history.length === 0) {
+        const undoLog = this.gameState.undoLog || [];
+        const style = this._notationStyle();
+
+        if (history.length === 0 && undoLog.length === 0) {
             historyElement.innerHTML = '<p class="text-gray-500 text-sm">暂无移动记录</p>';
             return;
         }
-        
-        // 最新在上：倒序显示，超长时由 CSS 限高在“移动历史”内部滚动
-        const htmlContent = history.slice().reverse().map(move => {
-            const piece = { player: move.player, type: move.piece };
-            const moveText = Utils.formatMove(
-                piece,
-                move.from.x, move.from.y,
-                move.to.x, move.to.y,
-                move.captured
-            );
-            const playerColor = Config.PLAYER_COLORS[move.player].color;
-            return `<div class="text-sm ${playerColor}">${moveText}</div>`;
-        }).join('');
-        historyElement.innerHTML = htmlContent;
+
+        const parts = [];
+        // 走子（最新在上）
+        history.slice().reverse().forEach(move => {
+            const cls = Config.PLAYER_COLORS[move.player].color;
+            parts.push(`<div class="text-sm ${cls}">${Notation.format(move, style)}</div>`);
+        });
+        // 悔棋记录（单独列出，最新在上）
+        if (undoLog.length) {
+            parts.push('<div class="move-subhead">悔棋记录</div>');
+            undoLog.slice().reverse().forEach(u => {
+                const cls = Config.PLAYER_COLORS[u.player].color;
+                parts.push(`<div class="text-sm move-line--undo ${cls}">↩ ${Notation.format(u, style)}</div>`);
+            });
+        }
+        historyElement.innerHTML = parts.join('');
         historyElement.scrollTop = 0;
+    }
+
+    /**
+     * 吃子托盘：由走子历史派生被吃棋子，按“被吃方颜色”分组展示
+     */
+    updateCapturedTray() {
+        const el = document.getElementById('capturedTray');
+        if (!el) return;
+        const captured = this.gameState.moveHistory.filter(m => m.captured).map(m => m.captured);
+        if (!captured.length) { el.innerHTML = ''; return; }
+        const byPlayer = { 0: [], 1: [], 2: [], 3: [] };
+        captured.forEach(c => { if (byPlayer[c.player]) byPlayer[c.player].push(c.type); });
+        let html = '';
+        for (const p of [0, 1, 2, 3]) {
+            if (!byPlayer[p].length) continue;
+            const glyphs = byPlayer[p].map(t => `<span class="cap cap--${p}">${Config.PIECE_NAMES[p][t]}</span>`).join('');
+            html += `<div class="cap-row"><span class="cap-label">${Config.PLAYER_COLORS[p].name}被吃</span>${glyphs}</div>`;
+        }
+        el.innerHTML = html;
     }
     
     /**

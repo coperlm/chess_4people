@@ -1833,3 +1833,62 @@ main h3{ color:var(--walnut-2); letter-spacing:.04em; }
     flex-direction: row;
   }
 }
+
+/* ===================== 应用设置：深色模式 ===================== */
+html[data-theme="dark"]{
+  --bg:#141210; --ink:#ece5d8; --muted:#a79b8b;
+  --walnut:#3a2413; --walnut-2:#5a3a1e; --wood-line:#7a5a35;
+  --board-a:#2b2622; --board-b:#231e1a; --board-frame:#5a3a1e;
+  --river:#2b4f80; --river-2:#1f3a5f;
+  --red:#e26a5f; --blue:#6fa4e8; --green:#53c894; --black:#cbc4b8;
+  --primary:#2e7d5b; --accent:#128f85; --slate:#6b7a90; --slate-2:#4d5866; --danger:#d05a4b;
+  --shadow:0 8px 24px -8px rgba(0,0,0,.75), 0 2px 6px -2px rgba(0,0,0,.6);
+}
+html[data-theme="dark"] body{ background:radial-gradient(1200px 600px at 50% -10%, #221d18 0%, var(--bg) 60%) fixed, var(--bg); }
+html[data-theme="dark"] .bg-white{ background:#211d19 !important; color:var(--ink); }
+html[data-theme="dark"] .bg-gray-100{ background:var(--bg) !important; }
+html[data-theme="dark"] .text-gray-600{ color:var(--muted) !important; }
+html[data-theme="dark"] .text-gray-800{ color:var(--ink) !important; }
+html[data-theme="dark"] main h3{ color:#dcc6a4; }
+html[data-theme="dark"] header.bg-amber-800 p{ color:#cdb695 !important; }
+html[data-theme="dark"] .modal-box{ background:#211d19; color:var(--ink); }
+html[data-theme="dark"] .replay-bar{ background:#1c1815; border-color:rgba(160,120,70,.25); }
+html[data-theme="dark"] .online-input{ background:#1a1613; border-color:#3a3128; color:var(--ink); }
+html[data-theme="dark"] .online-roster{ color:#c9c0b2; }
+html[data-theme="dark"] #gameStatus{ color:var(--muted); }
+html[data-theme="dark"] .move-history > div{ background:#1a1613; border-color:#3a3128; }
+html[data-theme="dark"] .setup-group{ border-bottom-color:#3a3128; }
+html[data-theme="dark"] .rules-body{ color:#d4cabc; }
+html[data-theme="dark"] .rules-body h4{ color:#ece5d8; }
+html[data-theme="dark"] .rules-body code{ background:#2a241e; }
+html[data-theme="dark"] .setup-mode.active{ outline-color:#ece5d8; }
+html[data-theme="dark"] #chessBoard{ box-shadow:var(--shadow), inset 0 0 0 3px rgba(255,255,255,.06) !important; }
+html[data-theme="dark"] .chess-cell{ border-color:rgba(170,130,80,.45) !important; }
+html[data-theme="dark"] .chess-cell.playable:hover{ background:rgba(255,255,255,.10); }
+html[data-theme="dark"] .pc{ border-color:rgba(255,255,255,.10); }
+html[data-theme="dark"] .pc--red{ background:#3a201d; }
+html[data-theme="dark"] .pc--blue{ background:#1d2a3a; }
+html[data-theme="dark"] .pc--green{ background:#173026; }
+html[data-theme="dark"] .pc--black{ background:#2a2723; }
+
+/* ===================== 吃子托盘 ===================== */
+.captured-tray{ margin-top:.5rem; display:flex; flex-direction:column; gap:.25rem; }
+.cap-row{ display:flex; align-items:center; flex-wrap:wrap; gap:.2rem; }
+.cap-label{ font-size:.72rem; color:var(--muted); margin-right:.25rem; }
+.cap{ display:inline-flex; align-items:center; justify-content:center; width:1.35rem; height:1.35rem; border-radius:50%;
+  font-family:"KaiTi","STKaiti","Kaiti SC",serif; font-weight:800; font-size:.82rem;
+  border:1px solid rgba(0,0,0,.15); background:rgba(0,0,0,.03); }
+.cap--0{ color:var(--red); }
+.cap--1{ color:var(--blue); }
+.cap--2{ color:var(--green); }
+.cap--3{ color:var(--black); }
+html[data-theme="dark"] .cap{ background:rgba(255,255,255,.06); border-color:rgba(255,255,255,.12); }
+
+/* ===================== 移动历史：悔棋 / 回放列表 ===================== */
+.move-subhead{ margin-top:.5rem; padding-top:.4rem; border-top:1px dashed rgba(138,90,43,.35); font-size:.72rem; color:var(--muted); }
+.move-line--undo{ opacity:.8; font-style:italic; }
+.replay-move{ cursor:pointer; }
+.replay-move:hover{ text-decoration:underline; }
+.replay-move--past{ opacity:.5; }
+.replay-move--active{ background:rgba(46,125,91,.18); border-radius:6px; font-weight:700; }
+html[data-theme="dark"] .replay-move--active{ background:rgba(83,200,148,.22); }

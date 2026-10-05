@@ -496,9 +496,9 @@ class BoardRenderer {
             
             // 执行移动
             if (this.gameState.movePiece(fromX, fromY, toX, toY)) {
-                
-                // 播放移动音效（如果有）
-                this.playMoveSound();
+
+                // 播放移动音效（吃子/普通；音效默认关闭，在设置里开启）
+                this.playMoveSound(!!capturedPiece);
                 
                 // 更新界面
                 this.clearSelection();
@@ -615,11 +615,10 @@ class BoardRenderer {
     }
     
     /**
-     * 播放移动音效
+     * 播放移动音效（吃子 vs 普通）
      */
-    playMoveSound() {
-        // 这里可以添加音效播放逻辑
-        // 暂时使用空实现
+    playMoveSound(captured) {
+        if (window.sound) window.sound.play(captured ? 'capture' : 'move');
     }
     
     /**

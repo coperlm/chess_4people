@@ -9,6 +9,7 @@ global.document = {
   addEventListener() {}
 };
 global.window = {};
+global.confirm = () => true;   // 求和时用于“是否同意”
 global.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
 
 const path = require('path');
@@ -16,6 +17,7 @@ const ROOT = path.join(__dirname, '..');
 global.Config = require(path.join(ROOT, 'js/utils/Config.js'));
 global.Utils = require(path.join(ROOT, 'js/utils/Utils.js'));
 global.CoordinateMapper = require(path.join(ROOT, 'js/board/CoordinateMapper.js'));
+global.Notation = require(path.join(ROOT, 'js/ui/Notation.js'));
 const { GameState, ChessPiece } = require(path.join(ROOT, 'js/game/GameState.js'));
 global.ChessPiece = ChessPiece;
 global.GameState = GameState;
@@ -237,6 +239,26 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     t('吃将一手：先发走子、后发淘汰', iMove !== -1 && iElim !== -1 && iMove < iElim, JSON.stringify(sends));
     t('吃将一手：move.seq < eliminate.seq', iMove !== -1 && iElim !== -1 && sends[iMove].seq < sends[iElim].seq, JSON.stringify(sends));
     t('被吃将的黑方已出局（残子清空）', hEngine.gameState.pieceCounts[3] === 0 && hEngine.gameState.getPiece(1, 3) === null);
+  }
+
+  // === 求和：提议 → 对方同意 → 双方和棋 ===
+  {
+    const hEngine = fakeEngine();
+    const pEngine = fakeEngine();
+    const h = new OnlineSession(hEngine);
+    const p = new OnlineSession(pEngine);
+    h._open('room-draw', true);
+    p._open('room-draw', false);
+    await tick(); await tick();
+    h.name = '甲'; p.name = '乙';
+    p._sendHello();
+    await tick(); await tick();
+    h.settings.mode = 'team';
+    h.startMatch();
+    await tick(); await tick();
+    h.requestDraw();
+    await tick(); await tick(); await tick();
+    t('求和：发起后对方同意 => 房主判定和棋', hEngine.gameState.gamePhase === 'finished' && hEngine.gameState.isDraw === true);
   }
 
   console.log(`\n联机协议测试: ${pass} 通过, ${fail} 失败`);
