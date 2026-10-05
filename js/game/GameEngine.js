@@ -10,6 +10,7 @@ class GameEngine {
         this.isGameActive = false;
         this.gameStartTime = null;
         this.moveTimeout = null;
+        this._endHandled = false;   // 本局是否已结算（防止重复弹结算面板/重复记统计）
         
         // 网络模式相关（已移除）
         this.isNetworkMode = false;
@@ -142,8 +143,9 @@ class GameEngine {
             return;
         }
         try {
-            // 新开一局：撤销上一局“延迟弹结算面板”的定时器
+            // 新开一局：撤销上一局“延迟弹结算面板”的定时器，并允许本局重新结算
             if (this._resultTimer) { clearTimeout(this._resultTimer); this._resultTimer = null; }
+            this._endHandled = false;
             
             this.gameState.reset();
             
@@ -296,7 +298,6 @@ class GameEngine {
     resolveAfterMove() {
         const gs = this.gameState;
         let guard = 0;
-        let finished = false;
         let changed = false;              // 是否发生了淘汰（决定淡出与重绘）
         const removed = [];               // 本步被淘汰的颜色（用于淡出特效）
         while (gs.gamePhase === 'playing' && guard++ < 8) {
@@ -308,7 +309,7 @@ class GameEngine {
                     removed.push(p); changed = true;
                 }
             }
-            if (gs.checkGameEnd()) { finished = true; break; }
+            if (gs.checkGameEnd()) break;
 
             // 轮到的玩家若已出局，顺延到下一位再判
             if (!gs.hasKing(gs.currentPlayer)) { gs.nextPlayer(); continue; }
@@ -327,7 +328,7 @@ class GameEngine {
             gs.eliminatePlayer(cur);
             this.notifyKnockout(cur, wasInCheck ? 'checkmate' : 'stalemate');
             removed.push(cur); changed = true;
-            if (gs.checkGameEnd()) { finished = true; break; }
+            if (gs.checkGameEnd()) break;
             gs.nextPlayer();
         }
         // 有淘汰：先抓“影子”再重绘，让该方棋子停留一下再淡出，而不是瞬间消失
@@ -336,7 +337,9 @@ class GameEngine {
             this.boardRenderer.renderPieces();
         }
         this.updateUI();
-        if (finished) this.endGame();
+        // 收尾依据最终 phase：吃将即胜时 executeMove 的 checkGameEnd() 已把 phase 置为 finished，
+        // 上面的 while 不会进入、finished 仍为 false —— 若只看 finished，结算面板就永远不会弹。
+        if (gs.gamePhase === 'finished') this.endGame();
     }
     
     /**
@@ -367,6 +370,8 @@ class GameEngine {
      * 结束游戏
      */
     endGame() {
+        if (this._endHandled) return;   // 一局只结算一次（联机显式调用 + 自动结算可能都触发）
+        this._endHandled = true;
         const wasActive = this.isGameActive;
         this.isGameActive = false;
         if (wasActive && window.sound) window.sound.play('end');
