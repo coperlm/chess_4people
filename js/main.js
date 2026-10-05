@@ -41,7 +41,7 @@ class ChessGameApp {
             window.gameInterface = this.gameInterface;
             window.chessApp = this;
 
-            // 音效 + 应用设置（深色模式 / 音效 / 记谱方式）
+            // 音效 + 应用设置（深色模式 / 音效）
             window.sound = new Sound();
             window.settings = new Settings();
             window.settings.init();

@@ -66,7 +66,7 @@ npm run serve        # 打开 http://localhost:8080
 
 版本号**只在一处维护**：`package.json` 的 `version`。
 - 页面顶部显示的版本号是**运行时读取 `package.json`**，自动跟着变；
-- CI 在 push 时会**按它自动打 tag（`vX.Y.Z`）并创建 Release（附 CHANGELOG）**，无需手动 `git tag`。
+- CI 在 push 时会**按它自动打 tag（`vX.Y.Z`）并创建 Release**，更新日志由**两次标签之间的提交**自动生成，无需手动 `git tag`、也不依赖仓库里的 CHANGELOG.md。
 
 ```bash
 # 1) 改 package.json 的 "version"（例如 2.0.2 -> 2.0.3）

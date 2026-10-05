@@ -1,2 +1,5 @@
 node_modules/
 tmp/
+
+# 更新日志由 Release 按提交自动生成，仓库里不再保留 CHANGELOG.md
+CHANGELOG.md

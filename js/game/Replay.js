@@ -285,7 +285,7 @@ class Replay {
         this._renderMoveList();
     }
 
-    /** 预演一遍，得到每步的 颜色/棋子/是否吃子（用于按记谱方式渲染走法列表） */
+    /** 预演一遍，得到每步的 颜色/棋子/是否吃子（用于渲染走法列表） */
     _buildDescriptors(moves) {
         const gs = new GameState();
         gs.setRules(this.rules);
@@ -306,7 +306,7 @@ class Replay {
         return out;
     }
 
-    /** 在“移动历史”面板按当前记谱方式列出回放走法，高亮当前步，点击可跳转 */
+    /** 在“移动历史”面板列出回放走法，高亮当前步，点击可跳转 */
     _renderMoveList() {
         if (typeof document === 'undefined') return;
         const el = document.getElementById('moveHistory');

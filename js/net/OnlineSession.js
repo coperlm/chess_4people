@@ -210,6 +210,7 @@ class OnlineSession {
         this.actState = this.room.makeAction('state');
         this.actNotice = this.room.makeAction('notice');
         this.actDraw = this.room.makeAction('draw');
+        this.actKick = this.room.makeAction('kick');
 
         this.actHello.onMessage = (d, ctx) => this._onHello(d, ctx.peerId);
         this.actAssign.onMessage = d => this._onAssign(d);
@@ -221,6 +222,7 @@ class OnlineSession {
         this.actUndo.onMessage = d => this._onUndo(d);
         this.actEliminate.onMessage = d => this._onEliminate(d);
         this.actDraw.onMessage = d => this._onDraw(d);
+        this.actKick.onMessage = d => this._onKick(d);
 
         this.room.onPeerJoin = id => this._onPeerJoin(id);
         this.room.onPeerLeave = id => this._onPeerLeave(id);
@@ -262,13 +264,15 @@ class OnlineSession {
         if (this.el) {
             show(this.el.leave, true);
             show(this.el.copy, true);
-            if (this.el.create) this.el.create.disabled = true;
-            if (this.el.join) this.el.join.disabled = true;
+            // 已在房间内：隐藏“创建房间”（房主/非房主都一样，避免留下一个灰按钮）
+            if (this.el.create) { this.el.create.disabled = true; this.el.create.classList.add('hidden'); }
+            if (this.el.join) { this.el.join.disabled = true; this.el.join.classList.add('hidden'); }
             show(this.el.start, isHost);
         }
         this._syncSettingsUI();
         this._renderRoster();
         this._updateStartBtn();
+        this._refreshStatus();     // 房间号 + 规则 + 角色（房主与非房主都显示）
         this._saveRecord();
         if (!this._resuming) this._sendHello();
         // 进入房间后：确保在“对局设置”弹窗的联机页
@@ -297,8 +301,8 @@ class OnlineSession {
         if (this.el) {
             if (this.el.leave) this.el.leave.classList.add('hidden');
             if (this.el.copy) this.el.copy.classList.add('hidden');
-            if (this.el.create) this.el.create.disabled = false;
-            if (this.el.join) this.el.join.disabled = false;
+            if (this.el.create) { this.el.create.disabled = false; this.el.create.classList.remove('hidden'); }
+            if (this.el.join) { this.el.join.disabled = false; this.el.join.classList.remove('hidden'); }
             if (this.el.start) this.el.start.classList.add('hidden');
         }
         this._syncSettingsUI();
@@ -358,13 +362,21 @@ class OnlineSession {
         this._refreshStatus();
     }
 
-    /** 统一刷新“联机状态”行：我的角色 + 轮到谁 */
+    /** 房间规则摘要（房主/非房主都能看到当前配置） */
+    _rulesSummary() {
+        const s = this.settings || Config.DEFAULT_RULES;
+        const mode = s.mode === Config.MODES.FFA ? '四人混战' : '两两组队';
+        const vic = s.mode === Config.MODES.FFA ? '仅剩一人' : (s.victory === Config.VICTORY.LAST_TEAM ? '仅剩一队' : '吃将即结束');
+        return `${mode}·${vic}${s.friendlyFire ? '·友伤开' : ''}`;
+    }
+
+    /** 统一刷新“联机状态”行：房间号 + 规则 + 我的角色 + 轮到谁（房主与非房主都显示） */
     _refreshStatus() {
         if (!this.active) return;
         const gs = this.gameEngine && this.gameEngine.gameState;
         const role = !this.started ? '待分配'
             : (this.myColors.length ? this.myColors.map(c => Config.PLAYER_COLORS[c].name).join('、') : '观战');
-        let turn = '等待房主开始';
+        let turn = this.started ? '' : '等待房主开始';
         if (this.started && gs) {
             if (gs.gamePhase === 'finished') turn = '对局结束';
             else {
@@ -372,7 +384,8 @@ class OnlineSession {
                 turn = `轮到 ${Config.PLAYER_COLORS[cp].name}${this.myColors.includes(cp) ? '（你）' : ''}`;
             }
         }
-        this._setStatus(`你的角色：${role} · ${turn}`, 'ok');
+        const head = `房间 ${Utils.escapeHtml(this.roomId)} · ${Utils.escapeHtml(this._rulesSummary())}`;
+        this._setStatus(`${head}\n你的角色：${Utils.escapeHtml(role)}${turn ? ' · ' + Utils.escapeHtml(turn) : ''}`, 'ok');
     }
 
     /** 走子提醒：自己的子用 success，别人的子用 info（提醒对手已走） */

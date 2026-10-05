@@ -1,4 +1,4 @@
-// 应用设置：深色模式 / 音效 / 记谱方式（持久化到 localStorage，自动保存）
+// 应用设置：深色模式 / 音效（持久化到 localStorage，自动保存）
 class Settings {
     constructor() {
         this.KEY = 'chess4p_settings';
