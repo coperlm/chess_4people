@@ -274,6 +274,7 @@ class BoardRenderer {
                 m.style.width = mk + 'px';
                 m.style.height = mk + 'px';
                 m.style.transform = 'translate(-50%,-50%)';
+                for (let k = 0; k < 4; k++) m.appendChild(document.createElement('i'));
                 layer.appendChild(m);
             }
         }

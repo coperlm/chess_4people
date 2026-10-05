@@ -1630,14 +1630,12 @@ main h3{ color:var(--walnut-2); letter-spacing:.04em; }
   --ov-line:rgba(90,58,26,.55); --ov-label:rgba(90,58,26,.72); --ov-river:rgba(90,58,26,.52); }
 html[data-theme="dark"] .board-overlay{ --ov-line:rgba(200,175,140,.42); --ov-label:rgba(210,192,165,.75); --ov-river:rgba(200,175,140,.5); }
 .board-overlay .palace-line{ position:absolute; height:0; border-top:1.5px solid var(--ov-line); }
-.board-overlay .start-mark{ position:absolute; background-repeat:no-repeat;
-  background-image:
-    linear-gradient(var(--ov-line),var(--ov-line)), linear-gradient(var(--ov-line),var(--ov-line)),
-    linear-gradient(var(--ov-line),var(--ov-line)), linear-gradient(var(--ov-line),var(--ov-line)),
-    linear-gradient(var(--ov-line),var(--ov-line)), linear-gradient(var(--ov-line),var(--ov-line)),
-    linear-gradient(var(--ov-line),var(--ov-line)), linear-gradient(var(--ov-line),var(--ov-line));
-  background-position:7% 7%,7% 7%,93% 7%,93% 7%,7% 93%,7% 93%,93% 93%,93% 93%;
-  background-size:20% 1.5px,1.5px 20%,20% 1.5px,1.5px 20%,20% 1.5px,1.5px 20%,20% 1.5px,1.5px 20%; }
+.board-overlay .start-mark{ position:absolute; pointer-events:none; }
+.board-overlay .start-mark i{ position:absolute; width:20%; height:20%; box-sizing:border-box; }
+.board-overlay .start-mark i:nth-child(1){ left:5%; top:5%; border-right:1.6px solid var(--ov-line); border-bottom:1.6px solid var(--ov-line); }
+.board-overlay .start-mark i:nth-child(2){ right:5%; top:5%; border-left:1.6px solid var(--ov-line); border-bottom:1.6px solid var(--ov-line); }
+.board-overlay .start-mark i:nth-child(3){ left:5%; bottom:5%; border-right:1.6px solid var(--ov-line); border-top:1.6px solid var(--ov-line); }
+.board-overlay .start-mark i:nth-child(4){ right:5%; bottom:5%; border-left:1.6px solid var(--ov-line); border-top:1.6px solid var(--ov-line); }
 .board-overlay .axis-label{ position:absolute; transform:translate(-50%,-50%); line-height:1; font-weight:700;
   color:var(--ov-label); font-family:ui-monospace,Menlo,Consolas,monospace; }
 @media (prefers-reduced-motion: reduce){ .chess-cell.check{ animation:none; } }
