@@ -266,6 +266,18 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     t('求和：发起后对方同意 => 房主判定和棋', hEngine.gameState.gamePhase === 'finished' && hEngine.gameState.isDraw === true);
   }
 
+  // === 回归：已在房间时再次 _open（如刷新后重连、连点创建），新会话不应被旧 leave() 的收尾冲掉 ===
+  {
+    const e = fakeEngine();
+    const s = new OnlineSession(e);
+    s._open('room-a', true);
+    await tick(); await tick();
+    t('首次建房：名册含房主', s.active === true && s.participants.length === 1 && s.participants[0].token === s.token);
+    s._open('room-b', true);   // 再次建房（旧 room 仍在）
+    await tick(); await tick();
+    t('再次建房：新会话未被旧收尾冲掉', s.active === true && s.roomId === 'room-b' && s.participants.length === 1 && s.participants[0].token === s.token, JSON.stringify({ active: s.active, room: s.roomId, n: s.participants.length }));
+  }
+
   // === 房主管理：交换位置/颜色 + 踢人 + 全员在线状态 ===
   {
     const href = { current: null };

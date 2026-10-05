@@ -177,7 +177,9 @@ class OnlineSession {
             this._setStatus('联机组件未加载（vendor/trystero.nostr.iife.js）', 'error');
             return;
         }
-        this.leave();
+        // 同步拆除旧会话（并异步关闭旧 room），避免旧 leave() 的收尾冲掉新会话
+        const oldRoom = this._teardown();
+        if (oldRoom) { try { Promise.resolve(oldRoom.leave()).catch(() => {}); } catch (e) { /* ignore */ } }
 
         this.roomId = roomId;
         this.isHost = isHost;
@@ -284,19 +286,32 @@ class OnlineSession {
         }
     }
 
-    async leave() {
-        try { if (this.room) await this.room.leave(); } catch (e) { /* ignore */ }
+    /**
+     * 同步清空本端会话状态，并返回原 room（供异步关闭）。
+     * 关键：必须“同步”清空——否则在已处于房间时再次 _open，leave() 里未 await 的收尾会
+     * 在 _open 建好新会话之后才执行，把新会话冲掉。
+     */
+    _teardown() {
+        const room = this.room;
         this.room = null;
         this.active = false;
         this.started = false;
         this.myColors = [];
+        this.mySeat = null;
         this.selfId = null;
         this.hostId = null;
         this.participants = [];
         this._roster = null;
         this._lastSeq = 0;
+        this._drawYes = null;
         this._clearFailoverTimer();
         this._applyNetworkMode(false);
+        return room;
+    }
+
+    async leave() {
+        const room = this._teardown();
+        try { if (room) await room.leave(); } catch (e) { /* ignore */ }
         this._clearRecord();
         if (this.el) {
             if (this.el.leave) this.el.leave.classList.add('hidden');
