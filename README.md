@@ -2,9 +2,9 @@
 
 纯前端的支持1-4人的变体中国象棋，支持免服务器联机（基于WebRTC P2P+Trystero），已部署到 GitHub Pages。
 
-![](pics/Screenshot-pc.jpg)
+![](assets/images/Screenshot-pc.jpg)
 
-<img src="pics/Screenshot-pe.jpg" width="50%">
+<img src="assets/images/Screenshot-pe.jpg" width="50%">
 
 ## 功能
 
