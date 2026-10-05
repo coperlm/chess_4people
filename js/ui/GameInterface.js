@@ -108,6 +108,9 @@ class GameInterface {
         if (onlineSetup) onlineSetup.classList.toggle('hidden', mode !== 'online');
         const nameGroup = document.getElementById('nameGroup');
         if (nameGroup) nameGroup.classList.toggle('hidden', mode !== 'online');
+        // 未选择对局方式前，不展示规则等后续选项
+        const rulesGroup = document.getElementById('setupRulesGroup');
+        if (rulesGroup) rulesGroup.classList.toggle('hidden', !mode);
         this.updateOnlinePanel();
         if (e.hint) {
             e.hint.textContent = mode === 'local'

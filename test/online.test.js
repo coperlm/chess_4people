@@ -295,6 +295,20 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     t('3 人组队：客户端也移除第 4 色', e1.gameState.pieceCounts[3] === 0 && e2.gameState.pieceCounts[3] === 0);
   }
 
+  // === 3 人混战：现在允许（3~4 人），各控一色、第 4 色移除 ===
+  {
+    const hEngine = fakeEngine(), e1 = fakeEngine(), e2 = fakeEngine();
+    const h = new OnlineSession(hEngine), p1 = new OnlineSession(e1), p2 = new OnlineSession(e2);
+    h._open('room-3f', true); p1._open('room-3f', false); p2._open('room-3f', false);
+    await tick(); await tick();
+    h.name = '甲'; p1.name = '乙'; p2.name = '丙';
+    p1._sendHello(); p2._sendHello(); await tick(); await tick();
+    h.settings.mode = 'ffa'; h.startMatch(); await tick(); await tick();
+    const gs = hEngine.gameState;
+    t('3 人混战：允许开局', gs.gamePhase === 'playing');
+    t('3 人混战：各控一色、第 4 色移除', eq(h.myColors, [0]) && eq(p1.myColors, [1]) && eq(p2.myColors, [2]) && gs.pieceCounts[3] === 0, JSON.stringify([h.myColors, p1.myColors, p2.myColors, gs.pieceCounts]));
+  }
+
   // === 回归：联机认输不应抛错（曾误用 this.gameState 导致“认输”直接报错） ===
   {
     const hEngine = fakeEngine(); const pEngine = fakeEngine();

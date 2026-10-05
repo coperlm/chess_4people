@@ -327,7 +327,7 @@ class OnlineSession {
     }
 
     // ================= 座位 / 开局 =================
-    _minPlayers() { return this.settings.mode === Config.MODES.FFA ? 4 : 2; }
+    _minPlayers() { return this.settings.mode === Config.MODES.FFA ? 3 : 2; }   // 混战 3~4 人；组队 2~4 人
 
     _groupsFor(n) {
         if (this.settings.mode === Config.MODES.FFA) return [[0], [1], [2], [3]];
@@ -391,7 +391,7 @@ class OnlineSession {
     /** 房间规则摘要（房主/非房主都能看到当前配置） */
     _rulesSummary() {
         const s = this.settings || Config.DEFAULT_RULES;
-        const mode = s.mode === Config.MODES.FFA ? '四人混战' : '两两组队';
+        const mode = s.mode === Config.MODES.FFA ? '混战' : '两两组队';
         const vic = s.mode === Config.MODES.FFA ? '仅剩一人' : (s.victory === Config.VICTORY.LAST_TEAM ? '仅剩一队' : '吃将即结束');
         return `${mode}·${vic}${s.friendlyFire ? '·友伤开' : ''}`;
     }

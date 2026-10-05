@@ -137,12 +137,12 @@
                 <div id="setupModeHint" class="online-status"></div>
             </div>
 
-            <div class="setup-group">
+            <div id="setupRulesGroup" class="setup-group hidden">
                 <div class="setup-label">规则</div>
                 <label class="online-label" for="modeSelect">对战模式</label>
                 <select id="modeSelect" class="online-input">
-                    <option value="team">两两组队（红蓝 vs 绿黑）</option>
-                    <option value="ffa">四人混战（各自为战）</option>
+                    <option value="team">两两组队（2 人各控一队 · 3 人红蓝 vs 绿 · 4 人 2v2）</option>
+                    <option value="ffa">混战（各自为战，3 或 4 人）</option>
                 </select>
                 <label class="online-label" for="victorySelect">胜利条件</label>
                 <select id="victorySelect" class="online-input">
@@ -231,9 +231,8 @@
                 </ul>
                 <h4>对战模式</h4>
                 <ul>
-                    <li><b>两两组队</b>：红蓝为一队、绿黑为一队，对角线是队友。</li>
-                    <li><b>3 人组队</b>：红、蓝、绿各一人，多出的「黑」<b>整色移除</b>（三人各控一色）。</li>
-                    <li><b>四人混战</b>：各自为战，每人自成一队。</li>
+                    <li><b>两两组队</b>：红蓝为一队、绿黑为一队，对角线是队友。座位随人数自动分：<b>2 人</b>各控一队 / <b>3 人</b>红蓝这边 2 人 vs 绿 1 人（多出的「黑」<b>整色移除</b>）/ <b>4 人</b>各控一色（2v2）。</li>
+                    <li><b>混战</b>：各自为战，3–4 人；人数不足时的颜色<b>整色移除</b>，吃到最后一人。</li>
                     <li><b>友伤</b>：开启后允许吃队友的棋子（仅影响吃子，不改胜利条件）。</li>
                 </ul>
                 <h4>胜负与排名</h4>

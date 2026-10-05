@@ -164,7 +164,7 @@ async function runGame(n, rng, roomId, stats, maxPlies) {
   await settle(4);
   if (host.participants.length !== n) { stats.badHandshake++; return; }
 
-  const mode = (n >= 4 && rng() < 0.5) ? 'ffa' : 'team';
+  const mode = (n >= 3 && rng() < 0.5) ? 'ffa' : 'team';   // 混战 3~4 人；组队 2~4 人
   host.settings.mode = mode;
   host.settings.victory = rng() < 0.5 ? 'any_king' : 'last_team';
   host.settings.friendlyFire = rng() < 0.5;
