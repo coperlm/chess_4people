@@ -21,13 +21,6 @@ class PieceManager {
     }
     
     /**
-     * 获取指定玩家的所有棋子
-     */
-    getPlayerPieces(player) {
-        return this.getAllPieces().filter(piece => piece.player === player);
-    }
-    
-    /**
      * 获取指定类型的棋子
      */
     getPiecesByType(type, player = null) {
@@ -204,13 +197,6 @@ class PieceManager {
         if (!piece) return [];
         // 依赖由 GameEngine 注入的 ruleValidator（见 updateReferences）
         return this.ruleValidator ? this.ruleValidator.getValidMoves(x, y) : [];
-    }
-    
-    /**
-     * 统计玩家棋子
-     */
-    countPlayerPieces(player) {
-        return this.getPlayerPieces(player).length;
     }
     
     /**

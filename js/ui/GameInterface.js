@@ -29,7 +29,6 @@ class GameInterface {
      */
     initialize() {
         this.setupResponsiveLayout();
-        this.bindInterfaceEvents();
         this.initializeTooltips();
         this.updateInterface();
         this._wireSetup();
@@ -183,28 +182,6 @@ class GameInterface {
         if (renderer && renderer._syncHistoryHeight) {
             renderer._syncHistoryHeight();
         }
-    }
-    
-    /**
-     * 绑定界面事件（入口按钮在弹窗 wiring 中绑定）
-     */
-    bindInterfaceEvents() {
-        this.bindThemeEvents();
-        this.bindSoundEvents();
-    }
-    
-    /**
-     * 绑定主题事件
-     */
-    bindThemeEvents() {
-        // 主题切换功能暂时不实现
-    }
-    
-    /**
-     * 绑定音效事件
-     */
-    bindSoundEvents() {
-        // 音效功能暂时不实现具体逻辑
     }
     
     /**

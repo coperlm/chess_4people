@@ -86,6 +86,20 @@ function engineStub(gs) {
   t('v2 恢复后计数重算', gs3.pieceCounts[0] === 1 && gs3.pieceCounts[1] === 1);
 }
 
+// 3 人组队：开局移除的第 4 色（outOfPlay）应随存档保留
+{
+  const p2 = new GameStatePersistence();
+  const g3 = new GameState();
+  g3.setRules({ mode: 'team', victory: 'any_king', friendlyFire: false });
+  g3.startGame();
+  g3.removeColor(3);
+  p2.saveGameState(g3, Date.now());
+  const g4 = new GameState();
+  p2.restoreGameState(engineStub(g4), p2.loadGameState());
+  t('存档保留 outOfPlay', JSON.stringify(g4.outOfPlay) === '[3]', JSON.stringify(g4.outOfPlay));
+  t('恢复后第 4 色无子', g4.pieceCounts[3] === 0 && !g4.hasKing(3));
+}
+
 console.log(`\n存档测试: ${pass} 通过, ${fail} 失败`);
 if (fail) { console.log('\n失败项:'); failures.forEach(f => console.log('  ✗ ' + f)); process.exit(1); }
 console.log('✅ 全部通过');

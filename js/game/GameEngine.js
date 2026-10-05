@@ -29,14 +29,6 @@ class GameEngine {
     }
     
     /**
-     * 检查是否是当前玩家的回合
-     */
-    isMyTurn() {
-        if (!this.isNetworkMode) return true;
-        return (this.controlledColors || []).includes(this.gameState.currentPlayer);
-    }
-    
-    /**
      * 检查游戏组件是否正确初始化
      */
     checkInitialization() {
@@ -513,11 +505,13 @@ class GameEngine {
         const surrenderBtn = document.getElementById('surrenderBtn');
         const drawBtn = document.getElementById('drawBtn');
 
-        const canUndo = this.isGameActive &&
-                       this.gameState.gamePhase === 'playing' &&
-                       this.gameState.moveHistory.length > 0;
+        // 观战者（联机中无颜色者）不能悔棋/认输/求和
+        const os = window.onlineSession;
+        const spectator = !!(os && os.active && (!os.myColors || !os.myColors.length));
+        const playing = this.isGameActive && this.gameState.gamePhase === 'playing';
 
-        const canSurrender = this.isGameActive && this.gameState.gamePhase === 'playing';
+        const canUndo = playing && this.gameState.moveHistory.length > 0 && !spectator;
+        const canSurrender = playing && !spectator;
 
         if (undoBtn) undoBtn.disabled = !canUndo;
         if (surrenderBtn) surrenderBtn.disabled = !canSurrender;

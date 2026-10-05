@@ -81,7 +81,8 @@ class Replay {
             w: gs.isDraw ? 'draw' : (gs.winner === null || gs.winner === undefined ? null : gs.winner),
             g: gs.gamePhase === 'finished' ? 1 : 0,
             moves: hist.map(mv => [mv.from.x, mv.from.y, mv.to.x, mv.to.y]),
-            elim: (gs.eliminationLog || []).map(e => [e.player, e.atMove])
+            elim: (gs.eliminationLog || []).map(e => [e.player, e.atMove]),
+            rem: gs.outOfPlay || []     // 开局即移除的颜色（如 3 人组队去掉的第 4 色）
         };
         let encoded = '';
         try { encoded = btoa(JSON.stringify(payload)); } catch (e) { encoded = ''; }   // payload 全为 ASCII
@@ -183,6 +184,7 @@ class Replay {
                     moves: obj.moves.map(a => ({ from: [a[0], a[1]], to: [a[2], a[3]] })),
                     rules,
                     eliminations: (obj.elim || []).map(a => ({ player: a[0], atMove: a[1] })),
+                    outOfPlay: obj.rem || [],
                     signature, body: encoded,
                     result: obj.w, finished: !!obj.g
                 };
@@ -235,6 +237,7 @@ class Replay {
         this.meta = data.meta || {};
         this.moves = data.moves;
         this.eliminations = data.eliminations || [];
+        this.outOfPlay = data.outOfPlay || [];
         this.rules = data.rules || Config.DEFAULT_RULES;
         this.descriptors = this._buildDescriptors(this.moves);
         const br = this.ge.boardRenderer;
@@ -257,6 +260,7 @@ class Replay {
         index = Math.max(0, Math.min(index, this.moves.length));
         const gs = new GameState();
         gs.setRules(this.rules);
+        if (gs.removeColor) for (const c of (this.outOfPlay || [])) gs.removeColor(c);
         for (let k = 0; k < index; k++) this._applyRaw(gs, this.moves[k].from, this.moves[k].to);
         // 应用已经发生的淘汰（atMove <= 当前步数）
         const elims = (this.eliminations || []).filter(e => e.atMove <= index).sort((a, b) => a.atMove - b.atMove);
@@ -289,6 +293,7 @@ class Replay {
     _buildDescriptors(moves) {
         const gs = new GameState();
         gs.setRules(this.rules);
+        if (gs.removeColor) for (const c of (this.outOfPlay || [])) gs.removeColor(c);
         const out = [];
         for (const mv of moves) {
             const pc = gs.getPiece(mv.from[0], mv.from[1]);

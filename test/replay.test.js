@@ -118,6 +118,19 @@ const SAMPLE = [
     p3.exit();
   }
 
+  // 3 人组队：回放应重现“第 4 色被整色移除”
+  {
+    const enc = Buffer.from(JSON.stringify({ v: 1, t: 'x', r: { m: 'team', v: 'any_king', f: 0 }, w: null, g: 0, moves: [[0, 6, 0, 5]], elim: [], rem: [3] })).toString('base64');
+    const sig3 = await rp._sign(enc);
+    const d5 = rp.parse(enc + '.' + sig3);
+    t('回放带 outOfPlay(rem)', JSON.stringify(d5.outOfPlay) === '[3]', JSON.stringify(d5.outOfPlay));
+    const p5 = new Replay(ge); p5.enter(d5); p5.goto(1);
+    let black = 0;
+    for (let x = 0; x < 10; x++) for (let y = 0; y < 10; y++) { const q = p5.replayState.board[x][y]; if (q && q.player === 3) black++; }
+    t('回放中第 4 色已被移除', black === 0, 'black=' + black);
+    p5.exit();
+  }
+
   console.log(`\n回放测试: ${pass} 通过, ${fail} 失败`);
   if (fail) { console.log('\n失败项:'); failures.forEach(f => console.log('  ✗ ' + f)); process.exit(1); }
   console.log('✅ 全部通过');

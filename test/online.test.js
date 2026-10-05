@@ -352,6 +352,29 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     t('踢人不会把房主自己踢掉', h.active === true && h.participants.some(x => x.token === h.token));
   }
 
+  // === 求和排除观战者：只需参战玩家同意，观战者不弹窗也不否决 ===
+  {
+    const eng = [fakeEngine(), fakeEngine(), fakeEngine(), fakeEngine(), fakeEngine()];
+    const s = eng.map(e => new OnlineSession(e));
+    s[0].token = 'H'; s[0]._open('room-spec', true);
+    for (let i = 1; i < 5; i++) { s[i].token = 'S' + i; s[i]._open('room-spec', false); }
+    await tick(); await tick();
+    s[0].name = 'H';
+    for (let i = 1; i < 5; i++) { s[i].name = 'S' + i; s[i]._sendHello(); }
+    await tick(); await tick();
+    s[0].settings.mode = 'team'; s[0].startMatch(); await tick(); await tick();
+    const players = s.filter(x => x.myColors.length);
+    const spectators = s.filter(x => !x.myColors.length);
+    t('5 人：4 名参战 + 1 名观战', players.length === 4 && spectators.length === 1, JSON.stringify(s.map(x => x.myColors)));
+    // 观战者尝试求和应被拒
+    spectators[0].requestDraw(); await tick();
+    t('观战者不能发起求和', s[0].gameEngine.gameState.isDraw !== true);
+    // 房主发起求和：4 名参战者同意（confirm 桩为 true），观战者不参与 → 成立
+    s[0].requestDraw();
+    await tick(); await tick(); await tick(); await tick();
+    t('观战者不否决：求和仍成立', s[0].gameEngine.gameState.isDraw === true && s[0].gameEngine.gameState.gamePhase === 'finished', JSON.stringify({ draw: s[0].gameEngine.gameState.isDraw, phase: s[0].gameEngine.gameState.gamePhase }));
+  }
+
   console.log(`\n联机协议测试: ${pass} 通过, ${fail} 失败`);
   if (fail) { console.log('\n失败项:'); failures.forEach(f => console.log('  ✗ ' + f)); process.exit(1); }
   console.log('✅ 全部通过');

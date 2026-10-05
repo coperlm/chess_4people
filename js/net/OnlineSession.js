@@ -583,7 +583,8 @@ class OnlineSession {
             this._hostApplyAndBroadcast(d.from[0], d.from[1], d.to[0], d.to[1]);
         } else if (d.kind === 'undo') {
             const p = this.participants.find(p => p.id === peerId);
-            this._doUndo(true, p && p.name ? p.name : '玩家');
+            if (!p || !(p.colors || []).length) return this._reject(peerId, '观战者不能悔棋');
+            this._doUndo(true, p.name || '玩家');
         } else if (d.kind === 'resign') {
             const p = this.participants.find(p => p.id === peerId);
             const colors = d.colors || (d.color !== undefined ? [d.color] : []);
@@ -658,6 +659,7 @@ class OnlineSession {
 
     requestUndo() {
         if (!this.active || !this.started) return;
+        if (!this.myColors || !this.myColors.length) { this._setStatus('观战者不能悔棋', 'error'); return; }
         if (this.isHost) this._doUndo(true, this.name || '房主');
         else this.actIntent.send({ kind: 'undo' });
     }
@@ -774,6 +776,7 @@ class OnlineSession {
      */
     requestDraw() {
         if (!this.active || !this.started) return;
+        if (!this.myColors || !this.myColors.length) { this._setStatus('观战者不能求和', 'error'); return; }
         if (this.gameEngine.gameState.gamePhase !== 'playing') return;
         this._drawYes = new Set([this.token]);
         this.actDraw.send({ kind: 'offer', token: this.token, name: this.name || '玩家' });
@@ -813,6 +816,7 @@ class OnlineSession {
         if (!d) return;
         if (d.kind === 'offer') {
             if (d.token === this.token) return;                 // 自己发起的，不弹
+            if (!this.myColors || !this.myColors.length) return; // 观战者不参与求和（不弹窗、不否决）
             if (this.isHost) { this._drawYes = this._drawYes || new Set(); this._drawYes.add(d.token); }  // 提议者视为已同意
             const agreed = await this._promptDraw(d.name || '对方');
             if (agreed === 'busy') return;              // 上一条还没答复：忽略，不误判为拒绝
@@ -839,7 +843,8 @@ class OnlineSession {
     }
     _tryResolveDraw() {
         const yes = this._drawYes || new Set();
-        const need = this.participants.filter(p => p.id).map(p => p.token);   // 已连上的参与者
+        // 只需“参战玩家”（有颜色的、已连上的）全部同意；观战者不参与、不否决
+        const need = this.participants.filter(p => p.id && (p.colors || []).length).map(p => p.token);
         if (need.length && need.every(t => yes.has(t))) {
             this._drawYes = null;
             this.gameEngine.gameState.declareDraw();
