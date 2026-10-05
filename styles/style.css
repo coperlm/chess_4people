@@ -1672,8 +1672,8 @@ main h3{ color:var(--walnut-2); letter-spacing:.04em; }
 
 /* 棋盘装饰层：九宫斜线 / 炮兵起始标记 / 坐标标注（纯视觉） */
 .board-overlay{ position:relative; pointer-events:none; z-index:1;
-  --ov-line:rgba(90,58,26,.55); --ov-label:rgba(90,58,26,.72); }
-html[data-theme="dark"] .board-overlay{ --ov-line:rgba(200,175,140,.42); --ov-label:rgba(210,192,165,.75); }
+  --ov-line:rgba(90,58,26,.55); --ov-label:rgba(90,58,26,.72); --ov-river:rgba(90,58,26,.52); }
+html[data-theme="dark"] .board-overlay{ --ov-line:rgba(200,175,140,.42); --ov-label:rgba(210,192,165,.75); --ov-river:rgba(200,175,140,.5); }
 .board-overlay .palace-line{ position:absolute; height:0; border-top:1.5px solid var(--ov-line); }
 .board-overlay .start-mark{ position:absolute; background-repeat:no-repeat;
   background-image:
@@ -1718,9 +1718,7 @@ html[data-theme="dark"] .chess-cell.playable:hover{ background:radial-gradient(c
 .chess-cell.last-move-from, .chess-cell.last-move-to{ background:none !important; box-shadow:none !important; }
 .chess-cell.last-move-from::before, .chess-cell.last-move-to::before{ content:""; position:absolute; left:50%; top:50%; width:58%; height:58%; transform:translate(-50%,-50%); border-radius:50%; background:rgba(217,119,6,.30); }
 @media (prefers-reduced-motion: reduce){ .chess-cell.check::after{ animation:none; } }
-.river-horizontal{ background:linear-gradient(var(--river),var(--river-2)) !important; }
-.river-vertical{ background:linear-gradient(90deg,var(--river),var(--river-2)) !important; }
-.river-center{ background:linear-gradient(135deg,var(--river),var(--river-2)) !important; }
+/* 河界不再填色：河界是“同底色空白带”，只靠线格断开 + 河界文字标示（见 .river-text） */
 .chess-piece{ border-width:2px; border-style:solid; font-weight:800; font-family:"KaiTi","STKaiti","Kaiti SC","Noto Serif SC",serif;
   box-shadow:0 2px 4px rgba(0,0,0,.25), inset 0 -2px 4px rgba(0,0,0,.10), inset 0 2px 3px rgba(255,255,255,.8) !important; }
 .chess-piece.selected{ box-shadow:0 0 0 3px rgba(46,125,91,.8), 0 3px 8px rgba(0,0,0,.3) !important; }
@@ -2000,16 +1998,11 @@ html[data-skin="lake"]{ --board-a:#e5eef9; --board-b:#d2e3f4; --board-frame:#2b5
 html[data-theme="dark"] .turn-timer.timer--red{ color:#f87171; }
 @keyframes timerPulse{ 0%,100%{opacity:1;} 50%{opacity:.45;} }
 
-/* ===================== 河带文字「楚河/汉界」 ===================== */
-.river-horizontal.river-label{ display:flex; align-items:center; justify-content:center;
-  color:#f2f8ff; font-weight:800; letter-spacing:.22em; text-indent:.22em;
-  font-family:"KaiTi","STKaiti","Kaiti SC","Noto Serif SC",serif;
-  text-shadow:0 1px 2px rgba(0,0,0,.35); }
-/* 竖河的文字（与横河对称）：竖排 */
-.river-vertical.river-label--v{ display:flex; align-items:center; justify-content:center;
-  color:#f2f8ff; font-weight:800; letter-spacing:.18em; text-indent:.18em;
-  font-family:"KaiTi","STKaiti","Kaiti SC","Noto Serif SC",serif; line-height:1;
-  text-shadow:0 1px 2px rgba(0,0,0,.35); writing-mode:vertical-rl; text-orientation:upright; }
+/* ===================== 河界文字「楚河/汉界」（同底色空白带上的字） ===================== */
+.board-overlay .river-text{ position:absolute; transform:translate(-50%,-50%); font-weight:800;
+  letter-spacing:.28em; text-indent:.28em; white-space:nowrap; line-height:1;
+  font-family:"KaiTi","STKaiti","Kaiti SC","Noto Serif SC",serif; color:var(--ov-river); }
+.board-overlay .river-text--v{ writing-mode:vertical-rl; text-orientation:upright; letter-spacing:.22em; text-indent:.22em; }
 
 /* ===================== 聊天 ===================== */
 .chat-log{ min-height:6rem; max-height:40vh; overflow-y:auto; background:#faf6ef; border:1px solid rgba(138,90,43,.16);

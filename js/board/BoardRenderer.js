@@ -97,14 +97,12 @@ class BoardRenderer {
         // 取较小值作为棋盘可用空间
         const availableSize = Math.min(availableWidth, availableHeight);
         
-        // 计算格子大小（10 格 + 一条较宽的河带，河带约占 0.28 格，便于放「楚河/汉界」）
-        const rawCell = Math.floor(availableSize / 10.3);
+        // 计算格子大小（10 格等距；河界只是空白带，不再额外占宽度）
+        const rawCell = Math.floor(availableSize / 10);
         const finalCellSize = Math.max(24, Math.min(rawCell, 70));
-        const finalRiverWidth = Math.max(8, Math.min(Math.round(finalCellSize * 0.28), 22));
 
         return {
             cellSize: finalCellSize,
-            riverWidth: finalRiverWidth,
             pieceSize: Math.floor(finalCellSize * 0.78), // 棋子是格子的78%
             fontSize: Math.floor(finalCellSize * 0.44)   // 字体随格子自适应
         };
@@ -119,70 +117,28 @@ class BoardRenderer {
         // 根据屏幕大小计算棋盘尺寸
         const sizes = this.calculateBoardSize();
         const cellSize = sizes.cellSize;
-        const riverWidth = sizes.riverWidth;
         
         // 保存尺寸信息供其他方法使用
         this.cellSize = cellSize;
-        this.riverWidth = riverWidth;
         this.pieceSize = sizes.pieceSize;
         this.fontSize = sizes.fontSize;
         
-        // 创建棋盘容器，使用CSS Grid布局
+        // 均匀网格：10×10 等距，棋子落在交叉点；河界只是“空白带”，不再额外占宽
         this.boardElement.style.display = 'grid';
-        this.boardElement.style.gridTemplateColumns = `repeat(5, ${cellSize}px) ${riverWidth}px repeat(5, ${cellSize}px)`;
-        this.boardElement.style.gridTemplateRows = `repeat(5, ${cellSize}px) ${riverWidth}px repeat(5, ${cellSize}px)`;
+        this.boardElement.style.gridTemplateColumns = `repeat(${Config.BOARD_SIZE}, ${cellSize}px)`;
+        this.boardElement.style.gridTemplateRows = `repeat(${Config.BOARD_SIZE}, ${cellSize}px)`;
         this.boardElement.style.gap = '0';
         
-        // 创建10x10的格子（跳过河界位置）
         for (let y = 0; y < Config.BOARD_SIZE; y++) {
             for (let x = 0; x < Config.BOARD_SIZE; x++) {
                 const cell = this.createCell(x, y);
-                
-                // 计算grid位置（考虑河界）
-                const gridX = x < 5 ? x + 1 : x + 2;
-                const gridY = y < 5 ? y + 1 : y + 2;
-                
-                cell.style.gridColumn = gridX;
-                cell.style.gridRow = gridY;
-                
+                cell.style.gridColumn = x + 1;
+                cell.style.gridRow = y + 1;
                 this.boardElement.appendChild(cell);
             }
         }
-        
-        // 十字交叉中心（纯色，不写字）
-        const centerRiver = document.createElement('div');
-        centerRiver.className = 'river-center';
-        centerRiver.style.gridColumn = '6';
-        centerRiver.style.gridRow = '6';
-        this.boardElement.appendChild(centerRiver);
 
-        // 「楚河」「汉界」：仅在棋盘足够大时显示汉字（小屏不显示）
-        const showRiverText = cellSize >= 34;
-        const riverFontSize = Math.max(9, Math.min(Math.round(riverWidth * 0.6), Math.round(cellSize * 0.32)));
-        const mkHRiver = (col, text) => {
-            const d = document.createElement('div');
-            d.className = 'river-horizontal';
-            d.style.gridColumn = col;
-            d.style.gridRow = '6';
-            if (text && showRiverText) { d.classList.add('river-label'); d.style.fontSize = riverFontSize + 'px'; d.textContent = text; }
-            this.boardElement.appendChild(d);
-        };
-        for (let i = 1; i <= 5; i++) mkHRiver(i, i === 3 ? '楚河' : '');
-        for (let i = 7; i <= 11; i++) mkHRiver(i, i === 9 ? '汉界' : '');
-
-        // 纵向河界（上下各 5 格；中部写竖排「楚河/汉界」，与横河对称）
-        const mkV = (row, text) => {
-            const d = document.createElement('div');
-            d.className = 'river-vertical';
-            d.style.gridColumn = '6';
-            d.style.gridRow = row;
-            if (text && showRiverText) { d.classList.add('river-label', 'river-label--v'); d.style.fontSize = riverFontSize + 'px'; d.textContent = text; }
-            this.boardElement.appendChild(d);
-        };
-        for (let i = 1; i <= 5; i++) mkV(i, i === 3 ? '楚河' : '');
-        for (let i = 7; i <= 11; i++) mkV(i, i === 9 ? '汉界' : '');
-
-        // 棋盘装饰层：九宫斜线 + 炮/兵起始标记 + 坐标标注（纯视觉，不拦截点击）
+        // 棋盘装饰层：线格 + 九宫斜线 + 炮/兵起始标记 + 坐标 + 河界文字（纯视觉，不拦截点击）
         this._buildBoardOverlay();
         
         // 渲染棋子
@@ -252,12 +208,12 @@ class BoardRenderer {
         cell.classList.add('palace-corner');
     }
 
-    // ---- 棋盘内容区坐标（相对网格内容，含河带偏移） ----
-    _xLeft(i) { return i < 5 ? i * this.cellSize : 5 * this.cellSize + this.riverWidth + (i - 5) * this.cellSize; }
-    _yTop(j) { return j < 5 ? j * this.cellSize : 5 * this.cellSize + this.riverWidth + (j - 5) * this.cellSize; }
+    // ---- 棋盘内容区坐标（等距：每格 cellSize） ----
+    _xLeft(i) { return i * this.cellSize; }
+    _yTop(j) { return j * this.cellSize; }
     _xCenter(i) { return this._xLeft(i) + this.cellSize / 2; }
     _yCenter(j) { return this._yTop(j) + this.cellSize / 2; }
-    _contentSize() { return Config.BOARD_SIZE * this.cellSize + this.riverWidth; }
+    _contentSize() { return Config.BOARD_SIZE * this.cellSize; }
 
     /**
      * 棋盘装饰层：线格（交叉点棋盘，棋子落在交点）、九宫斜线、炮/兵起始“四角括”、坐标 0-9。
@@ -281,11 +237,18 @@ class BoardRenderer {
             layer.appendChild(d);
         };
 
-        // ① 横线：贯穿整幅（10 条；棋子就落在这些线上）
+        // ① 横线：最外两条贯通；其余在竖河（col4↔col5 之间）处断开
+        const bankLeft = this._xCenter(4), bankRight = this._xCenter(5);
         for (let j = 0; j < Config.BOARD_SIZE; j++) {
-            addLine(L, this._yCenter(j) - lw / 2, R - L, lw);
+            const y = this._yCenter(j) - lw / 2;
+            if (j === 0 || j === Config.BOARD_SIZE - 1) {
+                addLine(L, y, R - L, lw);
+            } else {
+                addLine(L, y, bankLeft - L, lw);
+                addLine(bankRight, y, R - bankRight, lw);
+            }
         }
-        // ② 竖线：最外两条贯通；其余在河道处断开（真象棋河界处不画竖线）
+        // ② 竖线：最外两条贯通；其余在横河（row4↔row5 之间）处断开
         const bankTop = this._yCenter(4), bankBottom = this._yCenter(5);
         for (let i = 0; i < Config.BOARD_SIZE; i++) {
             const x = this._xCenter(i) - lw / 2;
@@ -332,7 +295,26 @@ class BoardRenderer {
             }
         }
 
-        // ⑤ 坐标标注：贴在棋盘外沿（内边距里）。上下列=第1位(列 x)，左右行=第2位(行 y)。
+        // ⑤ 河界文字：河界是“同底色空白带”，只用文字 + 断线标示（横竖一致，贴近真象棋）
+        if (cell >= 30) {
+            const rfs = Math.max(10, Math.round(cell * 0.30));
+            const midHb = (this._yCenter(4) + this._yCenter(5)) / 2;   // 横河中线
+            const midVb = (this._xCenter(4) + this._xCenter(5)) / 2;   // 竖河中线
+            const addRiverText = (x, y, txt, vertical) => {
+                const d = document.createElement('div');
+                d.className = 'river-text' + (vertical ? ' river-text--v' : '');
+                d.textContent = txt;
+                d.style.fontSize = rfs + 'px';
+                d.style.left = x + 'px'; d.style.top = y + 'px';
+                layer.appendChild(d);
+            };
+            addRiverText(this._xCenter(2), midHb, '楚河', false);
+            addRiverText(this._xCenter(7), midHb, '汉界', false);
+            addRiverText(midVb, this._yCenter(2), '楚河', true);
+            addRiverText(midVb, this._yCenter(7), '汉界', true);
+        }
+
+        // ⑥ 坐标标注：贴在棋盘外沿（内边距里）。上下列=第1位(列 x)，左右行=第2位(行 y)。
         const fs = Math.max(9, Math.round(cell * 0.28));
         const off = Math.max(7, Math.round(cell * 0.16));
         const size = this._contentSize();
@@ -713,13 +695,10 @@ class BoardRenderer {
             const cs = getComputedStyle(this.boardElement);
             const padL = parseFloat(cs.paddingLeft) + parseFloat(cs.borderLeftWidth);
             const padT = parseFloat(cs.paddingTop) + parseFloat(cs.borderTopWidth);
-            const c = this.cellSize, r = this.riverWidth;
+            const c = this.cellSize;
             const map = (v) => {
-                if (v < 0) return null;
-                if (v < 5 * c) return Math.floor(v / c);
-                if (v < 5 * c + r) return null;
-                if (v < 10 * c + r) return 5 + Math.floor((v - 5 * c - r) / c);
-                return null;
+                if (v < 0 || v >= Config.BOARD_SIZE * c) return null;
+                return Math.floor(v / c);
             };
             const x = map(clientX - rect.left - padL);
             const y = map(clientY - rect.top - padT);
