@@ -103,7 +103,7 @@ class BoardRenderer {
 
         return {
             cellSize: finalCellSize,
-            pieceSize: Math.floor(finalCellSize * 0.9), // 棋子约 0.9 格（传统象棋几乎相接）
+            pieceSize: Math.floor(finalCellSize * 0.88), // 棋子约 0.88 格（传统象棋几乎相接）
             fontSize: Math.floor(finalCellSize * 0.5)    // 字体随格子自适应
         };
     }
@@ -308,7 +308,7 @@ class BoardRenderer {
 
         // ⑤ 河界文字：河界是“同底色空白带”，只用文字 + 断线标示（横竖一致，贴近真象棋）
         if (cell >= 30) {
-            const rfs = Math.max(12, Math.round(cell * 0.40));
+            const rfs = Math.max(12, Math.round(cell * 0.46));
             const midHb = (this._yCenter(4) + this._yCenter(5)) / 2;   // 横河中线
             const midVb = (this._xCenter(4) + this._xCenter(5)) / 2;   // 竖河中线
             const addRiverText = (x, y, txt, vertical) => {
