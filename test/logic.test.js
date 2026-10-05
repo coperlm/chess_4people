@@ -181,6 +181,10 @@ t('全部兵/卒均可后退走法总数为 0', backwardTotal === 0, 'count=' + 
   t('困毙局面：黑未被将军', pm.isInCheck(3) === false);
   const k = gs.computeKnockouts(rv);
   t('困毙 => 结算原因为 stalemate', k.length === 1 && k[0].player === 3 && k[0].reason === 'stalemate', JSON.stringify(k));
+  gs.currentPlayer = 0;
+  t('非当前方被困：不算出局（留到其回合再判）', gs.currentPlayerStuck(rv) === false);
+  gs.currentPlayer = 3;
+  t('轮到该方且无子可动：判定为困毙', gs.currentPlayerStuck(rv) === true);
 }
 // 4d. 将/帅被“直接吃掉”：该玩家须彻底出局、残子清空
 //     （否则会出现“无将却有残子在场”的不一致状态）

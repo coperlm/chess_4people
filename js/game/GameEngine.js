@@ -142,6 +142,8 @@ class GameEngine {
             return;
         }
         try {
+            // 新开一局：撤销上一局“延迟弹结算面板”的定时器
+            if (this._resultTimer) { clearTimeout(this._resultTimer); this._resultTimer = null; }
             
             this.gameState.reset();
             
@@ -294,40 +296,44 @@ class GameEngine {
         const gs = this.gameState;
         let guard = 0;
         let finished = false;
-        let changed = false;   // 是否发生了淘汰（决定要不要重绘，避免打断走子动画）
+        let changed = false;              // 是否发生了淘汰（决定淡出与重绘）
+        const removed = [];               // 本步被淘汰的颜色（用于淡出特效）
         while (gs.gamePhase === 'playing' && guard++ < 8) {
             // ① 将/帅被直接吃掉的玩家：彻底出局（清残子）并通报（开局移除的颜色除外）
             for (let p = 0; p < 4; p++) {
                 if (!gs.hasKing(p) && !gs.eliminationOrder.includes(p) && !gs.outOfPlay.includes(p)) {
                     gs.eliminatePlayer(p);
                     this.notifyKnockout(p, 'captured');
-                    changed = true;
+                    removed.push(p); changed = true;
                 }
             }
             if (gs.checkGameEnd()) { finished = true; break; }
 
-            // ② 困毙（完全无子可动）
-            const knocked = gs.computeKnockouts(this.ruleValidator);
-            if (!knocked.length) {
-                const p = gs.currentPlayer;
-                if (this.pieceManager.isInCheck(p)) {
-                    Utils.showBanner('将军', 'check', `${Config.PLAYER_COLORS[p].name}被将军`);
+            // 轮到的玩家若已出局，顺延到下一位再判
+            if (!gs.hasKing(gs.currentPlayer)) { gs.nextPlayer(); continue; }
+
+            // ② 困毙/将死：只判“当前该走的一方”——完全无子可动才出局（其余被困者留到各自回合）
+            const cur = gs.currentPlayer;
+            if (!gs.currentPlayerStuck(this.ruleValidator)) {
+                if (this.pieceManager.isInCheck(cur)) {
+                    Utils.showBanner('将军', 'check', `${Config.PLAYER_COLORS[cur].name}被将军`);
                     if (window.sound) window.sound.play('check');
                 }
                 break;
             }
-            for (const k of knocked) {
-                // 无子可动：被将军者判「将死」，否则「困毙」（仅影响横幅文案，出局逻辑一致）
-                const wasInCheck = this.pieceManager.isInCheck(k.player);
-                gs.eliminatePlayer(k.player);
-                this.notifyKnockout(k.player, wasInCheck ? 'checkmate' : 'stalemate');
-                changed = true;
-            }
+            // 无子可动：被将军者判「将死」，否则「困毙」（仅影响横幅文案，出局逻辑一致）
+            const wasInCheck = this.pieceManager.isInCheck(cur);
+            gs.eliminatePlayer(cur);
+            this.notifyKnockout(cur, wasInCheck ? 'checkmate' : 'stalemate');
+            removed.push(cur); changed = true;
             if (gs.checkGameEnd()) { finished = true; break; }
-            if (!gs.hasKing(gs.currentPlayer)) gs.nextPlayer();
+            gs.nextPlayer();
         }
-        // 仅在“有淘汰”时重绘（清残子）；否则不重绘，以免打断刚触发的走子动画
-        if (changed) this.boardRenderer.renderPieces();
+        // 有淘汰：先抓“影子”再重绘，让该方棋子停留一下再淡出，而不是瞬间消失
+        if (changed) {
+            if (this.boardRenderer.fadeOutPieces) this.boardRenderer.fadeOutPieces(removed);
+            this.boardRenderer.renderPieces();
+        }
         this.updateUI();
         if (finished) this.endGame();
     }
@@ -372,11 +378,14 @@ class GameEngine {
         if (undoBtn) undoBtn.disabled = true;
         if (surrenderBtn) surrenderBtn.disabled = true;
         
-        // 显示游戏结果
-        this.showGameResult();
-        
-        // 记录游戏统计
-        this.recordGameStats();
+        // 稍作停顿再弹结算面板，让“淘汰淡出”动画看得清；重复调用只保留最后一次
+        if (this._resultTimer) clearTimeout(this._resultTimer);
+        this._resultTimer = setTimeout(() => {
+            this._resultTimer = null;
+            if (this.gameState.gamePhase !== 'finished') return;   // 期间已重开则不弹
+            this.showGameResult();      // 显示游戏结果
+            this.recordGameStats();     // 记录游戏统计
+        }, 850);
         
         if (window.onlineSession && window.onlineSession.active) {
             window.onlineSession.onGameEnd();

@@ -92,17 +92,19 @@ function fakeEngine(ref) {
     canControl(p) { if (!this.isNetworkMode) return true; return !!this.controlledColors && this.controlledColors.includes(p); },
     updateUI() {}, updateMoveHistory() {},
     startNewGame() { gs.reset(); gs.startGame(); this.isGameActive = true; },
-    // 忠实复刻生产端 GameEngine.resolveAfterMove / onMoveCompleted
+    // 忠实复刻生产端 GameEngine.resolveAfterMove / onMoveCompleted（困毙只判“轮到该方”）
     resolveAfterMove() {
       let guard = 0, finished = false;
       while (gs.gamePhase === 'playing' && guard++ < 8) {
         for (let p = 0; p < 4; p++) if (!gs.hasKing(p) && !gs.eliminationOrder.includes(p) && !gs.outOfPlay.includes(p)) { gs.eliminatePlayer(p); this.notifyKnockout(p, 'captured'); }
         if (gs.checkGameEnd()) { finished = true; break; }
-        const kn = gs.computeKnockouts(rv);
-        if (!kn.length) break;
-        for (const k of kn) { gs.eliminatePlayer(k.player); this.notifyKnockout(k.player, k.reason); }
+        if (!gs.hasKing(gs.currentPlayer)) { gs.nextPlayer(); continue; }
+        const cur = gs.currentPlayer;
+        if (!gs.currentPlayerStuck(rv)) break;
+        gs.eliminatePlayer(cur);
+        this.notifyKnockout(cur, 'stalemate');
         if (gs.checkGameEnd()) { finished = true; break; }
-        if (!gs.hasKing(gs.currentPlayer)) gs.nextPlayer();
+        gs.nextPlayer();
       }
       if (finished) this.endGame();
     },

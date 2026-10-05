@@ -325,7 +325,41 @@ class BoardRenderer {
             }, 200);
         } catch (e) { /* 动画失败不影响对局 */ }
     }
-    
+
+    /**
+     * 淘汰特效：把指定颜色的棋子克隆成“影子”，短暂停留后淡出缩小。
+     * 必须在 renderPieces() 之前调用（此时 DOM 上还留着这些棋子）。纯视觉，失败不影响对局。
+     */
+    fadeOutPieces(colors, holdMs = 450, fadeMs = 380) {
+        if (!colors || !colors.length || !this._animEnabled()) return;
+        try {
+            const set = new Set(colors);
+            const clones = [];
+            const pieces = this.boardElement.querySelectorAll('.chess-piece');
+            pieces.forEach(el => {
+                if (!set.has(parseInt(el.dataset.player, 10))) return;
+                const rect = el.getBoundingClientRect();
+                const g = el.cloneNode(true);
+                g.style.position = 'fixed';
+                g.style.left = rect.left + 'px';
+                g.style.top = rect.top + 'px';
+                g.style.width = rect.width + 'px';
+                g.style.height = rect.height + 'px';
+                g.style.margin = '0';
+                g.style.pointerEvents = 'none';
+                g.style.zIndex = '55';
+                g.style.transition = `opacity ${fadeMs}ms ease, transform ${fadeMs}ms ease`;
+                document.body.appendChild(g);
+                clones.push(g);
+            });
+            if (!clones.length) return;
+            setTimeout(() => {
+                clones.forEach(g => { try { g.style.opacity = '0'; g.style.transform = 'scale(.35)'; } catch (e) {} });
+                setTimeout(() => clones.forEach(g => { try { g.remove(); } catch (e) {} }), fadeMs + 80);
+            }, holdMs);
+        } catch (e) { /* 特效失败不影响对局 */ }
+    }
+
     /**
      * 清除所有棋子
      */

@@ -78,18 +78,20 @@ function consistencyError(gs) {
   return null;
 }
 
-/** 与 GameEngine.resolveAfterMove 同逻辑：将被吃 / 困毙 一律出局（可连锁） */
+/** 与 GameEngine.resolveAfterMove 同逻辑：将被吃一律出局；困毙只在“轮到该方”时判（可连锁） */
 function resolve(gs, rv, koStats) {
   for (let guard = 0; guard < 8 && gs.gamePhase === 'playing'; guard++) {
     for (let p = 0; p < 4; p++) {
-      if (!gs.hasKing(p) && !gs.eliminationOrder.includes(p)) { gs.eliminatePlayer(p); koStats.captured++; }
+      if (!gs.hasKing(p) && !gs.eliminationOrder.includes(p) && !gs.outOfPlay.includes(p)) { gs.eliminatePlayer(p); koStats.captured++; }
     }
     if (gs.checkGameEnd()) return true;
-    const ko = gs.computeKnockouts(rv);
-    if (!ko.length) return false;
-    for (const k of ko) { koStats[k.reason]++; gs.eliminatePlayer(k.player); }
+    if (!gs.hasKing(gs.currentPlayer)) { gs.nextPlayer(); continue; }
+    const cur = gs.currentPlayer;
+    if (!gs.currentPlayerStuck(rv)) return false;
+    koStats.stalemate++;
+    gs.eliminatePlayer(cur);
     if (gs.checkGameEnd()) return true;
-    if (!gs.hasKing(gs.currentPlayer)) gs.nextPlayer();
+    gs.nextPlayer();
   }
   return gs.gamePhase === 'finished';
 }

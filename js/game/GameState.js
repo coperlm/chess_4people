@@ -250,6 +250,16 @@ class GameState {
     }
 
     /**
+     * 当前该走的一方是否“无子可动”（困毙/将死）。
+     * 只在轮到它时才成立——其他人即便被困，也要等轮到它们各自回合再判。
+     */
+    currentPlayerStuck(ruleValidator) {
+        const p = this.currentPlayer;
+        if (!this.hasKing(p) || this.eliminationOrder.includes(p) || this.outOfPlay.includes(p)) return false;
+        return this.computeKnockouts(ruleValidator).some(k => k.player === p);
+    }
+
+    /**
      * 检查游戏是否结束
      */
     checkGameEnd() {
