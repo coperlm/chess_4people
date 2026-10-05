@@ -410,7 +410,7 @@ class OnlineSession {
                 turn = `轮到 ${Config.PLAYER_COLORS[cp].name}${this.myColors.includes(cp) ? '（你）' : ''}`;
             }
         }
-        const head = `房间 ${Utils.escapeHtml(this.roomId)} · ${Utils.escapeHtml(this._rulesSummary())}`;
+        const head = `房间 ${Utils.escapeHtml(this.roomId)} · ${Utils.escapeHtml(this._rulesSummary())} · ${Utils.escapeHtml(this._countState())}`;
         this._setStatus(`${head}\n你的角色：${Utils.escapeHtml(role)}${turn ? ' · ' + Utils.escapeHtml(turn) : ''}`, 'ok');
     }
 
@@ -968,31 +968,83 @@ class OnlineSession {
             }))
         });
     }
-    _renderRoster() {
-        if (this.el && this.el.roster) {
-            const nameOf = (n, i) => Utils.escapeHtml(n ? n : `玩家${i + 1}`);
-            const roleOf = s => (s.colors || []).length ? s.colors.map(c => Config.PLAYER_COLORS[c].name).join('+') : '待分配';
-            if (this.isHost) {
-                this.el.roster.innerHTML = this.participants.map((p, i) => {
-                    const online = p.token === this.token || p.id ? '' : '（离线）';
-                    return `<div>#${i + 1} ${nameOf(p.name, i)} ${p.token === this.token ? '(房主/你)' : online} — ${Utils.escapeHtml(roleOf(p))}</div>`;
-                }).join('');
-            } else if (this._roster) {
-                const d = this._roster;
-                let html = `<div>房间内 ${d.count} 人</div>`;
-                html += (d.seats || []).map((s, i) => {
-                    // 非房主视角：标出房主 / 自己 / 离线
-                    const tag = s.host ? '（房主）' : '';
-                    const you = (this.mySeat === i) ? '（你）' : '';
-                    const off = s.online === false ? '（离线）' : '';
-                    return `<div>#${i + 1} ${nameOf(s.name, i)} ${tag}${you}${off} — ${Utils.escapeHtml(roleOf(s))}</div>`;
-                }).join('');
-                this.el.roster.innerHTML = html;
-            } else {
-                this.el.roster.innerHTML = '';
-            }
+    /** 名册 HTML（房主按 participants、非房主按广播的 _roster 渲染） */
+    _rosterHtml() {
+        const nameOf = (n, i) => Utils.escapeHtml(n ? n : `玩家${i + 1}`);
+        const roleOf = s => (s.colors || []).length ? s.colors.map(c => Config.PLAYER_COLORS[c].name).join('+') : '待分配';
+        if (this.isHost) {
+            return this.participants.map((p, i) => {
+                const online = p.token === this.token || p.id ? '' : '（离线）';
+                return `<div>#${i + 1} ${nameOf(p.name, i)} ${p.token === this.token ? '(房主/你)' : online} — ${Utils.escapeHtml(roleOf(p))}</div>`;
+            }).join('');
         }
+        if (this._roster) {
+            const d = this._roster;
+            let html = `<div>房间内 ${d.count} 人</div>`;
+            html += (d.seats || []).map((s, i) => {
+                // 非房主视角：标出房主 / 自己 / 离线
+                const tag = s.host ? '（房主）' : '';
+                const you = (this.mySeat === i) ? '（你）' : '';
+                const off = s.online === false ? '（离线）' : '';
+                return `<div>#${i + 1} ${nameOf(s.name, i)} ${tag}${you}${off} — ${Utils.escapeHtml(roleOf(s))}</div>`;
+            }).join('');
+            return html;
+        }
+        return '';
+    }
+
+    /** 当前房间人数（房主按 participants，其余按名册广播） */
+    _playerCount() {
+        if (this.isHost) return this.participants.length;
+        return (this._roster && typeof this._roster.count === 'number') ? this._roster.count : 0;
+    }
+
+    /** 按当前人数+模式预览座位分配（与 _groupsFor 一致） */
+    _seatPreview(n) {
+        const N = { 0: '红', 1: '蓝', 2: '绿', 3: '黑' };
+        const cnt = Math.min(n, 4);
+        if (this.settings.mode === Config.MODES.FFA) {
+            const list = [0, 1, 2, 3].slice(0, cnt).map(c => N[c]).join('/');
+            const rem = n < 4 ? `（${[0, 1, 2, 3].slice(Math.max(n, 0)).map(c => N[c]).join('/')} 移除）` : '';
+            return cnt ? `各控一色：${list}${rem}` : '等待玩家';
+        }
+        if (cnt <= 1) return '等待玩家';
+        if (cnt === 2) return '各控一队：红蓝 ｜ 绿黑';
+        if (cnt === 3) return '红蓝(2人) vs 绿(1人)（黑移除）';
+        return '各控一色：红蓝 vs 绿黑（2v2）';
+    }
+
+    /** 人数状态提示 */
+    _countState() {
+        const n = this._playerCount();
+        const min = this._minPlayers();
+        if (this.started) return '对局进行中';
+        if (n > 4) return `已满（4 人），多出的 ${n - 4} 人将观战`;
+        if (n < min) return `还差 ${min - n} 人可开始`;
+        return '人数已满足，可开始';
+    }
+
+    _renderRoster() {
+        const html = this._rosterHtml();
+        const main = this.el && this.el.roster;
+        if (main) main.innerHTML = html;
+        const lobby = (typeof document !== 'undefined' && document.getElementById) ? document.getElementById('lobbyRoster') : null;
+        if (lobby) lobby.innerHTML = html;
         this._renderAdmin();
+        this._renderLobby();
+    }
+
+    /** 大厅头部：房间号 + 人数/座位预览提示 */
+    _renderLobby() {
+        if (typeof document === 'undefined' || !document.getElementById) return;
+        const code = document.getElementById('lobbyRoomCode');
+        if (code) code.textContent = this.active ? (this.roomId || '—') : '—';
+        const hint = document.getElementById('lobbyHint');
+        if (hint) {
+            hint.textContent = this.active
+                ? `当前 ${this._playerCount()} 人 · ${this._seatPreview(this._playerCount())} · ${this._countState()}`
+                : '';
+        }
     }
 
     /** 房主专用：玩家管理（交换位置/颜色、踢出） */

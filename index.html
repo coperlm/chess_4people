@@ -159,11 +159,19 @@
 
             <div id="onlineSetup" class="setup-group hidden">
                 <div class="setup-label">联机房间</div>
-                <button id="createRoomBtn" class="online-btn online-btn--create">创建房间</button>
-                <button id="copyInviteBtn" class="online-btn online-btn--copy hidden">复制邀请链接</button>
-                <button id="startOnlineBtn" class="online-btn online-btn--start hidden" disabled>开始 / 重开对局（房主）</button>
-                <button id="leaveRoomBtn" class="online-btn online-btn--leave hidden">离开房间</button>
-                <div class="online-status">房间状态见左侧「联机对局」。</div>
+                <div class="lobby-head">
+                    <span class="lobby-code">房间号 <b id="lobbyRoomCode">—</b></span>
+                    <button id="copyInviteBtn" class="link-btn hidden">复制邀请链接</button>
+                </div>
+                <div id="lobbyRoster" class="online-roster"></div>
+                <div id="lobbyHint" class="online-status"></div>
+                <div class="online-row">
+                    <button id="createRoomBtn" class="online-btn online-btn--create">创建房间</button>
+                </div>
+                <div class="online-row">
+                    <button id="startOnlineBtn" class="online-btn online-btn--start hidden" disabled>开始 / 重开（房主）</button>
+                    <button id="leaveRoomBtn" class="online-btn online-btn--leave hidden">离开房间</button>
+                </div>
             </div>
 
             <div class="modal-actions">

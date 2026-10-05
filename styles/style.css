@@ -1922,3 +1922,10 @@ html[data-theme="dark"] .draw-prompt__box{ background:#211d19; color:var(--ink);
 .mini-btn--danger{ background:linear-gradient(180deg,#c24536,var(--danger)); }
 .mini-btn:active{ transform:translateY(1px); }
 .admin-empty{ font-size:.72rem; color:var(--muted); }
+
+/* ===================== 联机大厅（设置弹窗内） ===================== */
+.lobby-head{ display:flex; align-items:center; justify-content:space-between; gap:.4rem; margin-bottom:.35rem; }
+.lobby-code{ font-size:.85rem; color:var(--muted); }
+.lobby-code b{ color:var(--ink); letter-spacing:.06em; font-weight:800; }
+#lobbyRoster{ margin-top:.15rem; }
+#lobbyHint{ margin-top:.35rem; }
