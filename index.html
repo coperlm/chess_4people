@@ -53,6 +53,10 @@
                         <span class="text-sm text-gray-600">游戏状态</span>
                         <span id="gameStatus" class="text-sm">等待开始</span>
                     </div>
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-sm text-gray-600">本步倒计时</span>
+                        <span id="turnTimer" class="text-sm turn-timer"></span>
+                    </div>
 
                     <div class="online-row">
                         <button id="setupOpenBtn" class="online-btn online-btn--start">新游戏/房间状态</button>
@@ -89,6 +93,7 @@
                     <div id="roomAdmin" class="room-admin hidden"></div>
                     <div class="online-row">
                         <button id="roomSetupBtn" class="online-btn online-btn--copy">房间设置</button>
+                        <button id="chatOpenBtn" class="online-btn online-btn--copy">聊天</button>
                     </div>
                 </div>
             </div>
@@ -193,7 +198,33 @@
             <div class="setup-group">
                 <label class="online-check"><input id="settingSound" type="checkbox"> 音效（默认关闭）</label>
             </div>
+            <div class="setup-group">
+                <label class="online-label" for="settingSkin">棋盘皮肤</label>
+                <select id="settingSkin" class="online-input">
+                    <option value="wood">木色（默认）</option>
+                    <option value="jade">青玉</option>
+                    <option value="ink">墨玉</option>
+                    <option value="lake">湖蓝</option>
+                </select>
+            </div>
             <div class="online-status">设置会自动保存。<button id="installAppBtn" class="link-btn hidden">安装到桌面</button></div>
+        </div>
+    </div>
+
+    <!-- 聊天弹窗（联机） -->
+    <div id="chatModal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <div class="modal-head">
+                <h3 class="modal-title">房间聊天</h3>
+                <button class="modal-x" data-close="chatModal" title="关闭">✕</button>
+            </div>
+            <div id="chatLog" class="chat-log"></div>
+            <div id="chatQuick" class="chip-row"></div>
+            <div id="chatEmoji" class="chip-row"></div>
+            <div class="chat-input-row">
+                <input id="chatInput" class="online-input" type="text" maxlength="100" placeholder="说点什么…">
+                <button id="chatSendBtn" class="online-btn online-btn--create">发送</button>
+            </div>
         </div>
     </div>
 

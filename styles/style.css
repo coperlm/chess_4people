@@ -1929,3 +1929,37 @@ html[data-theme="dark"] .draw-prompt__box{ background:#211d19; color:var(--ink);
 .lobby-code b{ color:var(--ink); letter-spacing:.06em; font-weight:800; }
 #lobbyRoster{ margin-top:.15rem; }
 #lobbyHint{ margin-top:.35rem; }
+
+/* ===================== 棋盘皮肤（独立于深色模式；皮肤优先） ===================== */
+html[data-skin="jade"]{ --board-a:#e9f4e5; --board-b:#d6ecd0; --board-frame:#2f6b4f; --river:#2f6b4f; --river-2:#255740; }
+html[data-skin="ink"]{ --board-a:#e9e6e0; --board-b:#dbd6cd; --board-frame:#3a3630; --river:#4b463f; --river-2:#37332d; }
+html[data-skin="lake"]{ --board-a:#e5eef9; --board-b:#d2e3f4; --board-frame:#2b5d8a; --river:#2b5d8a; --river-2:#20486b; }
+
+/* ===================== 每步倒计时 ===================== */
+.turn-timer{ font-variant-numeric:tabular-nums; font-weight:700; color:var(--muted); letter-spacing:.04em; }
+.turn-timer.timer--red{ color:#dc2626; animation: timerPulse 1s ease-in-out infinite; }
+html[data-theme="dark"] .turn-timer.timer--red{ color:#f87171; }
+@keyframes timerPulse{ 0%,100%{opacity:1;} 50%{opacity:.45;} }
+
+/* ===================== 河带文字「楚河/汉界」 ===================== */
+.river-horizontal.river-label{ display:flex; align-items:center; justify-content:center;
+  color:#f2f8ff; font-weight:800; letter-spacing:.22em; text-indent:.22em;
+  font-family:"KaiTi","STKaiti","Kaiti SC","Noto Serif SC",serif;
+  text-shadow:0 1px 2px rgba(0,0,0,.35); }
+
+/* ===================== 聊天 ===================== */
+.chat-log{ min-height:6rem; max-height:40vh; overflow-y:auto; background:#faf6ef; border:1px solid rgba(138,90,43,.16);
+  border-radius:10px; padding:.5rem .6rem; font-size:.86rem; display:flex; flex-direction:column; gap:.2rem; }
+.chat-line{ word-break:break-word; line-height:1.5; }
+.chat-line b{ font-weight:700; }
+.chip-row{ display:flex; flex-wrap:wrap; gap:.3rem; margin-top:.45rem; }
+.chip{ border:1px solid rgba(138,90,43,.25); background:#fffdf8; color:var(--ink); border-radius:999px;
+  padding:.2rem .6rem; font-size:.78rem; cursor:pointer; }
+.chip:hover{ background:#f3ead9; }
+.chip--emoji{ font-size:1rem; padding:.15rem .45rem; }
+.chat-input-row{ display:flex; gap:.4rem; margin-top:.5rem; }
+.chat-input-row .online-input{ flex:1; }
+.chat-input-row .online-btn{ flex:0 0 auto; }
+html[data-theme="dark"] .chat-log{ background:#1a1613; border-color:#3a3128; }
+html[data-theme="dark"] .chip{ background:#241f1a; border-color:#3a3128; color:var(--ink); }
+html[data-theme="dark"] .chip:hover{ background:#2e271f; }

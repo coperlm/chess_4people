@@ -180,7 +180,11 @@ class GameEngine {
      * 悔棋
      */
     undoMove() {
+        // 任何人（参战玩家）都可悔棋；执行前弹窗确认，避免误触
         if (window.onlineSession && window.onlineSession.active) {
+            if (this.gameState.gamePhase !== 'playing') { Utils.showMessage('当前无法悔棋', 'warning'); return; }
+            if (this.gameState.moveHistory.length === 0) { Utils.showMessage('没有可悔棋的步数', 'warning'); return; }
+            if (!confirm('确定要悔棋吗？')) return;
             window.onlineSession.requestUndo();
             return;
         }
@@ -188,12 +192,14 @@ class GameEngine {
             Utils.showMessage('当前无法悔棋', 'warning');
             return;
         }
-        
+
         if (this.gameState.moveHistory.length === 0) {
             Utils.showMessage('没有可悔棋的步数', 'warning');
             return;
         }
-        
+
+        if (!confirm('确定要悔棋吗？')) return;
+
         if (this.gameState.undoMove()) {
             if (window.sound) window.sound.play('undo');
             this.boardRenderer.update();
@@ -288,12 +294,14 @@ class GameEngine {
         const gs = this.gameState;
         let guard = 0;
         let finished = false;
+        let changed = false;   // 是否发生了淘汰（决定要不要重绘，避免打断走子动画）
         while (gs.gamePhase === 'playing' && guard++ < 8) {
             // ① 将/帅被直接吃掉的玩家：彻底出局（清残子）并通报（开局移除的颜色除外）
             for (let p = 0; p < 4; p++) {
                 if (!gs.hasKing(p) && !gs.eliminationOrder.includes(p) && !gs.outOfPlay.includes(p)) {
                     gs.eliminatePlayer(p);
                     this.notifyKnockout(p, 'captured');
+                    changed = true;
                 }
             }
             if (gs.checkGameEnd()) { finished = true; break; }
@@ -311,12 +319,13 @@ class GameEngine {
             for (const k of knocked) {
                 gs.eliminatePlayer(k.player);
                 this.notifyKnockout(k.player, k.reason);
+                changed = true;
             }
             if (gs.checkGameEnd()) { finished = true; break; }
             if (!gs.hasKing(gs.currentPlayer)) gs.nextPlayer();
         }
-        // 先重绘/刷新界面，再结束——保证淘汰后“棋子/当前玩家/回合高亮”不残留
-        this.boardRenderer.renderPieces();
+        // 仅在“有淘汰”时重绘（清残子）；否则不重绘，以免打断刚触发的走子动画
+        if (changed) this.boardRenderer.renderPieces();
         this.updateUI();
         if (finished) this.endGame();
     }
@@ -419,6 +428,43 @@ class GameEngine {
         this.updateCapturedTray();
         this.updateButtons();
         this.updateBoardEnabled();
+        this.updateTurnTimer();
+    }
+
+    /**
+     * 每步倒计时（仅视觉）：60 秒，剩余 ≤10s 变红，到点不做任何操作，只轻提示。
+     * 回合变化（走子/悔棋/重开/联机同步）时重置。
+     */
+    updateTurnTimer() {
+        const gs = this.gameState;
+        const playing = gs.gamePhase === 'playing';
+        const key = playing ? (gs.currentPlayer + ':' + gs.turn) : 'off';
+        if (key === this._timerKey) return;
+        this._timerKey = key;
+        if (this._timerId) { clearInterval(this._timerId); this._timerId = null; }
+        if (!playing) { this._renderTurnTimer(-1); return; }
+        this._timerRemain = 60;
+        this._renderTurnTimer(this._timerRemain);
+        this._timerId = setInterval(() => {
+            this._timerRemain--;
+            if (this._timerRemain <= 0) {
+                clearInterval(this._timerId); this._timerId = null;
+                this._renderTurnTimer(0);
+                const p = this.gameState.currentPlayer;
+                Utils.showMessage(`该 ${Config.PLAYER_COLORS[p].name} 走棋了`, 'info');
+                return;
+            }
+            this._renderTurnTimer(this._timerRemain);
+        }, 1000);
+    }
+
+    _renderTurnTimer(sec) {
+        const el = document.getElementById('turnTimer');
+        if (!el) return;
+        if (sec < 0) { el.textContent = ''; el.classList.remove('timer--red'); return; }
+        const m = Math.floor(sec / 60), s = sec % 60;
+        el.textContent = `${m}:${String(s).padStart(2, '0')}`;
+        el.classList.toggle('timer--red', sec > 0 && sec <= 10);
     }
     
     /**

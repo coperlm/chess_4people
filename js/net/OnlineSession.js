@@ -31,6 +31,8 @@ class OnlineSession {
         this._failoverTimer = null;
         this._drawYes = null;   // 求和：已同意的 token 集合
         this.mySeat = null;     // 我在名册中的座位号（非房主用，标注“你”）
+        this._chatLog = [];     // 聊天记录（本端）
+        this._chatUnread = 0;   // 未读聊天数
     }
 
     // ================= 初始化 =================
@@ -48,8 +50,15 @@ class OnlineSession {
             status: $('onlineStatus'),
             roster: $('onlineRoster'),
             start: $('startOnlineBtn'),
-            leave: $('leaveRoomBtn')
+            leave: $('leaveRoomBtn'),
+            chatOpen: $('chatOpenBtn'),
+            chatLog: $('chatLog'),
+            chatInput: $('chatInput'),
+            chatSend: $('chatSendBtn'),
+            chatQuick: $('chatQuick'),
+            chatEmoji: $('chatEmoji')
         };
+        this._wireChat();
         if (this.el.mode) this.el.mode.addEventListener('change', () => { this._readSettingsFromUI(); this._syncSettingsUI(); this._updateStartBtn(); this._warnSettingsNextGame(); });
         if (this.el.victory) this.el.victory.addEventListener('change', () => { this._readSettingsFromUI(); this._broadcastRoster(); this._warnSettingsNextGame(); });
         if (this.el.ff) this.el.ff.addEventListener('change', () => { this._readSettingsFromUI(); this._broadcastRoster(); this._warnSettingsNextGame(); });
@@ -213,6 +222,7 @@ class OnlineSession {
         this.actNotice = this.room.makeAction('notice');
         this.actDraw = this.room.makeAction('draw');
         this.actKick = this.room.makeAction('kick');
+        this.actChat = this.room.makeAction('chat');
 
         this.actHello.onMessage = (d, ctx) => this._onHello(d, ctx.peerId);
         this.actAssign.onMessage = d => this._onAssign(d);
@@ -225,6 +235,7 @@ class OnlineSession {
         this.actEliminate.onMessage = d => this._onEliminate(d);
         this.actDraw.onMessage = d => this._onDraw(d);
         this.actKick.onMessage = d => this._onKick(d);
+        this.actChat.onMessage = d => this._onChat(d);
 
         this.room.onPeerJoin = id => this._onPeerJoin(id);
         this.room.onPeerLeave = id => this._onPeerLeave(id);
@@ -614,7 +625,7 @@ class OnlineSession {
         this.actMove.send({ seq: this.seq, from: [fromX, fromY], to: [toX, toY], by: mover });
 
         ge.boardRenderer.clearSelection();
-        ge.boardRenderer.renderPieces();
+        ge.boardRenderer.renderPieces({ fromX, fromY, toX, toY });
         ge.onMoveCompleted();               // 结算：吃将/困毙淘汰、结束、历史、存档、UI（可能再 ++seq 广播 eliminate）
         this._notifyMove(mover, fromX, fromY, toX, toY, ptype, captured);
         this._refreshStatus();
@@ -638,15 +649,15 @@ class OnlineSession {
         const captured = !!gs.getPiece(d.to[0], d.to[1]);
         gs.movePiece(d.from[0], d.from[1], d.to[0], d.to[1]);
         this._drawYes = null;   // 有新走子，作废未完成的求和
-        this._clientAfterApply();
+        this._clientAfterApply({ fromX: d.from[0], fromY: d.from[1], toX: d.to[0], toY: d.to[1] });
         this._notifyMove(mover, d.from[0], d.from[1], d.to[0], d.to[1], ptype, captured);
         this._refreshStatus();
     }
 
-    _clientAfterApply() {
+    _clientAfterApply(move) {
         const ge = this.gameEngine, gs = ge.gameState;
         ge.boardRenderer.clearSelection();
-        ge.boardRenderer.renderPieces();
+        ge.boardRenderer.renderPieces(move);
         ge.updateUI();
         if (ge.updateMoveHistory) ge.updateMoveHistory();
         if (ge.boardRenderer.highlightLastMove) ge.boardRenderer.highlightLastMove();
@@ -1147,6 +1158,63 @@ class OnlineSession {
         Utils.showMessage((d && d.text) || '你已被房主移出房间', 'warning');
         this._setStatus('你已被房主移出房间', 'error');
         this.leave();
+    }
+
+    // ================= 聊天（自由文本 + 快捷语 + emoji） =================
+    _wireChat() {
+        const QUICK = ['你好', '好棋！', '快走啦', '手下留情', '再来一局', '😂'];
+        const EMOJI = ['😀', '😂', '👍', '👎', '🎉', '😭', '😡', '🤔', '👏', '😅', '😎', '🐶', '❤️', '🙏'];
+        const input = this.el.chatInput, send = this.el.chatSend, open = this.el.chatOpen;
+        if (open) open.addEventListener('click', () => {
+            this._chatUnread = 0; this._updateChatBtn();
+            if (window.gameInterface && window.gameInterface.openModal) window.gameInterface.openModal('chatModal');
+        });
+        const doSend = () => { this.sendChat(input ? input.value : ''); if (input) { input.value = ''; input.focus(); } };
+        if (send) send.addEventListener('click', doSend);
+        if (input) input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doSend(); } });
+        if (this.el.chatQuick) {
+            QUICK.forEach(t => { const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = t; b.addEventListener('click', () => this.sendChat(t)); this.el.chatQuick.appendChild(b); });
+        }
+        if (this.el.chatEmoji) {
+            EMOJI.forEach(em => { const b = document.createElement('button'); b.type = 'button'; b.className = 'chip chip--emoji'; b.textContent = em; b.addEventListener('click', () => { if (input) { input.value += em; input.focus(); } }); this.el.chatEmoji.appendChild(b); });
+        }
+    }
+
+    sendChat(text) {
+        if (!this.active) return;
+        text = String(text || '').trim().slice(0, 100);
+        if (!text) return;
+        const msg = {
+            name: this.name || '玩家',
+            color: (this.myColors && this.myColors.length) ? this.myColors[0] : null,
+            text, ts: Date.now(), mine: true
+        };
+        this._appendChat(msg);
+        try { this.actChat.send({ name: msg.name, color: msg.color, text: msg.text, ts: msg.ts }); } catch (e) { /* ignore */ }
+    }
+    _onChat(d) {
+        if (!d || !d.text) return;
+        this._appendChat({ name: d.name || '玩家', color: (d.color === undefined ? null : d.color), text: String(d.text).slice(0, 100), ts: d.ts });
+    }
+    _appendChat(msg) {
+        if (!this._chatLog) this._chatLog = [];
+        this._chatLog.push(msg);
+        if (this._chatLog.length > 100) this._chatLog.shift();
+        const el = this.el && this.el.chatLog;
+        if (el && typeof document !== 'undefined') {
+            const col = (msg.color != null && Config.PLAYER_COLORS[msg.color]) ? Config.PLAYER_COLORS[msg.color].color : '';
+            const div = document.createElement('div');
+            div.className = 'chat-line ' + col;
+            div.innerHTML = `<b>${Utils.escapeHtml(msg.name || '玩家')}</b>：${Utils.escapeHtml(msg.text)}`;
+            el.appendChild(div);
+            el.scrollTop = el.scrollHeight;
+            const modal = document.getElementById('chatModal');
+            if (!msg.mine && modal && modal.classList.contains('hidden')) { this._chatUnread = (this._chatUnread || 0) + 1; this._updateChatBtn(); }
+        }
+    }
+    _updateChatBtn() {
+        const b = this.el && this.el.chatOpen;
+        if (b) b.textContent = this._chatUnread ? `聊天 (${this._chatUnread})` : '聊天';
     }
     _updateStartBtn() {
         if (!this.el || !this.el.start) return;

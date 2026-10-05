@@ -97,16 +97,11 @@ class BoardRenderer {
         // 取较小值作为棋盘可用空间
         const availableSize = Math.min(availableWidth, availableHeight);
         
-        // 计算格子大小（10格 + 1条河界线）
-        // 河界占格子大小的8%
-        const cellSize = Math.floor(availableSize / 11);
-        const riverWidth = Math.max(2, Math.floor(cellSize * 0.08));
-        
-        // 限制最小和最大尺寸
-        const finalCellSize = Math.max(24, Math.min(cellSize, 70));
-        const finalRiverWidth = Math.max(2, Math.min(riverWidth, 5));
-        
-        
+        // 计算格子大小（10 格 + 一条较宽的河带，河带约占 0.28 格，便于放「楚河/汉界」）
+        const rawCell = Math.floor(availableSize / 10.3);
+        const finalCellSize = Math.max(24, Math.min(rawCell, 70));
+        const finalRiverWidth = Math.max(8, Math.min(Math.round(finalCellSize * 0.28), 22));
+
         return {
             cellSize: finalCellSize,
             riverWidth: finalRiverWidth,
@@ -154,60 +149,37 @@ class BoardRenderer {
             }
         }
         
-        // 添加横向河界（十字交叉中心）
+        // 十字交叉中心（纯色，不写字）
         const centerRiver = document.createElement('div');
         centerRiver.className = 'river-center';
         centerRiver.style.gridColumn = '6';
         centerRiver.style.gridRow = '6';
-        centerRiver.style.backgroundColor = '#3b82f6';
-        centerRiver.style.display = 'flex';
-        centerRiver.style.alignItems = 'center';
-        centerRiver.style.justifyContent = 'center';
-        
-        // 河界中心文字大小根据格子大小调整
-        const riverFontSize = Math.max(6, Math.floor(cellSize * 0.15));
-        centerRiver.innerHTML = `<span style="color: white; font-size: ${riverFontSize}px; font-weight: bold; writing-mode: vertical-rl; text-orientation: upright;">河</span>`;
         this.boardElement.appendChild(centerRiver);
-        
-        // 添加横向河界（左侧5格）
-        for (let i = 1; i <= 5; i++) {
-            const hRiver = document.createElement('div');
-            hRiver.className = 'river-horizontal';
-            hRiver.style.gridColumn = i;
-            hRiver.style.gridRow = '6';
-            hRiver.style.backgroundColor = '#3b82f6';
-            this.boardElement.appendChild(hRiver);
-        }
-        
-        // 添加横向河界（右侧5格）
-        for (let i = 7; i <= 11; i++) {
-            const hRiver = document.createElement('div');
-            hRiver.className = 'river-horizontal';
-            hRiver.style.gridColumn = i;
-            hRiver.style.gridRow = '6';
-            hRiver.style.backgroundColor = '#3b82f6';
-            this.boardElement.appendChild(hRiver);
-        }
-        
-        // 添加纵向河界（上侧5格）
-        for (let i = 1; i <= 5; i++) {
-            const vRiver = document.createElement('div');
-            vRiver.className = 'river-vertical';
-            vRiver.style.gridColumn = '6';
-            vRiver.style.gridRow = i;
-            vRiver.style.backgroundColor = '#3b82f6';
-            this.boardElement.appendChild(vRiver);
-        }
-        
-        // 添加纵向河界（下侧5格）
-        for (let i = 7; i <= 11; i++) {
-            const vRiver = document.createElement('div');
-            vRiver.className = 'river-vertical';
-            vRiver.style.gridColumn = '6';
-            vRiver.style.gridRow = i;
-            vRiver.style.backgroundColor = '#3b82f6';
-            this.boardElement.appendChild(vRiver);
-        }
+
+        // 「楚河」「汉界」：仅在棋盘足够大时显示汉字（小屏不显示）
+        const showRiverText = cellSize >= 34;
+        const riverFontSize = Math.max(9, Math.min(Math.round(riverWidth * 0.6), Math.round(cellSize * 0.32)));
+        const mkHRiver = (col, text) => {
+            const d = document.createElement('div');
+            d.className = 'river-horizontal';
+            d.style.gridColumn = col;
+            d.style.gridRow = '6';
+            if (text && showRiverText) { d.classList.add('river-label'); d.style.fontSize = riverFontSize + 'px'; d.textContent = text; }
+            this.boardElement.appendChild(d);
+        };
+        for (let i = 1; i <= 5; i++) mkHRiver(i, i === 3 ? '楚河' : '');
+        for (let i = 7; i <= 11; i++) mkHRiver(i, i === 9 ? '汉界' : '');
+
+        // 纵向河界（上下各 5 格，不写字）
+        const mkV = (row) => {
+            const d = document.createElement('div');
+            d.className = 'river-vertical';
+            d.style.gridColumn = '6';
+            d.style.gridRow = row;
+            this.boardElement.appendChild(d);
+        };
+        for (let i = 1; i <= 5; i++) mkV(i);
+        for (let i = 7; i <= 11; i++) mkV(i);
         
         // 渲染棋子
         this.renderPieces();
@@ -279,10 +251,14 @@ class BoardRenderer {
     /**
      * 渲染所有棋子
      */
-    renderPieces() {
+    renderPieces(move) {
+        // 传了走子坐标就做一次平移“飞行”动画（出错则退回无动画，绝不影响对局）
+        let ghost = null;
+        if (move && this._animEnabled()) ghost = this._captureMoveGhost(move);
+
         // 清除所有现有棋子
         this.clearAllPieces();
-        
+
         // 重新渲染所有棋子
         for (let x = 0; x < Config.BOARD_SIZE; x++) {
             for (let y = 0; y < Config.BOARD_SIZE; y++) {
@@ -292,6 +268,62 @@ class BoardRenderer {
                 }
             }
         }
+
+        if (ghost) this._runMoveGhost(ghost, move);
+    }
+
+    _animEnabled() {
+        try {
+            if (typeof window !== 'undefined' && window.matchMedia
+                && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+        } catch (e) { /* ignore */ }
+        return true;
+    }
+
+    /** 在重绘前抓取起点棋子的“影子”（DOM 仍是走子前状态） */
+    _captureMoveGhost(move) {
+        try {
+            const cell = document.getElementById(CoordinateMapper.positionToId(move.fromX, move.fromY));
+            const el = cell && cell.querySelector('.chess-piece');
+            if (!el) return null;
+            return { node: el.cloneNode(true), rect: el.getBoundingClientRect() };
+        } catch (e) { return null; }
+    }
+
+    /** 把影子从起点平移到终点；完成后移除并恢复终点棋子 */
+    _runMoveGhost(ghost, move) {
+        try {
+            const toCell = document.getElementById(CoordinateMapper.positionToId(move.toX, move.toY));
+            if (!toCell) return;
+            const real = toCell.querySelector('.chess-piece');
+            const tr = toCell.getBoundingClientRect();
+            // 取消上一段未完成的动画
+            if (this._ghost) { try { this._ghost.remove(); } catch (e) {} }
+            if (this._ghostReal) { try { this._ghostReal.style.opacity = ''; } catch (e) {} }
+
+            const g = ghost.node;
+            g.style.position = 'fixed';
+            g.style.left = ghost.rect.left + 'px';
+            g.style.top = ghost.rect.top + 'px';
+            g.style.width = ghost.rect.width + 'px';
+            g.style.height = ghost.rect.height + 'px';
+            g.style.margin = '0';
+            g.style.pointerEvents = 'none';
+            g.style.zIndex = '60';
+            g.style.transition = 'transform .18s ease-out';
+            document.body.appendChild(g);
+            if (real) real.style.opacity = '0';
+            this._ghost = g; this._ghostReal = real || null;
+
+            const dx = (tr.left + (tr.width - ghost.rect.width) / 2) - ghost.rect.left;
+            const dy = (tr.top + (tr.height - ghost.rect.height) / 2) - ghost.rect.top;
+            requestAnimationFrame(() => { try { g.style.transform = `translate(${dx}px,${dy}px)`; } catch (e) {} });
+            setTimeout(() => {
+                try { g.remove(); } catch (e) {}
+                try { if (real) real.style.opacity = ''; } catch (e) {}
+                if (this._ghost === g) { this._ghost = null; this._ghostReal = null; }
+            }, 200);
+        } catch (e) { /* 动画失败不影响对局 */ }
     }
     
     /**
@@ -500,10 +532,10 @@ class BoardRenderer {
                 // 播放移动音效（吃子/普通；音效默认关闭，在设置里开启）
                 this.playMoveSound(!!capturedPiece);
                 
-                // 更新界面
+                // 更新界面（带平移“飞行”动画）
                 this.clearSelection();
-                this.renderPieces();
-                
+                this.renderPieces({ fromX, fromY, toX, toY });
+
                 // 显示移动信息
                 const moveText = Notation.format({ player: piece.player, piece: piece.type, from: { x: fromX, y: fromY }, to: { x: toX, y: toY }, captured: capturedPiece });
                 Utils.showMessage(moveText, 'success');
