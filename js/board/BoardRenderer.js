@@ -170,16 +170,17 @@ class BoardRenderer {
         for (let i = 1; i <= 5; i++) mkHRiver(i, i === 3 ? '楚河' : '');
         for (let i = 7; i <= 11; i++) mkHRiver(i, i === 9 ? '汉界' : '');
 
-        // 纵向河界（上下各 5 格，不写字）
-        const mkV = (row) => {
+        // 纵向河界（上下各 5 格；中部写竖排「楚河/汉界」，与横河对称）
+        const mkV = (row, text) => {
             const d = document.createElement('div');
             d.className = 'river-vertical';
             d.style.gridColumn = '6';
             d.style.gridRow = row;
+            if (text && showRiverText) { d.classList.add('river-label', 'river-label--v'); d.style.fontSize = riverFontSize + 'px'; d.textContent = text; }
             this.boardElement.appendChild(d);
         };
-        for (let i = 1; i <= 5; i++) mkV(i);
-        for (let i = 7; i <= 11; i++) mkV(i);
+        for (let i = 1; i <= 5; i++) mkV(i, i === 3 ? '楚河' : '');
+        for (let i = 7; i <= 11; i++) mkV(i, i === 9 ? '汉界' : '');
 
         // 棋盘装饰层：九宫斜线 + 炮/兵起始标记 + 坐标标注（纯视觉，不拦截点击）
         this._buildBoardOverlay();

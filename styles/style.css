@@ -1700,7 +1700,8 @@ html[data-theme="dark"] .board-overlay{ --ov-line:rgba(200,175,140,.42); --ov-la
 @media (prefers-reduced-motion: reduce){ .chess-piece.land{ animation:none; } }
 
 /* ===== 交叉点棋盘：棋子落在线的交叉点，格子仅作占位（无边框/底色） ===== */
-.chess-cell{ background:none !important; border:0 !important; box-shadow:none !important; border-radius:0 !important; }
+.chess-cell{ background:none !important; border:0 !important; box-shadow:none !important; border-radius:0 !important;
+  display:flex; align-items:center; justify-content:center; }
 html[data-theme="dark"] .chess-cell{ background:none !important; border:0 !important; }
 .board-overlay .board-line{ position:absolute; background:var(--ov-line); border-radius:1px; }
 
@@ -1717,7 +1718,8 @@ html[data-theme="dark"] .chess-cell.playable:hover{ background:radial-gradient(c
 .chess-cell.last-move-from, .chess-cell.last-move-to{ background:none !important; box-shadow:none !important; }
 .chess-cell.last-move-from::before, .chess-cell.last-move-to::before{ content:""; position:absolute; left:50%; top:50%; width:58%; height:58%; transform:translate(-50%,-50%); border-radius:50%; background:rgba(217,119,6,.30); }
 @media (prefers-reduced-motion: reduce){ .chess-cell.check::after{ animation:none; } }
-.river-horizontal, .river-vertical{ background:linear-gradient(var(--river),var(--river-2)) !important; }
+.river-horizontal{ background:linear-gradient(var(--river),var(--river-2)) !important; }
+.river-vertical{ background:linear-gradient(90deg,var(--river),var(--river-2)) !important; }
 .river-center{ background:linear-gradient(135deg,var(--river),var(--river-2)) !important; }
 .chess-piece{ border-width:2px; border-style:solid; font-weight:800; font-family:"KaiTi","STKaiti","Kaiti SC","Noto Serif SC",serif;
   box-shadow:0 2px 4px rgba(0,0,0,.25), inset 0 -2px 4px rgba(0,0,0,.10), inset 0 2px 3px rgba(255,255,255,.8) !important; }
@@ -1759,7 +1761,7 @@ html[data-theme="dark"] .chess-cell.playable:hover{ background:radial-gradient(c
   .modal-box{ max-height:92vh; }
 }
 @media (hover:none) and (pointer:coarse){
-  .chess-piece:active{ transform:translate(-50%,-50%) scale(1.12); }
+  .chess-piece:active{ transform:scale(1.12); }
 }
 
 .setup-group { margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid #e5e7eb; }
@@ -2003,6 +2005,11 @@ html[data-theme="dark"] .turn-timer.timer--red{ color:#f87171; }
   color:#f2f8ff; font-weight:800; letter-spacing:.22em; text-indent:.22em;
   font-family:"KaiTi","STKaiti","Kaiti SC","Noto Serif SC",serif;
   text-shadow:0 1px 2px rgba(0,0,0,.35); }
+/* 竖河的文字（与横河对称）：竖排 */
+.river-vertical.river-label--v{ display:flex; align-items:center; justify-content:center;
+  color:#f2f8ff; font-weight:800; letter-spacing:.18em; text-indent:.18em;
+  font-family:"KaiTi","STKaiti","Kaiti SC","Noto Serif SC",serif; line-height:1;
+  text-shadow:0 1px 2px rgba(0,0,0,.35); writing-mode:vertical-rl; text-orientation:upright; }
 
 /* ===================== 聊天 ===================== */
 .chat-log{ min-height:6rem; max-height:40vh; overflow-y:auto; background:#faf6ef; border:1px solid rgba(138,90,43,.16);
