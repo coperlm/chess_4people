@@ -203,7 +203,10 @@ class OnlineSession {
         if (!this._resuming) { this.started = false; if (isHost) this._readSettingsFromUI(); }
 
         try {
-            this.room = Trystero.joinRoom({ appId: this.appId, password: this.roomId }, this.roomId);
+            // 多连几条公共 nostr 中继做冗余（内置列表 29 条，默认只用 5 条）
+            const cfg = { appId: this.appId, password: this.roomId };
+            if (Config.RELAY_REDUNDANCY) cfg.relayConfig = { redundancy: Config.RELAY_REDUNDANCY };
+            this.room = Trystero.joinRoom(cfg, this.roomId);
         } catch (e) {
             this.active = false;
             this._setStatus('加入房间失败: ' + (e && e.message), 'error');

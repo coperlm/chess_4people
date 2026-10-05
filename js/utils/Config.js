@@ -26,6 +26,10 @@ class Config {
     
     // 回放签名用盐（写死在源码里：只防普通修改，不防专业攻击）
     static SIGN_SALT = 'chess4p::2026::lin';
+
+    // 联机信令：Trystero nostr 策略的“公共中继冗余条数”。
+    // 内置中继列表有 29 条、默认只用前 5 条；多连几条可提高“至少一条可达”的概率（信令被墙/宕时的兜底）。
+    static RELAY_REDUNDANCY = 10;
     
     // 玩家颜色配置
     static PLAYER_COLORS = {
