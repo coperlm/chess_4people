@@ -262,8 +262,8 @@ class BoardRenderer {
             }
         }
 
-        // ④ 炮/兵起始标记：围住“交叉点”的四角括（要略大于棋子，才能在棋子边缘露出角）
-        const mk = Math.round(cell * 0.8);
+        // ④ 炮/兵起始标记：围住“交叉点”的四角括（略大于棋子，臂尖能露出棋子外）
+        const mk = Math.round(cell * 0.96);
         for (let p = 0; p < 4; p++) {
             for (const it of Config.INITIAL_POSITIONS[p]) {
                 if (it.type !== Config.PIECE_TYPES.CANNON && it.type !== Config.PIECE_TYPES.PAWN) continue;
