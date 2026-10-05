@@ -222,6 +222,30 @@ class GameState {
     }
     
     /**
+     * 计算“无棋可走”的玩家：将死（被将军且无解）或困毙（未被将军但无子可动）
+     * 返回 [{player, reason}]，不修改棋盘。用临时切换 currentPlayer 的方式枚举（getValidMoves 依赖当前回合）。
+     */
+    computeKnockouts(pieceManager, ruleValidator) {
+        const out = [];
+        const saved = this.currentPlayer;
+        for (let p = 0; p < 4; p++) {
+            if (!this.hasKing(p) || this.eliminationOrder.includes(p)) continue;
+            this.currentPlayer = p;
+            let hasMoves = false;
+            for (let x = 0; x < Config.BOARD_SIZE && !hasMoves; x++) {
+                for (let y = 0; y < Config.BOARD_SIZE && !hasMoves; y++) {
+                    const pc = this.board[x][y];
+                    if (pc && pc.player === p && ruleValidator.getValidMoves(x, y).length) hasMoves = true;
+                }
+            }
+            const inCheck = pieceManager.isInCheck(p);
+            this.currentPlayer = saved;
+            if (!hasMoves) out.push({ player: p, reason: inCheck ? 'checkmate' : 'stalemate' });
+        }
+        return out;
+    }
+
+    /**
      * 检查游戏是否结束
      */
     checkGameEnd() {

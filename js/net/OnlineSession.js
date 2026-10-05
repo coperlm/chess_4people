@@ -271,6 +271,7 @@ class OnlineSession {
             window.gameInterface.configured = true;
             if (window.gameInterface._setSetupMode) window.gameInterface._setSetupMode('online');
             if (window.gameInterface.openSetup) window.gameInterface.openSetup();
+            if (window.gameInterface.updateOnlinePanel) window.gameInterface.updateOnlinePanel();
         }
     }
 
@@ -297,6 +298,7 @@ class OnlineSession {
         }
         this._syncSettingsUI();
         this._renderRoster();
+        if (window.gameInterface && window.gameInterface.updateOnlinePanel) window.gameInterface.updateOnlinePanel();
         if (this._bound) this._setStatus('未联机', '');
     }
 
@@ -335,15 +337,45 @@ class OnlineSession {
         this._renderRoster();
         this._updateStartBtn();
         this._saveRecord();
+        // 开局：所有人自动关闭设置弹窗，回主页面看棋盘与房间状态
+        if (window.gameInterface) {
+            if (window.gameInterface.updateOnlinePanel) window.gameInterface.updateOnlinePanel();
+            if (window.gameInterface.closeSetup) window.gameInterface.closeSetup();
+        }
+        this._refreshStatus();
     }
 
     _setMyColors(colors) {
         this.myColors = (colors || []).slice();
         this._applyNetworkMode(true);
         if (this.gameEngine) this.gameEngine.setControlledColors(this.myColors);
-        const names = this.myColors.map(c => Config.PLAYER_COLORS[c].name).join('、');
-        this._setStatus(this.myColors.length ? `你的角色：${names}` : '你以观战身份进入', 'ok');
         this._renderRoster();
+        this._refreshStatus();
+    }
+
+    /** 统一刷新“联机状态”行：我的角色 + 轮到谁 */
+    _refreshStatus() {
+        if (!this.active) return;
+        const gs = this.gameEngine && this.gameEngine.gameState;
+        const role = !this.started ? '待分配'
+            : (this.myColors.length ? this.myColors.map(c => Config.PLAYER_COLORS[c].name).join('、') : '观战');
+        let turn = '等待房主开始';
+        if (this.started && gs) {
+            if (gs.gamePhase === 'finished') turn = '对局结束';
+            else {
+                const cp = gs.currentPlayer;
+                turn = `轮到 ${Config.PLAYER_COLORS[cp].name}${this.myColors.includes(cp) ? '（你）' : ''}`;
+            }
+        }
+        this._setStatus(`你的角色：${role} · ${turn}`, 'ok');
+    }
+
+    /** 走子提醒：自己的子用 success，别人的子用 info（提醒对手已走） */
+    _notifyMove(mover, fromX, fromY, toX, toY, pieceType) {
+        const name = Config.PLAYER_COLORS[mover].name;
+        const pname = (Config.PIECE_NAMES[mover] && Config.PIECE_NAMES[mover][pieceType]) || '';
+        const mine = this.myColors.includes(mover);
+        Utils.showMessage(`${name} ${pname} (${fromX},${fromY})→(${toX},${toY})`, mine ? 'success' : 'info');
     }
 
     _applyNetworkMode(on) {
@@ -455,6 +487,11 @@ class OnlineSession {
         if (d.settings) this.settings = Object.assign({}, Config.DEFAULT_RULES, d.settings);
         this.started = true;
         this._setMyColors(d.colors || []);
+        // 开局：自动关闭设置弹窗，回主页面
+        if (window.gameInterface) {
+            if (window.gameInterface.updateOnlinePanel) window.gameInterface.updateOnlinePanel();
+            if (window.gameInterface.closeSetup) window.gameInterface.closeSetup();
+        }
     }
 
     _onRoster(d) {
@@ -513,12 +550,17 @@ class OnlineSession {
     _hostApplyAndBroadcast(fromX, fromY, toX, toY) {
         const ge = this.gameEngine;
         const gs = ge.gameState;
+        const piece = gs.getPiece(fromX, fromY);
+        const mover = piece ? piece.player : gs.currentPlayer;
+        const ptype = piece ? piece.type : 'pawn';
         if (!gs.movePiece(fromX, fromY, toX, toY)) return;
         this.seq++;
         ge.boardRenderer.clearSelection();
         ge.boardRenderer.renderPieces();
-        ge.onMoveCompleted();               // 将军/将死淘汰/结束/历史/存档/UI
-        this.actMove.send({ seq: this.seq, from: [fromX, fromY], to: [toX, toY] });
+        ge.onMoveCompleted();               // 结算：将死/困毙淘汰、结束、历史、存档、UI
+        this.actMove.send({ seq: this.seq, from: [fromX, fromY], to: [toX, toY], by: mover });
+        this._notifyMove(mover, fromX, fromY, toX, toY, ptype);
+        this._refreshStatus();
         this._saveRecord();
     }
 
@@ -533,8 +575,13 @@ class OnlineSession {
             return;
         }
         this._lastSeq = d.seq;
+        const piece = gs.getPiece(d.from[0], d.from[1]);
+        const mover = (d.by !== undefined) ? d.by : (piece ? piece.player : gs.currentPlayer);
+        const ptype = piece ? piece.type : 'pawn';
         gs.movePiece(d.from[0], d.from[1], d.to[0], d.to[1]);
         this._clientAfterApply();
+        this._notifyMove(mover, d.from[0], d.from[1], d.to[0], d.to[1], ptype);
+        this._refreshStatus();
     }
 
     _clientAfterApply() {
@@ -611,7 +658,7 @@ class OnlineSession {
         this.actEliminate.send({ player, reason, seq: this.seq });
         this._saveRecord();
     }
-    /** 供 GameEngine.checkForCheck 调用（房主侧已本地淘汰，仅广播） */
+    /** 供 GameEngine 结算时调用（房主侧已本地淘汰，仅广播） */
     _broadcastEliminate(player, reason) {
         this.seq++;
         this.actEliminate.send({ player, reason, seq: this.seq });
@@ -699,10 +746,12 @@ class OnlineSession {
         ge.boardRenderer.renderPieces();
         ge.updateUI();
         if (ge.updateMoveHistory) ge.updateMoveHistory();
-        if (d.gamePhase === 'finished') {
-            ge.showGameResult ? ge.showGameResult() : null;
-            this._setStatus('对局结束', 'ok');
+        if (window.gameInterface) {
+            if (window.gameInterface.updateOnlinePanel) window.gameInterface.updateOnlinePanel();
+            // 联机已开始：自动关闭设置弹窗
+            if (d.gamePhase === 'playing' && window.gameInterface.closeSetup) window.gameInterface.closeSetup();
         }
+        this._refreshStatus();
     }
 
     // ================= 结束 =================

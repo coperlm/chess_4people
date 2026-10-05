@@ -247,14 +247,11 @@ class GameEngine {
             // 更新界面
             this.updateUI();
             
-            // 检查将军状态
-            this.checkForCheck();
+            // 统一结算：将死 / 困毙（可连锁），并立即重绘界面
+            this.resolveAfterMove();
             
-            // 检查游戏结束
-            if (this.gameState.gamePhase === 'finished') {
-                this.endGame();
-                return;
-            }
+            // 结算中若已结束，endGame 已处理
+            if (this.gameState.gamePhase === 'finished') return;
             
             // 高亮最后一步移动
             this.boardRenderer.highlightLastMove();
@@ -274,26 +271,44 @@ class GameEngine {
     /**
      * 检查将军状态
      */
-    checkForCheck() {
-        const p = this.gameState.currentPlayer;
-        if (!this.pieceManager.isInCheck(p)) return;
-        const playerName = Config.PLAYER_COLORS[p].name;
-        
-        if (!this.pieceManager.isCheckmate(p)) {
-            Utils.showMessage(`${playerName}被将军！`, 'warning');
-            return;
+    /**
+     * 每步之后统一结算：将死 / 困毙（无子可动）一律淘汰，可连锁；并立即重绘界面。
+     * 解决两个问题：①困毙卡死；②淘汰后棋子/当前玩家/高亮残留。
+     */
+    resolveAfterMove() {
+        const gs = this.gameState;
+        let guard = 0;
+        let finished = false;
+        while (gs.gamePhase === 'playing' && guard++ < 8) {
+            const knocked = gs.computeKnockouts(this.pieceManager, this.ruleValidator);
+            if (!knocked.length) {
+                const p = gs.currentPlayer;
+                if (this.pieceManager.isInCheck(p)) {
+                    Utils.showMessage(`${Config.PLAYER_COLORS[p].name}被将军！`, 'warning');
+                }
+                break;
+            }
+            for (const k of knocked) {
+                gs.eliminatePlayer(k.player);
+                this.notifyKnockout(k.player, k.reason);
+            }
+            if (gs.checkGameEnd()) { finished = true; break; }
+            if (!gs.hasKing(gs.currentPlayer)) gs.nextPlayer();
         }
-        
-        // 将死 = 该玩家被淘汰
-        Utils.showMessage(`${playerName}被将死！`, 'error');
-        this.gameState.eliminatePlayer(p);
+        // 先重绘/刷新界面，再结束——保证淘汰后“棋子/当前玩家/回合高亮”不残留
+        this.boardRenderer.renderPieces();
+        this.updateUI();
+        if (finished) this.endGame();
+    }
+    
+    /**
+     * 淘汰通报（本地提示；联机时由房主广播）
+     */
+    notifyKnockout(player, reason) {
+        const name = Config.PLAYER_COLORS[player].name;
+        Utils.showMessage(reason === 'stalemate' ? `${name}无子可动（困毙）` : `${name}被将死！`, 'error');
         if (window.onlineSession && window.onlineSession.active && window.onlineSession.isHost) {
-            window.onlineSession._broadcastEliminate(p, 'checkmate');
-        }
-        if (this.gameState.checkGameEnd()) {
-            this.endGame();
-        } else {
-            this.gameState.nextPlayer(); // 跳过被淘汰者
+            window.onlineSession._broadcastEliminate(player, reason);
         }
     }
     

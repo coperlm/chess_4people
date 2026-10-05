@@ -1681,6 +1681,15 @@ main h3{ color:var(--walnut-2); letter-spacing:.04em; }
 .chess-piece.turn-active::after{
   opacity:1; box-shadow:0 0 0 .2em rgba(217,119,6,.92);
 }
+/* 联机：轮到“我”时，光环换成青绿并呼吸，突出“该你走了” */
+@keyframes myTurnPulse{
+  0%,100%{ box-shadow:0 0 0 .2em rgba(22,163,74,.95); }
+  50%{ box-shadow:0 0 0 .32em rgba(22,163,74,.55); }
+}
+.chess-piece.my-turn::after{ animation:myTurnPulse 1.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce){
+  .chess-piece.my-turn::after{ animation:none; box-shadow:0 0 0 .2em rgba(22,163,74,.95); }
+}
 .replay-bar{ border:1px solid rgba(138,90,43,.18); }
 .modal-box{ border-radius:16px; box-shadow:0 24px 60px -20px rgba(40,20,5,.6); }
 

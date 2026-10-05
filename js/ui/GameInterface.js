@@ -54,6 +54,7 @@ class GameInterface {
 
         const bind = (id, fn) => { const el = $(id); if (el) el.addEventListener('click', fn); };
         bind('setupOpenBtn', () => this.openSetup());
+        bind('roomSetupBtn', () => this.openSetup());
         bind('replayOpenBtn', () => this.openReplay());
         bind('rulesOpenBtn', () => this.openRules());
 
@@ -83,6 +84,16 @@ class GameInterface {
         const online = window.onlineSession && window.onlineSession.active;
         this._setSetupMode(online ? 'online' : this.setupMode || null);
     }
+    
+    /**
+     * 主页面「联机对局」卡片：房间进行中或已选择联机时显示
+     */
+    updateOnlinePanel() {
+        const p = document.getElementById('onlineInfoPanel');
+        if (!p) return;
+        const active = !!(window.onlineSession && window.onlineSession.active);
+        p.classList.toggle('hidden', !(active || this.setupMode === 'online'));
+    }
     closeSetup() { this.closeModalById('setupModal'); }
     openReplay() { this.openModal('replayModal'); }
     closeReplay() { this.closeModalById('replayModal'); }
@@ -99,6 +110,7 @@ class GameInterface {
         if (onlineSetup) onlineSetup.classList.toggle('hidden', mode !== 'online');
         const nameGroup = document.getElementById('nameGroup');
         if (nameGroup) nameGroup.classList.toggle('hidden', mode !== 'online');
+        this.updateOnlinePanel();
         if (e.hint) {
             e.hint.textContent = mode === 'local'
                 ? '本地对战：同一设备轮流操作四个颜色，点“开始本地对局”。'

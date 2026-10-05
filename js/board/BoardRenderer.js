@@ -334,9 +334,18 @@ class BoardRenderer {
         pieceElement.classList.add(colorInfo.bg);
         pieceElement.classList.add(colorInfo.border);
         
-        // 轮到该方走棋时，其棋子加柔和高亮（便于识别现在轮到谁）
-        if (this.gameState.gamePhase === 'playing' && piece.player === this.gameState.currentPlayer) {
-            pieceElement.classList.add('turn-active');
+        // 高亮规则：
+        //  - 本地（同一设备轮流操四方）：高亮“当前回合方”的棋子
+        //  - 联机（只能操作自己的颜色）：高亮“我自己的棋子”；轮到我时再加 my-turn 强化
+        if (this.gameState.gamePhase === 'playing') {
+            if (this.isNetworkMode) {
+                if (this.myColors.includes(piece.player)) {
+                    pieceElement.classList.add('turn-active');
+                    if (piece.player === this.gameState.currentPlayer) pieceElement.classList.add('my-turn');
+                }
+            } else if (piece.player === this.gameState.currentPlayer) {
+                pieceElement.classList.add('turn-active');
+            }
         }
         
         // 设置棋子文字

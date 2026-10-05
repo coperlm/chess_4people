@@ -68,6 +68,16 @@
                         <span class="pc pc--green">绿(右下) <b id="greenPieces">10</b></span>
                     </div>
                 </div>
+
+                <!-- 联机房间状态（联机时显示） -->
+                <div id="onlineInfoPanel" class="bg-white rounded-lg shadow-lg p-4 mt-4 hidden">
+                    <h3 class="text-base font-bold mb-2">联机对局</h3>
+                    <div id="onlineStatus" class="online-status">未联机</div>
+                    <div id="onlineRoster" class="online-roster"></div>
+                    <div class="online-row">
+                        <button id="roomSetupBtn" class="online-btn online-btn--copy">房间设置</button>
+                    </div>
+                </div>
             </div>
 
             <!-- 棋盘区域 -->
@@ -140,12 +150,12 @@
                 <button id="copyInviteBtn" class="online-btn online-btn--copy hidden">复制邀请链接</button>
                 <button id="startOnlineBtn" class="online-btn online-btn--start hidden" disabled>开始 / 重开对局（房主）</button>
                 <button id="leaveRoomBtn" class="online-btn online-btn--leave hidden">离开房间</button>
-                <div id="onlineStatus" class="online-status">未联机</div>
-                <div id="onlineRoster" class="online-roster"></div>
+                <div class="online-status">房间状态见左侧「联机对局」。</div>
             </div>
 
             <div class="modal-actions">
                 <button id="startLocalBtn" class="online-btn online-btn--start hidden">开始本地对局</button>
+                <button id="installAppBtn" class="online-btn online-btn--leave hidden">安装到桌面</button>
             </div>
         </div>
     </div>
@@ -252,38 +262,31 @@
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('service-worker.js')
-                    .then(registration => {
-                        console.log('✅ Service Worker 注册成功:', registration.scope);
-                    })
-                    .catch(error => {
-                        console.log('❌ Service Worker 注册失败:', error);
-                    });
+                    .then(() => {})
+                    .catch(() => {});
             });
         }
         
-        // PWA安装提示
-        let deferredPrompt;
+        // PWA：可安装时提供一个“安装到桌面”按钮，不自动弹窗打扰
+        let deferredPrompt = null;
+        const installBtn = document.getElementById('installAppBtn');
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
-            console.log('💡 可以安装为APP');
-            
-            // 显示安装提示（可选）
-            setTimeout(() => {
-                if (confirm('📱 想把四人象棋添加到主屏幕吗？像APP一样使用！')) {
-                    deferredPrompt.prompt();
-                    deferredPrompt.userChoice.then((choiceResult) => {
-                        if (choiceResult.outcome === 'accepted') {
-                            console.log('✅ 用户接受安装');
-                        }
-                        deferredPrompt = null;
-                    });
-                }
-            }, 3000);
+            if (installBtn) installBtn.classList.remove('hidden');
         });
-        
+        if (installBtn) {
+            installBtn.addEventListener('click', () => {
+                if (!deferredPrompt) return;
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.finally(() => {
+                    deferredPrompt = null;
+                    installBtn.classList.add('hidden');
+                });
+            });
+        }
         window.addEventListener('appinstalled', () => {
-            console.log('✅ APP已安装到主屏幕');
+            if (installBtn) installBtn.classList.add('hidden');
         });
     </script>
 </body>

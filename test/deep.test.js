@@ -227,6 +227,35 @@ for (let g = 0; g < 10; g++) {
   rp.exit();
 }
 
+// ============ 5. 结算不卡死（将死 / 困毙 一律淘汰，可连锁） ============
+{
+  let games2 = 0, plies2 = 0, stalls = 0;
+  for (let g = 0; g < 40; g++) {
+    const { gs, pm, rv } = makeGame(MODES[g % MODES.length]); gs.gamePhase = 'playing'; games2++;
+    for (let ply = 0; ply < 400 && gs.gamePhase === 'playing'; ply++) {
+      const p = gs.currentPlayer; const all = [];
+      for (let x = 0; x < Config.BOARD_SIZE; x++) for (let y = 0; y < Config.BOARD_SIZE; y++) {
+        const pc = gs.board[x][y];
+        if (pc && pc.player === p) for (const mv of rv.getValidMoves(x, y)) all.push({ x, y, mv });
+      }
+      if (!all.length) { stalls++; break; }   // 结算后不该出现“当前方无棋可走”
+      const c = all[Math.floor(Math.random() * all.length)];
+      gs.movePiece(c.x, c.y, c.mv.x, c.mv.y); plies2++;
+      // 复刻引擎的结算：computeKnockouts -> eliminate -> checkGameEnd -> nextPlayer
+      let guard = 0;
+      while (gs.gamePhase === 'playing' && guard++ < 8) {
+        const kn = gs.computeKnockouts(pm, rv);
+        if (!kn.length) break;
+        kn.forEach(k => gs.eliminatePlayer(k.player));
+        if (gs.checkGameEnd()) break;
+        if (!gs.hasKing(gs.currentPlayer)) gs.nextPlayer();
+      }
+    }
+  }
+  t('结算后不再出现“当前方无棋可走但未结束”', stalls === 0, 'stalls=' + stalls);
+  console.log(`结算测试：${games2} 局 / ${plies2} 手，卡死 ${stalls}`);
+}
+
 // ============ 汇总 ============
 console.log(`\n深度测试: ${pass} 通过, ${fail} 失败`);
 console.log(`覆盖：${games} 局 / ${totalPlies} 手；走完的对局 ${finishedGames}；兵卒校验 ${pawnChecks}；将死校验 ${mateChecks}（坐标污染 ${mateCorruptions}）；车/炮路径 ${pathChecks}；回放往返 ${replayChecks}`);
