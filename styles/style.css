@@ -1925,8 +1925,9 @@ html[data-theme="dark"] .draw-prompt__box{ background:#211d19; color:var(--ink);
 #setupModal .setup-group{ margin-bottom:.6rem; padding-bottom:.6rem; }
 #setupModal .setup-label{ margin-bottom:.35rem; font-size:.9rem; }
 #setupModal .online-btn{ min-height:40px; padding:.5rem .8rem; }
-#setupModal .online-row:has(> .hidden):not(:has(> :not(.hidden))),
-#setupModal .modal-actions:has(> .hidden){ display:none; }
+#setupModal .online-row:not(:has(> :not(.hidden))),
+#setupModal .modal-actions:not(:has(> :not(.hidden))){ display:none; }
+#setupModal .setup-group:not(:has(+ .setup-group:not(.hidden))){ border-bottom:0; padding-bottom:0; margin-bottom:0; }
 
 /* ===================== 房主：玩家管理 ===================== */
 .room-admin{ margin-top:.5rem; display:flex; flex-direction:column; gap:.25rem; }
