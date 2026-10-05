@@ -199,25 +199,6 @@ class PieceManager {
         return this.ruleValidator ? this.ruleValidator.getValidMoves(x, y) : [];
     }
     
-    /**
-     * 获取棋盘的文本表示（用于调试）
-     */
-    getBoardText() {
-        let text = '';
-        for (let y = 0; y < Config.BOARD_SIZE; y++) {
-            for (let x = 0; x < Config.BOARD_SIZE; x++) {
-                const piece = this.gameState.getPiece(x, y);
-                if (piece) {
-                    text += piece.getName();
-                } else {
-                    text += '空';
-                }
-                text += ' ';
-            }
-            text += '\n';
-        }
-        return text;
-    }
 }
 
 // 导出类（如果在模块环境中）

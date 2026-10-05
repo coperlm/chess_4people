@@ -55,16 +55,6 @@ class Replay {
         Object.keys(labels).forEach(k => { if (this.el[k]) this.el[k].setAttribute('aria-label', labels[k]); });
     }
 
-    _modeText(m) { return m === Config.MODES.FFA ? '四人混战' : '两两组队'; }
-    _victoryText(v) { return v === Config.VICTORY.LAST_TEAM ? '仅剩一队' : '吃将任意一方'; }
-    _resultText(gs) {
-        const w = gs.winner;
-        if (w === 'TEAM1') return '红蓝队获胜';
-        if (w === 'TEAM2') return '绿黑队获胜';
-        if (typeof w === 'number') return Config.PLAYER_COLORS[w].name + ' 获胜';
-        return '已结束';
-    }
-
     // ---------- 导出 ----------
     async exportFile() {
         const gs = this.ge.gameState;

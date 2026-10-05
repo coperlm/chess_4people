@@ -97,7 +97,6 @@ class GameInterface {
     openReplay() { this.openModal('replayModal'); }
     closeReplay() { this.closeModalById('replayModal'); }
     openRules() { this.openModal('rulesModal'); }
-    closeRules() { this.closeModalById('rulesModal'); }
 
     _setSetupMode(mode) {
         this.setupMode = mode;
@@ -208,35 +207,6 @@ class GameInterface {
      */
     updateInterface() {
         this.adjustLayoutForScreen();
-    }
-    
-    /**
-     * 显示加载状态
-     */
-    showLoading(message = '加载中...') {
-        // 创建加载遮罩
-        const loader = document.createElement('div');
-        loader.id = 'loadingOverlay';
-        loader.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
-        
-        loader.innerHTML = `
-            <div class="bg-white rounded-lg p-6 text-center">
-                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
-                <p class="text-gray-600">${message}</p>
-            </div>
-        `;
-        
-        document.body.appendChild(loader);
-    }
-    
-    /**
-     * 隐藏加载状态
-     */
-    hideLoading() {
-        const loader = document.getElementById('loadingOverlay');
-        if (loader) {
-            loader.remove();
-        }
     }
 }
 

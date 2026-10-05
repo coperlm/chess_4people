@@ -8,20 +8,6 @@ class CoordinateMapper {
     }
     
     /**
-     * 将DOM元素ID转换为棋盘坐标
-     */
-    static idToPosition(id) {
-        const parts = id.split('-');
-        if (parts.length === 3 && parts[0] === 'cell') {
-            return {
-                x: parseInt(parts[1]),
-                y: parseInt(parts[2])
-            };
-        }
-        return null;
-    }
-    
-    /**
      * 兵/卒固定朝向的兜底值（仅用于老存档缺少 facing 时）
      */
     static getDefaultPawnFacing(player) {
