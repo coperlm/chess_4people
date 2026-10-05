@@ -371,6 +371,23 @@ class BoardRenderer {
 
         if (ghost) this._runMoveGhost(ghost, move);
         if (capGhost) this._runCaptureGhost(capGhost);
+        if (move) this._bounceLandedPiece(move);
+    }
+
+    /** 落子弹跳：走子到位后棋子轻微“压一下”（等飞行动画基本结束再触发） */
+    _bounceLandedPiece(move) {
+        try {
+            if (!this._animEnabled()) return;
+            setTimeout(() => {
+                try {
+                    const cell = document.getElementById(CoordinateMapper.positionToId(move.toX, move.toY));
+                    const el = cell && cell.querySelector('.chess-piece');
+                    if (!el) return;
+                    el.classList.remove('land'); void el.offsetWidth; el.classList.add('land');
+                    setTimeout(() => { try { el.classList.remove('land'); } catch (e) {} }, 320);
+                } catch (e) { /* ignore */ }
+            }, 180);
+        } catch (e) { /* 动画失败不影响对局 */ }
     }
 
     _animEnabled() {
