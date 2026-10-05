@@ -756,7 +756,7 @@ class OnlineSession {
         const ok = document.getElementById('drawAcceptBtn');
         const no = document.getElementById('drawRejectBtn');
         if (!d || !txt || !ok || !no) return Promise.resolve(confirm(`『${name}』提议和棋，是否同意？`));  // 无 DOM（如测试）时退化
-        if (this._drawPromptOpen) return Promise.resolve(false);   // 已有询问在显示：本次视为拒绝，避免叠加
+        if (this._drawPromptOpen) return Promise.resolve('busy');   // 上一条询问还没答复：忽略本次（不要误发“被拒绝”）
         this._drawPromptOpen = true;
         txt.textContent = `『${name}』提议和棋，是否同意？`;
         d.classList.remove('hidden');
@@ -781,6 +781,7 @@ class OnlineSession {
             if (d.token === this.token) return;                 // 自己发起的，不弹
             if (this.isHost) { this._drawYes = this._drawYes || new Set(); this._drawYes.add(d.token); }  // 提议者视为已同意
             const agreed = await this._promptDraw(d.name || '对方');
+            if (agreed === 'busy') return;              // 上一条还没答复：忽略，不误判为拒绝
             if (agreed) {
                 if (this.isHost) { this._drawYes.add(this.token); this._tryResolveDraw(); }
                 else this.actDraw.send({ kind: 'accept', token: this.token }, { target: this.hostId });
