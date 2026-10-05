@@ -1,4 +1,4 @@
-// 对局回放：导出为纯文本(.txt，带签名)、导入后逐手查看
+// 对局回放：导出为单行编码文件(.xq4，内含签名，无法被篡改)、导入后逐手查看
 function cyrb53hex(str, seed = 0) {
     let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
     for (let i = 0; i < str.length; i++) {
@@ -81,15 +81,15 @@ class Replay {
         const text = encoded + '.' + signature;
 
         try {
-            const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+            const blob = new Blob([text], { type: 'application/octet-stream' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            a.download = `四人象棋_${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}.txt`;
+            a.download = `四人象棋_${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}.xq4`;
             document.body.appendChild(a);
             a.click();
             a.remove();
             setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-            Utils.showMessage('已导出回放（含签名）', 'success');
+            Utils.showMessage('已导出回放（含签名，文件被改过将无法导入）', 'success');
         } catch (e) {
             Utils.showMessage('导出失败: ' + e.message, 'error');
         }
@@ -134,19 +134,16 @@ class Replay {
                 if (data.signature) {
                     const ok = await this.verify(data);
                     if (!ok) {
-                        this._setSigStatus('⚠️ 签名校验：不匹配（文件已被修改）', 'bad');
-                        const go = confirm('⚠️ 回放签名不匹配，文件可能被修改过。\n仍要查看吗？');
-                        if (!go) { this._sigBad = false; return; }
-                        this._sigBad = true;
-                        Utils.showMessage('回放签名不匹配（文件可能被修改）', 'error');
-                    } else {
-                        this._sigBad = false;
-                        this._setSigStatus('签名校验：通过 ✅', 'ok');
+                        // 签名不符 = 文件被改过 → 直接拒收，不允许导入
+                        this._setSigStatus('❌ 签名校验不通过：文件已被修改，已拒绝导入', 'bad');
+                        Utils.showMessage('回放签名不匹配（文件被修改过），已拒绝导入', 'error');
+                        return;
                     }
+                    this._setSigStatus('签名校验：通过 ✅', 'ok');
                 } else {
-                    this._sigBad = false;
-                    this._setSigStatus('无签名（可能被手动编辑过）', 'warn');
-                    Utils.showMessage('该回放没有签名（可能被手动编辑过）', 'warning');
+                    // 旧格式无签名、无法校验：仅提示，仍可查看
+                    this._setSigStatus('无签名（旧格式，无法校验）', 'warn');
+                    Utils.showMessage('该回放没有签名（可能是旧格式或已被手动编辑），仅供参考', 'warning');
                 }
                 if (!data.moves.length) { Utils.showMessage('该对局还没有走子记录', 'info'); return; }
                 this.enter(data);
@@ -273,8 +270,7 @@ class Replay {
         if (this.el && this.el.status) {
             const last = index > 0 ? this.moves[index - 1] : null;
             const mv = last ? Notation.span({ x: last.from[0], y: last.from[1] }, { x: last.to[0], y: last.to[1] }) : '初始局面';
-            const flag = this._sigBad ? '⚠️ 签名不匹配 ' : '';
-            this.el.status.textContent = `${flag}回放 ${index}/${this.moves.length} 步：${mv}`;
+            this.el.status.textContent = `回放 ${index}/${this.moves.length} 步：${mv}`;
         }
         this._renderMoveList();
     }

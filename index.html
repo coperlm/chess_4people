@@ -305,7 +305,7 @@
                 </ul>
                 <h4>回放</h4>
                 <ul>
-                    <li>可导出为纯文本（含签名）；导入后可逐手查看；文件被修改会提示“签名不匹配”。</li>
+                    <li>可导出为单行编码文件（<code>.xq4</code>，含签名）；导入后可逐手查看；<b>文件若被改动过会校验失败、直接拒绝导入</b>。</li>
                 </ul>
                 <h4>操作</h4>
                 <ul>
@@ -328,8 +328,8 @@
                 <button id="exportReplayBtn" class="online-btn online-btn--create">导出回放</button>
                 <button id="importReplayBtn" class="online-btn online-btn--join">导入回放</button>
             </div>
-            <input id="importReplayInput" type="file" accept=".txt,text/plain" class="hidden">
-            <div class="online-status">导出为单行编码（含签名，人不可读）；导入后会在「移动历史」里列出走法，可点击跳转。</div>
+            <input id="importReplayInput" type="file" accept=".xq4,.txt" class="hidden">
+            <div class="online-status">导出为单行编码文件 <code>.xq4</code>（含签名，人不可读）；<b>文件被改动过将无法导入</b>。导入后在「移动历史」里列出走法，可点击跳转。</div>
             <div id="replaySig" class="online-status"></div>
         </div>
     </div>
