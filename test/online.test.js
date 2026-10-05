@@ -459,7 +459,7 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     const h = new OnlineSession(hE);
     h.token = 'HOST';
     const record = {
-      roomId: 'room-resume', isHost: true, token: 'HOST', started: true,
+      roomId: 'room-resume', isHost: true, token: 'HOST', name: '房主', started: true,
       settings: { mode: 'team', victory: 'any_king', friendlyFire: false },
       roster: [
         { token: 'HOST', name: '房主', colors: [0, 1] },
@@ -471,6 +471,8 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     h._open('room-resume', true, record);
     await tick(); await tick();
     t('房主重连恢复自己的颜色', eq(h.myColors, [0, 1]), JSON.stringify(h.myColors));
+    t('房主重连后序号足够大（不与老客户端 _lastSeq 冲突）', h.seq > 1e12, String(h.seq));
+    t('房主重连保留昵称', h.name === '房主', h.name);
     t('房主重连仍是参战者且已开局', h.myColors.length > 0 && h.started === true);
     t('房主重连后名册去重（房主+1人）', h.participants.length === 2, JSON.stringify(h.participants.map(p => p.token)));
     t('房主重连席位颜色正确', eq(h.participants[0].colors, [0, 1]), JSON.stringify(h.participants.map(p => p.colors)));

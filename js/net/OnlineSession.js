@@ -114,6 +114,7 @@ class OnlineSession {
                 roomId: this.roomId,
                 isHost: this.isHost,
                 token: this.token,
+                name: this.name,
                 started: this.started,
                 settings: this.settings,
                 roster: this.isHost ? this.participants.map(p => ({ token: p.token, name: p.name, colors: p.colors })) : undefined,
@@ -198,13 +199,17 @@ class OnlineSession {
         this.roomId = roomId;
         this.isHost = isHost;
         this.active = true;
-        this.seq = 0;
+        // 序号用于各端严格排序；房主用一个“时间戳基数”，保证大于任何旧客户端已见过的序号
+        // （否则房主刷新/failover 后 seq 从 0 重来，还在线的旧端会因 d.seq<=_lastSeq 丢弃后续广播 → 失步）
+        this.seq = isHost ? Date.now() : 0;
         this._lastSeq = 0;
         this.myColors = [];
         this.mySeat = null;
         this.participants = [];
         this.token = this.token || this._loadToken();
-        this.name = (this.el && this.el.name && this.el.name.value.trim()) || this.name || this._randomId();
+        this.name = (this.el && this.el.name && this.el.name.value.trim())
+            || (this._resuming && record && record.name)   // 重连续用原昵称（否则每次刷新都变随机串）
+            || this.name || this._randomId();
         if (!this._resuming) { this.started = false; if (isHost) this._readSettingsFromUI(); }
 
         try {
@@ -511,6 +516,7 @@ class OnlineSession {
     _becomeHost() {
         this.isHost = true;
         this.hostId = this.selfId;
+        this.seq = Date.now();   // 接任后用时间戳基数，避免与上任房主的序号冲突
         let me = this.participants.find(p => p.token === this.token);
         if (!me) {
             me = { token: this.token, id: this.selfId, colors: this.myColors.slice(), name: this.name };
