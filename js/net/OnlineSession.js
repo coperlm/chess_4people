@@ -3,6 +3,7 @@
 // - 玩家：收到走子后，用同一套 RuleValidator 复核再落子；非法则拒绝并要求重同步
 // - 房主刷新：凭本地 token/记录自动重连同房间并续局；房主失联超时则由在线玩家自动接任
 const ONLINE_FAILOVER_MS = 20000;
+const OFFLINE_SKIP_MS = 30000;   // 轮到“离线玩家”后，等待这么久仍未重连就自动跳过其回合
 
 class OnlineSession {
     constructor(gameEngine) {
@@ -29,6 +30,7 @@ class OnlineSession {
         this._bound = false;
         this._resuming = false;
         this._failoverTimer = null;
+        this._offlineTimer = null;   // 房主：轮到离线玩家时的“自动跳过”计时器
         this._drawYes = null;   // 求和：已同意的 token 集合
         this.mySeat = null;     // 我在名册中的座位号（非房主用，标注“你”）
         this._chatLog = [];     // 聊天记录（本端）
@@ -319,6 +321,7 @@ class OnlineSession {
         this._lastSeq = 0;
         this._drawYes = null;
         this._clearFailoverTimer();
+        this._clearOfflineTimer();
         this._applyNetworkMode(false);
         return room;
     }
@@ -392,6 +395,7 @@ class OnlineSession {
             if (window.gameInterface.closeSetup) window.gameInterface.closeSetup();
         }
         this._refreshStatus();
+        this._checkOfflineTurn();   // 开局先手若离线则开始计时
     }
 
     _setMyColors(colors) {
@@ -466,6 +470,8 @@ class OnlineSession {
             if (p) p.id = null; // 断线，保留席位等待重连
             this._renderRoster();
             this._updateStartBtn();
+            this._broadcastRoster();    // 让所有玩家都能互相看到“（离线）”
+            this._checkOfflineTurn();   // 若正好轮到该玩家，30s 后自动跳过
         } else if (peerId === this.hostId) {
             this._setStatus('房主已离开，正在等待其重连…', 'error');
             this._startFailoverTimer();
@@ -510,6 +516,47 @@ class OnlineSession {
         this._setStatus('房主失联，你已接任房主', 'ok');
         if (this.el && this.el.start) this.el.start.classList.add('hidden');
         this._saveRecord();
+        this._checkOfflineTurn();   // 接任后可能正好轮到某位离线玩家
+    }
+
+    /**
+     * 房主：轮到“离线玩家”时为其回合计时，超时未重连则自动跳过（只推进回合，不动棋盘）。
+     * 与“困毙”互不影响——困毙只看棋盘有无合法走法，由 resolveAfterMove 每步对全部存活玩家计算。
+     */
+    _checkOfflineTurn() {
+        if (!this.isHost || !this.active || !this.started) return this._clearOfflineTimer();
+        const ge = this.gameEngine, gs = ge && ge.gameState;
+        if (!gs || gs.gamePhase !== 'playing') return this._clearOfflineTimer();
+        const cur = gs.currentPlayer;
+        const p = this.participants.find(x => (x.colors || []).includes(cur));
+        if (p && p.id == null) {
+            if (this._offlineTimer) return;   // 已在倒计时，勿重复排定时器
+            this._offlineTimer = setTimeout(() => this._skipOfflineTurn(), OFFLINE_SKIP_MS);
+            this.actNotice.send({ text: `${Config.PLAYER_COLORS[cur].name}（离线）将在 ${Math.round(OFFLINE_SKIP_MS / 1000)}s 后被跳过` });
+        } else {
+            this._clearOfflineTimer();        // 当前玩家在线（或已重连）：撤销计时
+        }
+    }
+    _clearOfflineTimer() {
+        if (this._offlineTimer) { clearTimeout(this._offlineTimer); this._offlineTimer = null; }
+    }
+    _skipOfflineTurn() {
+        this._clearOfflineTimer();
+        if (!this.isHost || !this.active || !this.started) return;
+        const ge = this.gameEngine, gs = ge && ge.gameState;
+        if (!gs || gs.gamePhase !== 'playing') return;
+        const cur = gs.currentPlayer;
+        const p = this.participants.find(x => (x.colors || []).includes(cur));
+        if (!p || p.id != null) return this._checkOfflineTurn();   // 已重连：不跳过
+        const name = Config.PLAYER_COLORS[cur].name;
+        gs.nextPlayer();                       // 只推进回合，不淘汰、不清子
+        ge.boardRenderer.clearSelection();
+        ge.boardRenderer.renderPieces();
+        ge.updateUI();
+        if (ge.updateMoveHistory) ge.updateMoveHistory();
+        this.actNotice.send({ text: `${name}（离线）回合已跳过` });
+        this._broadcastState();                // 同步新的当前回合给各端
+        this._checkOfflineTurn();              // 若接下来仍是离线玩家，继续为其计时
     }
 
     _sendHello() {
@@ -537,6 +584,7 @@ class OnlineSession {
         this._renderRoster();
         this._updateStartBtn();
         this._saveRecord();
+        this._checkOfflineTurn();   // 该玩家重连后，若正轮到他就撤销“自动跳过”计时
     }
 
     _onAssign(d) {
@@ -633,6 +681,7 @@ class OnlineSession {
         this._notifyMove(mover, fromX, fromY, toX, toY, ptype, captured);
         this._refreshStatus();
         this._saveRecord();
+        this._checkOfflineTurn();           // 回合轮到下家：若其离线则开始计时
     }
 
     _onMove(d) {
@@ -690,6 +739,7 @@ class OnlineSession {
             this.actUndo.send({ seq: this.seq });
             if (who) this.actNotice.send({ text: `${who} 悔棋` });
         }
+        this._checkOfflineTurn();   // 悔棋后当前回合可能落到某位离线玩家
     }
     _onUndo(d) {
         if (this.isHost || !d) return;
@@ -1152,6 +1202,7 @@ class OnlineSession {
         this._updateStartBtn();
         this._refreshStatus();
         this._saveRecord();
+        this._checkOfflineTurn();   // 移出后回合/离线状态可能变化，重排或撤销计时
         Utils.showMessage(`已移出「${p.name || '玩家'}」`, 'info');
     }
 

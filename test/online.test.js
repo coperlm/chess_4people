@@ -389,6 +389,61 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     t('观战者不否决：求和仍成立', s[0].gameEngine.gameState.isDraw === true && s[0].gameEngine.gameState.gamePhase === 'finished', JSON.stringify({ draw: s[0].gameEngine.gameState.isDraw, phase: s[0].gameEngine.gameState.gamePhase }));
   }
 
+  // === 掉线：所有人可见 + 房主 30s 后自动跳过其回合（用直接调用 _skipOfflineTurn 代替等待）===
+  {
+    const hE = fakeEngine(), aE = fakeEngine(), bE = fakeEngine();
+    const h = new OnlineSession(hE), a = new OnlineSession(aE), b = new OnlineSession(bE);
+    h.token = 'H'; a.token = 'A'; b.token = 'B';
+    h._open('room-off', true);
+    a._open('room-off', false);
+    b._open('room-off', false);
+    await tick(); await tick(); await tick();
+    h.name = '房主'; a.name = '甲'; b.name = '乙';
+    a._sendHello(); b._sendHello();
+    await tick(); await tick();
+    h.settings.mode = 'team';
+    h.startMatch();
+    await tick(); await tick();
+
+    // 3 人组队：房主=[0], 甲=[1], 乙=[2]
+    t('3 人组队各控一色', eq(h.myColors, [0]) && eq(a.myColors, [1]) && eq(b.myColors, [2]), JSON.stringify([h.myColors, a.myColors, b.myColors]));
+
+    // 甲掉线
+    await a.leave();
+    await tick(); await tick();
+    const aEntry = h.participants.find(x => x.token === 'A');
+    t('房主侧：离线者保留席位并标记离线', !!aEntry && aEntry.id === null);
+    const bSeats = (b._roster && b._roster.seats) || [];
+    const aSeat = bSeats.find(s => s.name === '甲');
+    t('其他玩家也能看到“甲”离线', !!aSeat && aSeat.online === false, JSON.stringify(bSeats.map(s => ({ n: s.name, on: s.online }))));
+
+    // 轮到甲(蓝=1)：房主应开始 30s 倒计时
+    hE.gameState.currentPlayer = 1;
+    h._checkOfflineTurn();
+    t('轮到离线玩家时房主开始跳过计时', !!h._offlineTimer);
+
+    // 甲重连 → 撤销计时
+    h._onHello({ token: 'A', name: '甲' }, 'peerA2');
+    await tick();
+    t('离线玩家重连后撤销跳过计时', !h._offlineTimer);
+
+    // 再次离线并到期 → 直接触发跳过（不等待 30s）
+    h.participants.find(x => x.token === 'A').id = null;
+    hE.gameState.currentPlayer = 1;
+    h._checkOfflineTurn();
+    t('再次轮到离线玩家重新开始计时', !!h._offlineTimer);
+    h._skipOfflineTurn();
+    await tick(); await tick();
+    t('超时后自动跳过该离线玩家的回合且不淘汰其棋子', hE.gameState.currentPlayer === 0 && hE.gameState.pieceCounts[1] > 0, 'cp=' + hE.gameState.currentPlayer + ' cnt=' + hE.gameState.pieceCounts[1]);
+    t('跳过后无悬挂计时器（下一位在线）', !h._offlineTimer);
+
+    // 房主踢掉离线者 → 其棋子全部清空
+    h.kickParticipant('A');
+    await tick(); await tick();
+    t('房主踢掉离线者后其颜色棋子全部清空', [1].every(c => hE.gameState.pieceCounts[c] === 0), JSON.stringify(hE.gameState.pieceCounts));
+    h._clearOfflineTimer();
+  }
+
   console.log(`\n联机协议测试: ${pass} 通过, ${fail} 失败`);
   if (fail) { console.log('\n失败项:'); failures.forEach(f => console.log('  ✗ ' + f)); process.exit(1); }
   console.log('✅ 全部通过');
