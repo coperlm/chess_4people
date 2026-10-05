@@ -1704,6 +1704,8 @@ html[data-theme="dark"] .board-overlay{ --ov-line:rgba(200,175,140,.42); --ov-la
   display:flex; align-items:center; justify-content:center; }
 html[data-theme="dark"] .chess-cell{ background:none !important; border:0 !important; }
 .board-overlay .board-line{ position:absolute; background:var(--ov-line); border-radius:1px; }
+.board-overlay .board-frame-line{ position:absolute; box-sizing:border-box; pointer-events:none;
+  border:1.5px solid var(--ov-line); opacity:.9; }
 
 /* 各种高亮改为“围绕交叉点”的点位标记（原来是整格填充） */
 .chess-cell.playable:hover{ background:radial-gradient(circle at 50% 50%, rgba(255,255,255,.45) 0 34%, transparent 36%) !important; }
@@ -1720,12 +1722,19 @@ html[data-theme="dark"] .chess-cell.playable:hover{ background:radial-gradient(c
 @media (prefers-reduced-motion: reduce){ .chess-cell.check::after{ animation:none; } }
 /* 河界不再填色：河界是“同底色空白带”，只靠线格断开 + 河界文字标示（见 .river-text） */
 .chess-piece{ border-width:2px; border-style:solid; font-weight:800; font-family:"KaiTi","STKaiti","Kaiti SC","Noto Serif SC",serif;
-  box-shadow:0 2px 4px rgba(0,0,0,.25), inset 0 -2px 4px rgba(0,0,0,.10), inset 0 2px 3px rgba(255,255,255,.8) !important; }
+  box-shadow:0 3px 7px rgba(0,0,0,.32), 0 1px 2px rgba(0,0,0,.22), inset 0 -3px 6px rgba(0,0,0,.16), inset 0 3px 5px rgba(255,255,255,.92) !important; }
+/* 棋子内圈“刻线”（传统棋子中间那道圈），纯装饰 */
+.chess-piece::before{ content:""; position:absolute; inset:9%; border-radius:50%; pointer-events:none;
+  box-shadow:inset 0 0 0 1.5px rgba(0,0,0,.14), 0 1px 0 rgba(255,255,255,.5); }
 .chess-piece.selected{ box-shadow:0 0 0 3px rgba(46,125,91,.8), 0 3px 8px rgba(0,0,0,.3) !important; }
-.chess-piece[data-player="0"]{ color:var(--red) !important; border-color:#c9544a !important; background:radial-gradient(circle at 32% 28%, #fff, #f6dcd7) !important; }
-.chess-piece[data-player="1"]{ color:var(--blue) !important; border-color:#4a7cc4 !important; background:radial-gradient(circle at 32% 28%, #fff, #d9e6f8) !important; }
-.chess-piece[data-player="2"]{ color:var(--green) !important; border-color:#3fa079 !important; background:radial-gradient(circle at 32% 28%, #fff, #d7efe4) !important; }
-.chess-piece[data-player="3"]{ color:var(--black) !important; border-color:#6b6259 !important; background:radial-gradient(circle at 32% 28%, #fff, #e3ddd4) !important; }
+.chess-piece[data-player="0"]{ color:var(--red) !important; border-color:#c9544a !important;
+  background:repeating-radial-gradient(circle at 50% 47%, rgba(120,60,40,.05) 0 1px, transparent 1px 5px), radial-gradient(circle at 32% 28%, #fff, #f6dcd7) !important; }
+.chess-piece[data-player="1"]{ color:var(--blue) !important; border-color:#4a7cc4 !important;
+  background:repeating-radial-gradient(circle at 50% 47%, rgba(40,70,120,.05) 0 1px, transparent 1px 5px), radial-gradient(circle at 32% 28%, #fff, #d9e6f8) !important; }
+.chess-piece[data-player="2"]{ color:var(--green) !important; border-color:#3fa079 !important;
+  background:repeating-radial-gradient(circle at 50% 47%, rgba(30,100,70,.05) 0 1px, transparent 1px 5px), radial-gradient(circle at 32% 28%, #fff, #d7efe4) !important; }
+.chess-piece[data-player="3"]{ color:var(--black) !important; border-color:#6b6259 !important;
+  background:repeating-radial-gradient(circle at 50% 47%, rgba(60,55,48,.05) 0 1px, transparent 1px 5px), radial-gradient(circle at 32% 28%, #fff, #e3ddd4) !important; }
 
 #messageToast{ border-radius:12px; box-shadow:var(--shadow); font-weight:600; max-width:calc(100vw - 2rem); }
 
@@ -2000,9 +2009,11 @@ html[data-theme="dark"] .turn-timer.timer--red{ color:#f87171; }
 
 /* ===================== 河界文字「楚河/汉界」（同底色空白带上的字） ===================== */
 .board-overlay .river-text{ position:absolute; transform:translate(-50%,-50%); font-weight:800;
-  letter-spacing:.28em; text-indent:.28em; white-space:nowrap; line-height:1;
-  font-family:"KaiTi","STKaiti","Kaiti SC","Noto Serif SC",serif; color:var(--ov-river); }
-.board-overlay .river-text--v{ writing-mode:vertical-rl; text-orientation:upright; letter-spacing:.22em; text-indent:.22em; }
+  letter-spacing:.5em; text-indent:.5em; white-space:nowrap; line-height:1;
+  font-family:"KaiTi","STKaiti","Kaiti SC","Noto Serif SC",serif; color:var(--ov-river);
+  text-shadow:0 1px 0 rgba(255,255,255,.55), 0 -1px 1px rgba(0,0,0,.10); }
+.board-overlay .river-text--v{ writing-mode:vertical-rl; text-orientation:upright; letter-spacing:.42em; text-indent:.42em; }
+html[data-theme="dark"] .board-overlay .river-text{ text-shadow:0 1px 0 rgba(0,0,0,.5), 0 -1px 1px rgba(255,255,255,.06); }
 
 /* ===================== 聊天 ===================== */
 .chat-log{ min-height:6rem; max-height:40vh; overflow-y:auto; background:#faf6ef; border:1px solid rgba(138,90,43,.16);

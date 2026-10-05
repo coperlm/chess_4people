@@ -103,8 +103,8 @@ class BoardRenderer {
 
         return {
             cellSize: finalCellSize,
-            pieceSize: Math.floor(finalCellSize * 0.78), // 棋子是格子的78%
-            fontSize: Math.floor(finalCellSize * 0.44)   // 字体随格子自适应
+            pieceSize: Math.floor(finalCellSize * 0.9), // 棋子约 0.9 格（传统象棋几乎相接）
+            fontSize: Math.floor(finalCellSize * 0.5)    // 字体随格子自适应
         };
     }
     
@@ -260,6 +260,17 @@ class BoardRenderer {
             }
         }
 
+        // ③ 双线外框：在线格外侧再画一圈细线（传统象棋的外框）
+        const fg = Math.max(5, Math.round(cell * 0.14));
+        const frame = document.createElement('div');
+        frame.className = 'board-frame-line';
+        frame.style.left = (L - fg) + 'px';
+        frame.style.top = (T - fg) + 'px';
+        frame.style.width = (R - L + 2 * fg) + 'px';
+        frame.style.height = (B - T + 2 * fg) + 'px';
+        frame.style.borderRadius = Math.max(3, Math.round(cell * 0.16)) + 'px';
+        layer.appendChild(frame);
+
         // ③ 九宫斜线（每个九宫两条对角线）
         for (let p = 0; p < 4; p++) {
             const a = Config.PALACE_AREAS[p];
@@ -279,8 +290,8 @@ class BoardRenderer {
             }
         }
 
-        // ④ 炮/兵起始标记：围住“交叉点”的小四角括（和真实象棋一致）
-        const mk = Math.round(cell * 0.52);
+        // ④ 炮/兵起始标记：围住“交叉点”的四角括（要略大于棋子，才能在棋子边缘露出角）
+        const mk = Math.round(cell * 0.8);
         for (let p = 0; p < 4; p++) {
             for (const it of Config.INITIAL_POSITIONS[p]) {
                 if (it.type !== Config.PIECE_TYPES.CANNON && it.type !== Config.PIECE_TYPES.PAWN) continue;
@@ -297,7 +308,7 @@ class BoardRenderer {
 
         // ⑤ 河界文字：河界是“同底色空白带”，只用文字 + 断线标示（横竖一致，贴近真象棋）
         if (cell >= 30) {
-            const rfs = Math.max(10, Math.round(cell * 0.30));
+            const rfs = Math.max(12, Math.round(cell * 0.40));
             const midHb = (this._yCenter(4) + this._yCenter(5)) / 2;   // 横河中线
             const midVb = (this._xCenter(4) + this._xCenter(5)) / 2;   // 竖河中线
             const addRiverText = (x, y, txt, vertical) => {
