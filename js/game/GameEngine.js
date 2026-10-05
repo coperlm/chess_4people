@@ -334,7 +334,9 @@ class GameEngine {
      */
     notifyKnockout(player, reason) {
         const name = Config.PLAYER_COLORS[player].name;
-        const label = reason === 'captured' ? '将/帅被吃' : '无子可动（困毙）';
+        const label = reason === 'captured' ? '将/帅被吃'
+            : reason === 'kicked' ? '被房主移出'
+            : '无子可动（困毙）';
         Utils.showMessage(`${name}${label}！`, 'error');
         if (window.onlineSession && window.onlineSession.active && window.onlineSession.isHost) {
             window.onlineSession._broadcastEliminate(player, reason);

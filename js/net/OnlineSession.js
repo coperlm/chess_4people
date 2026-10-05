@@ -378,7 +378,7 @@ class OnlineSession {
             : (this.myColors.length ? this.myColors.map(c => Config.PLAYER_COLORS[c].name).join('、') : '观战');
         let turn = this.started ? '' : '等待房主开始';
         if (this.started && gs) {
-            if (gs.gamePhase === 'finished') turn = '对局结束';
+            if (gs.gamePhase === 'finished') turn = this.isHost ? '对局结束 · 可点「新游戏/房间状态」重开' : '对局结束 · 等待房主重开';
             else {
                 const cp = gs.currentPlayer;
                 turn = `轮到 ${Config.PLAYER_COLORS[cp].name}${this.myColors.includes(cp) ? '（你）' : ''}`;
@@ -891,32 +891,137 @@ class OnlineSession {
             count: this.participants.length,
             started: this.started,
             settings: this.settings,
-            seats: this.participants.map(p => ({ name: p.name || '', colors: p.colors, host: p.token === this.token }))
+            seats: this.participants.map(p => ({
+                name: p.name || '',
+                colors: p.colors,
+                host: p.token === this.token,
+                online: p.token === this.token || !!p.id
+            }))
         });
     }
     _renderRoster() {
-        if (!this.el || !this.el.roster) return;
-        const nameOf = (n, i) => Utils.escapeHtml(n ? n : `玩家${i + 1}`);
-        const roleOf = s => (s.colors || []).length ? s.colors.map(c => Config.PLAYER_COLORS[c].name).join('+') : '待分配';
-        if (this.isHost) {
-            this.el.roster.innerHTML = this.participants.map((p, i) => {
-                const online = p.token === this.token || p.id ? '' : '（离线）';
-                return `<div>#${i + 1} ${nameOf(p.name, i)} ${p.token === this.token ? '(房主/你)' : online} — ${Utils.escapeHtml(roleOf(p))}</div>`;
-            }).join('');
-        } else if (this._roster) {
-            const d = this._roster;
-            let html = `<div>房间内 ${d.count} 人</div>`;
-            const seats = d.seats || [];
-            html += seats.map((s, i) => {
-                // 非房主视角：标出谁是房主、哪个是自己
-                const tag = i === 0 || s.host ? '（房主）' : '';
-                const you = (this.mySeat === i) ? '（你）' : '';
-                return `<div>#${i + 1} ${nameOf(s.name, i)} ${tag}${you} — ${Utils.escapeHtml(roleOf(s))}</div>`;
-            }).join('');
-            this.el.roster.innerHTML = html;
-        } else {
-            this.el.roster.innerHTML = '';
+        if (this.el && this.el.roster) {
+            const nameOf = (n, i) => Utils.escapeHtml(n ? n : `玩家${i + 1}`);
+            const roleOf = s => (s.colors || []).length ? s.colors.map(c => Config.PLAYER_COLORS[c].name).join('+') : '待分配';
+            if (this.isHost) {
+                this.el.roster.innerHTML = this.participants.map((p, i) => {
+                    const online = p.token === this.token || p.id ? '' : '（离线）';
+                    return `<div>#${i + 1} ${nameOf(p.name, i)} ${p.token === this.token ? '(房主/你)' : online} — ${Utils.escapeHtml(roleOf(p))}</div>`;
+                }).join('');
+            } else if (this._roster) {
+                const d = this._roster;
+                let html = `<div>房间内 ${d.count} 人</div>`;
+                html += (d.seats || []).map((s, i) => {
+                    // 非房主视角：标出房主 / 自己 / 离线
+                    const tag = s.host ? '（房主）' : '';
+                    const you = (this.mySeat === i) ? '（你）' : '';
+                    const off = s.online === false ? '（离线）' : '';
+                    return `<div>#${i + 1} ${nameOf(s.name, i)} ${tag}${you}${off} — ${Utils.escapeHtml(roleOf(s))}</div>`;
+                }).join('');
+                this.el.roster.innerHTML = html;
+            } else {
+                this.el.roster.innerHTML = '';
+            }
         }
+        this._renderAdmin();
+    }
+
+    /** 房主专用：玩家管理（交换位置/颜色、踢出） */
+    _renderAdmin() {
+        const el = document.getElementById ? document.getElementById('roomAdmin') : null;
+        if (!el) return;
+        if (!this.isHost || !this.active) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+        const rows = this.participants.map((p, i) => {
+            if (p.token === this.token) return '';
+            const role = p.colors && p.colors.length ? p.colors.map(c => Config.PLAYER_COLORS[c].name).join('+') : '待分配';
+            const off = p.id ? '' : '（离线）';
+            const tk = Utils.escapeHtml(p.token);
+            return `<div class="admin-row"><span class="admin-name">#${i + 1} ${Utils.escapeHtml(p.name || ('玩家' + (i + 1)))} ${off} — ${Utils.escapeHtml(role)}</span>`
+                + `<button class="mini-btn" data-swap="${tk}">交换</button>`
+                + `<button class="mini-btn mini-btn--danger" data-kick="${tk}">踢出</button></div>`;
+        }).join('');
+        el.classList.remove('hidden');
+        el.innerHTML = rows || '<div class="admin-empty">（暂无其他玩家）</div>';
+        el.querySelectorAll('[data-swap]').forEach(b => b.addEventListener('click', () => this.swapWithHost(b.dataset.swap)));
+        el.querySelectorAll('[data-kick]').forEach(b => b.addEventListener('click', () => {
+            const p = this._findByToken(b.dataset.kick);
+            if (!confirm(`确定把「${p && p.name ? p.name : '该玩家'}」踢出房间吗？`)) return;
+            this.kickParticipant(b.dataset.kick);
+        }));
+    }
+
+    /**
+     * 房主：与某玩家交换“座位”（位置 + 颜色一起换）——直接交换数组里的两个条目，最不易出错。
+     */
+    swapWithHost(token) {
+        if (!this.isHost) return;
+        const i = this.participants.findIndex(x => x.token === this.token);
+        const j = this.participants.findIndex(x => x.token === token);
+        if (i < 0 || j < 0 || i === j) return;
+        const hostEntry = this.participants[i];
+        const peerEntry = this.participants[j];
+
+        // 交换“座位”＝位置 + 颜色一起换：先互换颜色，再互换数组槽位
+        const c = hostEntry.colors; hostEntry.colors = peerEntry.colors; peerEntry.colors = c;
+        this.participants[i] = peerEntry;
+        this.participants[j] = hostEntry;
+        // 现在：房主在槽位 j（拿到对方原颜色）；对方在槽位 i（拿到房主原颜色）
+
+        this._setMyColors(hostEntry.colors);
+        if (peerEntry.id) {
+            this.actAssign.send({ colors: peerEntry.colors, seat: i, hostId: this.selfId, settings: this.settings }, { target: peerEntry.id });
+        }
+        this._broadcastRoster();
+        this._renderRoster();
+        this._refreshStatus();
+        this._saveRecord();
+        Utils.showMessage('已交换位置/颜色', 'info');
+    }
+
+    /**
+     * 房主：踢出一名玩家。开局中会把其颜色一并淘汰，保证棋盘/回合一致。
+     */
+    kickParticipant(token) {
+        if (!this.isHost) return;
+        const p = this._findByToken(token);
+        if (!p || p.token === this.token) return;
+        const ge = this.gameEngine, gs = ge.gameState;
+
+        if (p.id) this.actKick.send({ text: '你已被房主移出房间' }, { target: p.id });
+
+        const colors = (p.colors || []).slice();
+        this._drawYes = null;                        // 作废未完成的求和
+        if (this.started && gs.gamePhase === 'playing' && colors.length) {
+            for (const c of colors) {
+                gs.eliminatePlayer(c);
+                ge.notifyKnockout(c, 'kicked');       // 本地提示 + 广播 eliminate
+            }
+            if (gs.checkGameEnd()) {
+                ge.endGame();
+            } else {
+                if (!gs.hasKing(gs.currentPlayer)) gs.nextPlayer();
+                ge.boardRenderer.clearSelection();
+                ge.boardRenderer.renderPieces();
+            }
+            ge.updateUI();
+            if (ge.updateMoveHistory) ge.updateMoveHistory();
+        }
+
+        this.participants = this.participants.filter(x => x.token !== token);
+        this._broadcastRoster();
+        this._renderRoster();
+        this._updateStartBtn();
+        this._refreshStatus();
+        this._saveRecord();
+        Utils.showMessage(`已移出「${p.name || '玩家'}」`, 'info');
+    }
+
+    /** 非房主：收到被踢通知后离开房间 */
+    _onKick(d) {
+        if (this.isHost) return;
+        Utils.showMessage((d && d.text) || '你已被房主移出房间', 'warning');
+        this._setStatus('你已被房主移出房间', 'error');
+        this.leave();
     }
     _updateStartBtn() {
         if (!this.el || !this.el.start) return;

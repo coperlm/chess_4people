@@ -79,7 +79,7 @@ function MockTrystero() {
 global.Trystero = MockTrystero();
 
 // ---- 极简引擎（真实规则 + 桩 UI） ----
-function fakeEngine() {
+function fakeEngine(sessionRef) {
   const gs = new GameState();
   const pm = new PieceManager(gs);
   const rv = new RuleValidator(gs, pm);
@@ -88,12 +88,17 @@ function fakeEngine() {
   const br = { clearSelection() {}, renderPieces() {}, setNetworkMode() {}, setPlayerPosition() {} };
   return {
     gameState: gs, pieceManager: pm, ruleValidator: rv, boardRenderer: br,
-    isNetworkMode: false, controlledColors: null, isGameActive: false,
+    isNetworkMode: false, controlledColors: null, isGameActive: false, _sessionRef: sessionRef,
     setControlledColors(c) { this.controlledColors = c ? c.slice() : null; },
     canControl(p) { if (!this.isNetworkMode) return true; return !!this.controlledColors && this.controlledColors.includes(p); },
     updateUI() {}, updateMoveHistory() {},
     startNewGame() { gs.reset(); gs.startGame(); this.isGameActive = true; },
     onMoveCompleted() { gs.checkGameEnd(); },
+    // 与真实引擎一致：只“通报 + 广播”，淘汰由调用方先做
+    notifyKnockout(player, reason) {
+      const s = this._sessionRef && this._sessionRef.current;
+      if (s && s.isHost && s.active) s._broadcastEliminate(player, reason);
+    },
     endGame() { this.isGameActive = false; }
   };
 }
@@ -259,6 +264,47 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     h.requestDraw();
     await tick(); await tick(); await tick();
     t('求和：发起后对方同意 => 房主判定和棋', hEngine.gameState.gamePhase === 'finished' && hEngine.gameState.isDraw === true);
+  }
+
+  // === 房主管理：交换位置/颜色 + 踢人 + 全员在线状态 ===
+  {
+    const href = { current: null };
+    const hEngine = fakeEngine(href);
+    const pEngine = fakeEngine();
+    const h = new OnlineSession(hEngine); href.current = h;
+    const p = new OnlineSession(pEngine);
+    h._open('room-admin', true);
+    p._open('room-admin', false);
+    await tick(); await tick();
+    h.name = '房主A'; p.name = '玩家B';
+    p._sendHello();
+    await tick(); await tick();
+    h.settings.mode = 'team';
+    h.startMatch();
+    await tick(); await tick();
+
+    const hostColors0 = h.myColors.slice();     // [0,1]
+    const peerColors0 = p.myColors.slice();     // [2,3]
+    const peerToken = h.participants.find(x => x.token !== h.token).token;
+
+    // 交换位置/颜色
+    h.swapWithHost(peerToken);
+    await tick(); await tick();
+    t('交换后房主拿到对方原颜色', eq(h.myColors, peerColors0), JSON.stringify(h.myColors));
+    t('交换后对方拿到房主原颜色', eq(p.myColors, hostColors0), JSON.stringify(p.myColors));
+
+    // 全员在线状态（非房主名册带 online 字段）
+    const seats = p._roster && p._roster.seats;
+    t('非房主名册携带 online 字段', Array.isArray(seats) && seats.length === 2 && seats.every(s => typeof s.online === 'boolean'), JSON.stringify(seats));
+
+    // 踢人（开局中：淘汰其“当前”颜色，保持棋盘/回合一致）
+    const peerNow = p.myColors.slice();     // 交换后对方的颜色
+    h.kickParticipant(peerToken);
+    await tick(); await tick(); await tick();
+    t('踢人后名册只剩房主', h.participants.length === 1 && h.participants[0].token === h.token);
+    t('踢人后其颜色被淘汰（棋盘一致）', peerNow.every(c => hEngine.gameState.pieceCounts[c] === 0), JSON.stringify(peerNow) + ' => ' + JSON.stringify(hEngine.gameState.pieceCounts));
+    t('被踢者已离开房间', p.active === false);
+    t('踢人不会把房主自己踢掉', h.active === true && h.participants.some(x => x.token === h.token));
   }
 
   console.log(`\n联机协议测试: ${pass} 通过, ${fail} 失败`);
