@@ -1704,6 +1704,7 @@ html[data-theme="dark"] .chess-cell.playable:hover{ background:radial-gradient(c
 }
 .replay-bar{ border:1px solid rgba(138,90,43,.18); }
 .modal-box{ border-radius:16px; box-shadow:0 24px 60px -20px rgba(40,20,5,.6); }
+#confirmModalText{ white-space:pre-line; margin:.2rem 0 .2rem; }
 
 /* 移动端 / 安卓适配 */
 @media (max-width: 1023px){

@@ -1,4 +1,4 @@
-// 音效：用 WebAudio 合成“落子”的短促木石声（无需音频资源，离线可用）。默认关闭，由设置开启。
+// 音效：用 WebAudio 合成“落子”的短促木石声（无需音频资源，离线可用）。默认开启，可在设置里关闭。
 class Sound {
     constructor() {
         this.enabled = false;

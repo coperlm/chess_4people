@@ -182,12 +182,11 @@ class GameEngine {
      * 悔棋
      */
     undoMove() {
-        // 任何人（参战玩家）都可悔棋；执行前弹窗确认，避免误触
+        // 任何人（参战玩家）都可悔棋；执行前页内弹窗确认，避免误触（原生 confirm 在微信里会出“关闭网页”）
         if (window.onlineSession && window.onlineSession.active) {
             if (this.gameState.gamePhase !== 'playing') { Utils.showMessage('当前无法悔棋', 'warning'); return; }
             if (this.gameState.moveHistory.length === 0) { Utils.showMessage('没有可悔棋的步数', 'warning'); return; }
-            if (!confirm('确定要悔棋吗？')) return;
-            window.onlineSession.requestUndo();
+            Utils.confirmModal('确定要悔棋吗？').then(ok => { if (ok) window.onlineSession.requestUndo(); });
             return;
         }
         if (!this.isGameActive || this.gameState.gamePhase !== 'playing') {
@@ -200,17 +199,18 @@ class GameEngine {
             return;
         }
 
-        if (!confirm('确定要悔棋吗？')) return;
-
-        if (this.gameState.undoMove()) {
-            if (window.sound) window.sound.play('undo');
-            this.boardRenderer.update();
-            this.updateUI();
-            this.updateMoveHistory();
-            Utils.showMessage('已悔棋', 'success');
-        } else {
-            Utils.showMessage('悔棋失败', 'error');
-        }
+        Utils.confirmModal('确定要悔棋吗？').then(ok => {
+            if (!ok) return;
+            if (this.gameState.undoMove()) {
+                if (window.sound) window.sound.play('undo');
+                this.boardRenderer.update();
+                this.updateUI();
+                this.updateMoveHistory();
+                Utils.showMessage('已悔棋', 'success');
+            } else {
+                Utils.showMessage('悔棋失败', 'error');
+            }
+        });
     }
 
     /**
@@ -242,17 +242,18 @@ class GameEngine {
         const currentPlayer = this.gameState.currentPlayer;
         const playerName = Config.PLAYER_COLORS[currentPlayer].name;
         
-        if (!confirm(`${playerName}确定要认输吗？`)) return;
-        
-        this.gameState.eliminatePlayer(currentPlayer);
-        Utils.showMessage(`${playerName}认输`, 'warning');
-        if (this.gameState.checkGameEnd()) {
-            this.endGame();
-        } else {
-            this.gameState.nextPlayer();
-            this.boardRenderer.renderPieces();
-            this.updateUI();
-        }
+        Utils.confirmModal(`${playerName}确定要认输吗？`).then(ok => {
+            if (!ok) return;
+            this.gameState.eliminatePlayer(currentPlayer);
+            Utils.showMessage(`${playerName}认输`, 'warning');
+            if (this.gameState.checkGameEnd()) {
+                this.endGame();
+            } else {
+                this.gameState.nextPlayer();
+                this.boardRenderer.renderPieces();
+                this.updateUI();
+            }
+        });
     }
     
     /**
@@ -607,7 +608,8 @@ class GameEngine {
         // 观战者（联机中无颜色者）不能悔棋/认输/求和
         const os = window.onlineSession;
         const spectator = !!(os && os.active && (!os.myColors || !os.myColors.length));
-        const playing = this.isGameActive && this.gameState.gamePhase === 'playing';
+        const playing = this.isGameActive && this.gameState.gamePhase === 'playing'
+            && !(window.replay && window.replay.active);   // 回放中禁用“悔棋/认输/求和”（此时 gameState 仍是实时对局）
 
         const canUndo = playing && this.gameState.moveHistory.length > 0 && !spectator;
         const canSurrender = playing && !spectator;

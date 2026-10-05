@@ -2,7 +2,7 @@
 class Settings {
     constructor() {
         this.KEY = 'chess4p_settings';
-        this.data = Object.assign({ theme: 'light', sound: false, skin: 'wood' }, this._load());
+        this.data = Object.assign({ theme: 'light', sound: true, skin: 'wood' }, this._load());
         this._bound = false;
         this.el = null;
     }

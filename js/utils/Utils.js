@@ -181,6 +181,45 @@ class Utils {
     }
     
     /**
+     * 页内二次确认（替代原生 confirm）。原生 confirm 在微信/部分 WebView 里会出现“关闭网页”按钮，
+     * 误触会直接退出对局，故统一改用页面内弹窗。
+     * @returns {Promise<boolean>} 点“确定”为 true，点“取消”/关闭为 false；DOM 不可用时退回原生 confirm。
+     */
+    static confirmModal(message, okText = '确定', cancelText = '取消') {
+        return new Promise(resolve => {
+            const el = (typeof document !== 'undefined') ? document.getElementById('confirmModal') : null;
+            if (!el) { resolve(typeof confirm === 'function' ? !!confirm(message) : true); return; }
+            // 若上一个确认还没答复（如快速连点两次），先按“取消”了结上一个，避免两个 Promise 同时 resolve 而双发
+            if (Utils._confirmFinish) { try { Utils._confirmFinish(false); } catch (e) { /* ignore */ } }
+            const txt = document.getElementById('confirmModalText');
+            const ok = document.getElementById('confirmModalOk');
+            const no = document.getElementById('confirmModalCancel');
+            if (txt) txt.textContent = message;
+            if (ok) ok.textContent = okText;
+            if (no) no.textContent = cancelText;
+            let done = false;
+            const finish = val => {
+                if (done) return;
+                done = true;
+                if (Utils._confirmFinish === finish) Utils._confirmFinish = null;
+                if (ok) ok.removeEventListener('click', onOk);
+                if (no) no.removeEventListener('click', onNo);
+                el.removeEventListener('click', onOverlay);
+                el.classList.add('hidden');
+                resolve(val);
+            };
+            const onOk = () => finish(true);
+            const onNo = () => finish(false);
+            const onOverlay = e => { if (e.target === el) finish(false); };
+            if (ok) ok.addEventListener('click', onOk);
+            if (no) no.addEventListener('click', onNo);
+            el.addEventListener('click', onOverlay);
+            Utils._confirmFinish = finish;
+            el.classList.remove('hidden');
+        });
+    }
+
+    /**
      * HTML转义工具
      */
     static escapeHtml(text) {

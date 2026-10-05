@@ -232,6 +232,7 @@ class Replay {
         this.active = true;
         if (br.boardElement) br.boardElement.style.pointerEvents = 'none';
         if (this.ge && this.ge.updateTurnTimer) this.ge.updateTurnTimer();   // 回放期间停掉/隐藏本步倒计时
+        if (this.ge && this.ge.updateButtons) this.ge.updateButtons();        // 回放期间禁用 悔棋/认输/求和
         this.goto(0);
         if (this.el) {
             if (this.el.controls) this.el.controls.classList.remove('hidden');
@@ -332,6 +333,7 @@ class Replay {
         if (!this.active) return;
         this.active = false;
         if (this.ge && this.ge.updateTurnTimer) this.ge.updateTurnTimer();   // 退出回放后按当前状态恢复
+        if (this.ge && this.ge.updateButtons) this.ge.updateButtons();
         const br = this.ge.boardRenderer;
         br.gameState = this._live;
         if (br.boardElement) br.boardElement.style.pointerEvents = '';

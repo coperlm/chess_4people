@@ -87,7 +87,10 @@ class OnlineSession {
     _syncSettingsUI() {
         if (!this.el) return;
         const ffa = this.settings.mode === Config.MODES.FFA;
-        const locked = this.active && !this.isHost; // 只有“在房间里且非房主”才锁定，未联机时可自由设置
+        const gs = this.gameEngine && this.gameEngine.gameState;
+        const inGame = !!(this.active && this.started && gs && gs.gamePhase === 'playing');
+        // 非房主始终锁定；对局进行中房主也锁定（避免中途改规则导致两端不一致）
+        const locked = (this.active && !this.isHost) || inGame;
         if (this.el.mode) { this.el.mode.value = this.settings.mode; this.el.mode.disabled = locked; }
         if (this.el.victory) { this.el.victory.value = this.settings.victory; this.el.victory.disabled = locked || ffa; }
         if (this.el.ff) { this.el.ff.checked = !!this.settings.friendlyFire; this.el.ff.disabled = locked || ffa; }
@@ -1013,6 +1016,8 @@ class OnlineSession {
         this._clearRecord();
         // 清掉本机单机存档，避免下次加载把这场联机局当单机继续
         if (this.gameEngine && this.gameEngine.persistence) this.gameEngine.persistence.clearSavedState();
+        this._syncSettingsUI();   // 对局结束 → 解锁设置，便于为下一局调整
+        this._renderRoster();     // 结束 → 房主管理里的“交换”按钮恢复
         if (this.isHost) this._broadcastState();
     }
 
@@ -1096,6 +1101,7 @@ class OnlineSession {
         if (lobby) lobby.innerHTML = html;
         this._renderAdmin();
         this._renderLobby();
+        this._syncSettingsUI();   // 开局/结束/换人等时机刷新“设置是否锁定”
     }
 
     /** 大厅头部：房间号 + 人数/座位预览提示 */
@@ -1111,18 +1117,26 @@ class OnlineSession {
         }
     }
 
+    /** 对局是否正在进行（进行中则禁止会扰动棋局的操作，如交换位置/颜色） */
+    _inProgress() {
+        const gs = this.gameEngine && this.gameEngine.gameState;
+        return !!(this.active && this.started && gs && gs.gamePhase === 'playing');
+    }
+
     /** 房主专用：玩家管理（交换位置/颜色、踢出） */
     _renderAdmin() {
         const el = document.getElementById ? document.getElementById('roomAdmin') : null;
         if (!el) return;
         if (!this.isHost || !this.active) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+        const canSwap = !this._inProgress();   // 对局进行中不允许交换位置/颜色
         const rows = this.participants.map((p, i) => {
             if (p.token === this.token) return '';
             const role = p.colors && p.colors.length ? p.colors.map(c => Config.PLAYER_COLORS[c].name).join('+') : '待分配';
             const off = p.id ? '' : '（离线）';
             const tk = Utils.escapeHtml(p.token);
+            const swapBtn = canSwap ? `<button class="mini-btn" data-swap="${tk}">交换</button>` : '';
             return `<div class="admin-row"><span class="admin-name">#${i + 1} ${Utils.escapeHtml(p.name || ('玩家' + (i + 1)))} ${off} — ${Utils.escapeHtml(role)}</span>`
-                + `<button class="mini-btn" data-swap="${tk}">交换</button>`
+                + swapBtn
                 + `<button class="mini-btn mini-btn--danger" data-kick="${tk}">踢出</button></div>`;
         }).join('');
         el.classList.remove('hidden');
@@ -1130,16 +1144,19 @@ class OnlineSession {
         el.querySelectorAll('[data-swap]').forEach(b => b.addEventListener('click', () => this.swapWithHost(b.dataset.swap)));
         el.querySelectorAll('[data-kick]').forEach(b => b.addEventListener('click', () => {
             const p = this._findByToken(b.dataset.kick);
-            if (!confirm(`确定把「${p && p.name ? p.name : '该玩家'}」踢出房间吗？`)) return;
-            this.kickParticipant(b.dataset.kick);
+            Utils.confirmModal(`确定把「${p && p.name ? p.name : '该玩家'}」踢出房间吗？`).then(ok => {
+                if (ok) this.kickParticipant(b.dataset.kick);
+            });
         }));
     }
 
     /**
      * 房主：与某玩家交换“座位”（位置 + 颜色一起换）——直接交换数组里的两个条目，最不易出错。
+     * 对局进行中禁止（开局前随便换）。
      */
     swapWithHost(token) {
         if (!this.isHost) return;
+        if (this._inProgress()) { Utils.showMessage('对局进行中不能交换位置/颜色', 'warning'); return; }
         const i = this.participants.findIndex(x => x.token === this.token);
         const j = this.participants.findIndex(x => x.token === token);
         if (i < 0 || j < 0 || i === j) return;
@@ -1153,7 +1170,7 @@ class OnlineSession {
         // 现在：房主在槽位 j（拿到对方原颜色）；对方在槽位 i（拿到房主原颜色）
 
         this._setMyColors(hostEntry.colors);
-        if (peerEntry.id) {
+        if (this.started && peerEntry.id) {   // 开局前只是重排槽位（颜色在 startMatch 才分配），不必发 assign
             this.actAssign.send({ colors: peerEntry.colors, seat: i, hostId: this.selfId, settings: this.settings }, { target: peerEntry.id });
         }
         this._broadcastRoster();

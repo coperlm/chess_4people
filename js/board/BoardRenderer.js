@@ -768,22 +768,30 @@ class BoardRenderer {
         
         // 尝试移动
         if (this.ruleValidator.isValidMove(selected.x, selected.y, x, y)) {
-            // 本变体不强制应对将军：若这步走完本方会被将军（无视将军 / 自暴将），二次确认；
+            // 本变体不强制应对将军：若这步走完本方会被将军（无视将军 / 自暴将），页内二次确认；
             // 能解将的走法天然不会触发。
-            const mover = this.gameState.getPiece(selected.x, selected.y);
-            if (mover && this.ruleValidator.wouldBeInCheckAfterMove(selected.x, selected.y, x, y, mover.player)) {
-                if (!confirm('走这步后你的将/帅会被将军（可能被吃），确定继续吗？')) return;
+            const fx = selected.x, fy = selected.y;
+            const mover = this.gameState.getPiece(fx, fy);
+            if (mover && this.ruleValidator.wouldBeInCheckAfterMove(fx, fy, x, y, mover.player)) {
+                Utils.confirmModal('走这步后你的将/帅会被将军（可能被吃），确定继续吗？').then(ok => {
+                    if (ok) this._proceedMove(fx, fy, x, y);
+                });
+                return;
             }
-            if (this.isNetworkMode && window.onlineSession && window.onlineSession.active) {
-                // 联机：不本地执行，交给房主权威校验后广播
-                window.onlineSession.requestMove(selected.x, selected.y, x, y);
-                this.clearSelection();
-            } else {
-                this.executeMove(selected.x, selected.y, x, y);
-            }
+            this._proceedMove(fx, fy, x, y);
         } else {
             Utils.showMessage('无效移动！', 'error');
             this.shakeSelected();
+        }
+    }
+
+    /** 真正落子：联机交给房主权威校验后广播，本地直接执行 */
+    _proceedMove(fx, fy, tx, ty) {
+        if (this.isNetworkMode && window.onlineSession && window.onlineSession.active) {
+            window.onlineSession.requestMove(fx, fy, tx, ty);
+            this.clearSelection();
+        } else {
+            this.executeMove(fx, fy, tx, ty);
         }
     }
     
@@ -800,7 +808,7 @@ class BoardRenderer {
             // 执行移动
             if (this.gameState.movePiece(fromX, fromY, toX, toY)) {
 
-                // 播放移动音效（吃子/普通；音效默认关闭，在设置里开启）
+                // 播放移动音效（吃子/普通；音效默认开启，可在设置里关闭）
                 this.playMoveSound(!!capturedPiece);
                 
                 // 更新界面（带平移“飞行”动画）

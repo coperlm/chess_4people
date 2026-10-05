@@ -248,20 +248,20 @@ class ChessGameApp {
             if (savedData.online) return;
             
             const saveTime = new Date(savedData.timestamp || Date.now());
-            const shouldContinue = confirm(
+            Utils.confirmModal(
                 `发现自动保存的对局（${saveTime.toLocaleString()}）\n是否继续之前的游戏？`
-            );
-            
-            if (shouldContinue && this.gameEngine) {
-                if (persistence.restoreGameState(this.gameEngine, savedData)) {
-                    this.isInitialized = true;
-                    Utils.showMessage('已恢复上次对局', 'success');
+            ).then(shouldContinue => {
+                if (shouldContinue && this.gameEngine) {
+                    if (persistence.restoreGameState(this.gameEngine, savedData)) {
+                        this.isInitialized = true;
+                        Utils.showMessage('已恢复上次对局', 'success');
+                    } else {
+                        Utils.showMessage('无法恢复上次对局', 'error');
+                    }
                 } else {
-                    Utils.showMessage('无法恢复上次对局', 'error');
+                    persistence.clearSavedState();
                 }
-            } else {
-                persistence.clearSavedState();
-            }
+            });
         } catch (error) {
             console.warn('检查自动保存失败:', error);
         }
@@ -284,9 +284,9 @@ class ChessGameApp {
      * 重启应用
      */
     restart() {
-        if (confirm('确定要重启游戏吗？这将清除当前进度。')) {
-            location.reload();
-        }
+        Utils.confirmModal('确定要重启游戏吗？这将清除当前进度。').then(ok => {
+            if (ok) location.reload();
+        });
     }
     
     /**

@@ -325,7 +325,7 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     t('认输后其颜色被淘汰', peerColors.every(c => hEngine.gameState.pieceCounts[c] === 0), JSON.stringify(hEngine.gameState.pieceCounts));
   }
 
-  // === 房主管理：交换位置/颜色 + 踢人 + 全员在线状态 ===
+  // === 房主管理：开局前可交换位置/颜色（开局中禁止） + 踢人 + 全员在线状态 ===
   {
     const href = { current: null };
     const hEngine = fakeEngine(href);
@@ -339,25 +339,33 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     p._sendHello();
     await tick(); await tick();
     h.settings.mode = 'team';
-    h.startMatch();
-    await tick(); await tick();
 
-    const hostColors0 = h.myColors.slice();     // [0,1]
-    const peerColors0 = p.myColors.slice();     // [2,3]
     const peerToken = h.participants.find(x => x.token !== h.token).token;
 
-    // 交换位置/颜色
+    // 开局前交换：允许（把房主换到对方的槽位）
     h.swapWithHost(peerToken);
     await tick(); await tick();
-    t('交换后房主拿到对方原颜色', eq(h.myColors, peerColors0), JSON.stringify(h.myColors));
-    t('交换后对方拿到房主原颜色', eq(p.myColors, hostColors0), JSON.stringify(p.myColors));
+    t('开局前可交换：房主换到对方槽位', h.participants[0].token !== h.token, JSON.stringify(h.participants.map(x => x.token)));
+
+    h.startMatch();
+    await tick(); await tick();
+    const hostColors0 = h.myColors.slice();   // 交换后房主应拿到原属对方的 [2,3]
+    const peerColors0 = p.myColors.slice();   // 对方应拿到原属房主的 [0,1]
+    t('开局前交换在开局时生效：房主=[2,3]', eq(hostColors0, [2, 3]), JSON.stringify(hostColors0));
+    t('开局前交换在开局时生效：对方=[0,1]', eq(peerColors0, [0, 1]), JSON.stringify(peerColors0));
+
+    // 开局中交换：禁止（颜色保持不变）
+    h.swapWithHost(peerToken);
+    await tick(); await tick();
+    t('开局中禁止交换（房主颜色不变）', eq(h.myColors, hostColors0), JSON.stringify(h.myColors));
+    t('开局中禁止交换（对方颜色不变）', eq(p.myColors, peerColors0), JSON.stringify(p.myColors));
 
     // 全员在线状态（非房主名册带 online 字段）
     const seats = p._roster && p._roster.seats;
     t('非房主名册携带 online 字段', Array.isArray(seats) && seats.length === 2 && seats.every(s => typeof s.online === 'boolean'), JSON.stringify(seats));
 
     // 踢人（开局中：淘汰其“当前”颜色，保持棋盘/回合一致）
-    const peerNow = p.myColors.slice();     // 交换后对方的颜色
+    const peerNow = p.myColors.slice();
     h.kickParticipant(peerToken);
     await tick(); await tick(); await tick();
     t('踢人后名册只剩房主', h.participants.length === 1 && h.participants[0].token === h.token);
