@@ -1,6 +1,6 @@
 {
   "name": "four-player-chess",
-  "version": "2.1.4",
+  "version": "2.2.0",
   "description": "四人象棋（本地 / 联机）",
   "private": true,
   "scripts": {
