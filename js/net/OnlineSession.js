@@ -639,7 +639,10 @@ class OnlineSession {
         if (ge.updateMoveHistory) ge.updateMoveHistory();
         if (ge.boardRenderer.highlightLastMove) ge.boardRenderer.highlightLastMove();
         if (ge.autoSave) ge.autoSave();
-        if (gs.checkGameEnd()) ge.endGame();
+        // 与房主用同一套结算：淘汰被吃/困毙 + 必要时推进 currentPlayer + 结束。
+        // 若只调 checkGameEnd，会出现“轮到被吃方”时房主已 nextPlayer、客户端没推进 → 回合/当前方漂移。
+        if (ge.resolveAfterMove) ge.resolveAfterMove();
+        else if (gs.checkGameEnd()) ge.endGame();
     }
 
     requestUndo() {
@@ -697,11 +700,12 @@ class OnlineSession {
     _hostResignColors(colors) {
         const ge = this.gameEngine, gs = ge.gameState;
         if (gs.gamePhase !== 'playing') return;
+        const removed = [];
         for (const c of colors) {
             if (!gs.hasKing(c)) continue;          // 已出局，跳过
             gs.eliminatePlayer(c);
             Utils.showMessage(`${Config.PLAYER_COLORS[c].name}认输`, 'warning');
-            this._broadcastEliminate(c, 'resign');  // 直接广播（不依赖 window.onlineSession 耦合）
+            removed.push(c);
         }
         if (gs.checkGameEnd()) {
             ge.endGame();
@@ -710,6 +714,17 @@ class OnlineSession {
             ge.boardRenderer.renderPieces();
             ge.updateUI();
         }
+        // 始终广播一次（即便本次没有新淘汰，也把房主权威的“当前方/回合”带给客户端；
+        // 否则房主因 nextPlayer 推进而客户端不推进 → 漂移）
+        this._broadcastEliminateMany(removed, 'resign');
+        this._saveRecord();
+    }
+
+    /** 房主：广播一组被淘汰颜色 + 权威的当前方/回合（用于认输 / 踢人这类非走子路径） */
+    _broadcastEliminateMany(players, reason) {
+        this.seq++;
+        const gs = this.gameEngine.gameState;
+        this.actEliminate.send({ players: players || [], reason, seq: this.seq, cp: gs.currentPlayer, turn: gs.turn });
         this._saveRecord();
     }
 
@@ -724,12 +739,20 @@ class OnlineSession {
         if (d.seq <= this._lastSeq) return;
         this._lastSeq = d.seq;
         const ge = this.gameEngine, gs = ge.gameState;
-        gs.eliminatePlayer(d.player);
+        const players = d.players || (d.player !== undefined ? [d.player] : []);
+        for (const p of players) gs.eliminatePlayer(p);
         ge.boardRenderer.renderPieces();
         if (gs.checkGameEnd()) {
             ge.endGame();
+            ge.updateUI();
+        } else if (d.cp !== undefined && d.turn !== undefined) {
+            // 房主权威撤销/淘汰路径：直接采用房主的“当前方/回合”，避免各端各自推导导致漂移
+            gs.currentPlayer = d.cp;
+            gs.turn = d.turn;
+            ge.updateUI();
         } else {
-            gs.nextPlayer();
+            // 走子结算路径：客户端已跑过 resolveAfterMove，这里只兜底
+            if (!gs.hasKing(gs.currentPlayer)) gs.nextPlayer();
             ge.updateUI();
         }
     }
@@ -1020,9 +1043,12 @@ class OnlineSession {
         const colors = (p.colors || []).slice();
         this._drawYes = null;                        // 作废未完成的求和
         if (this.started && gs.gamePhase === 'playing' && colors.length) {
+            const removed = [];
             for (const c of colors) {
+                if (!gs.hasKing(c)) continue;
                 gs.eliminatePlayer(c);
-                ge.notifyKnockout(c, 'kicked');       // 本地提示 + 广播 eliminate
+                Utils.showMessage(`${Config.PLAYER_COLORS[c].name}被房主移出`, 'warning');
+                removed.push(c);
             }
             if (gs.checkGameEnd()) {
                 ge.endGame();
@@ -1033,6 +1059,7 @@ class OnlineSession {
             }
             ge.updateUI();
             if (ge.updateMoveHistory) ge.updateMoveHistory();
+            this._broadcastEliminateMany(removed, 'kicked');
         }
 
         this.participants = this.participants.filter(x => x.token !== token);
