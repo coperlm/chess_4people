@@ -1698,6 +1698,25 @@ html[data-theme="dark"] .board-overlay{ --ov-line:rgba(200,175,140,.42); --ov-la
 @keyframes landBounce{ 0%{ transform:scale(1.16); } 55%{ transform:scale(.94); } 100%{ transform:scale(1); } }
 .chess-piece.land{ animation:landBounce .26s ease-out; }
 @media (prefers-reduced-motion: reduce){ .chess-piece.land{ animation:none; } }
+
+/* ===== 交叉点棋盘：棋子落在线的交叉点，格子仅作占位（无边框/底色） ===== */
+.chess-cell{ background:none !important; border:0 !important; box-shadow:none !important; border-radius:0 !important; }
+html[data-theme="dark"] .chess-cell{ background:none !important; border:0 !important; }
+.board-overlay .board-line{ position:absolute; background:var(--ov-line); border-radius:1px; }
+
+/* 各种高亮改为“围绕交叉点”的点位标记（原来是整格填充） */
+.chess-cell.playable:hover{ background:radial-gradient(circle at 50% 50%, rgba(255,255,255,.45) 0 34%, transparent 36%) !important; }
+html[data-theme="dark"] .chess-cell.playable:hover{ background:radial-gradient(circle at 50% 50%, rgba(255,255,255,.16) 0 34%, transparent 36%) !important; }
+.chess-cell.selected{ background:none !important; }
+.chess-cell.possible-move{ background:none !important; }
+.chess-cell.possible-move::after{ content:""; position:absolute; left:50%; top:50%; width:30%; height:30%; transform:translate(-50%,-50%); border-radius:50%; background:rgba(46,125,91,.6); }
+.chess-cell.enemy-piece{ background:none !important; }
+.chess-cell.enemy-piece::after{ content:""; position:absolute; left:50%; top:50%; width:82%; height:82%; transform:translate(-50%,-50%); border-radius:50%; border:2.5px solid rgba(200,50,40,.85); box-sizing:border-box; }
+.chess-cell.check{ background:none !important; box-shadow:none !important; animation:none !important; }
+.chess-cell.check::after{ content:""; position:absolute; left:50%; top:50%; width:94%; height:94%; transform:translate(-50%,-50%); border-radius:50%; box-shadow:0 0 0 3px rgba(200,40,40,.9), 0 0 16px 6px rgba(200,40,40,.5); animation:checkPulse 1.1s ease-in-out infinite; }
+.chess-cell.last-move-from, .chess-cell.last-move-to{ background:none !important; box-shadow:none !important; }
+.chess-cell.last-move-from::before, .chess-cell.last-move-to::before{ content:""; position:absolute; left:50%; top:50%; width:58%; height:58%; transform:translate(-50%,-50%); border-radius:50%; background:rgba(217,119,6,.30); }
+@media (prefers-reduced-motion: reduce){ .chess-cell.check::after{ animation:none; } }
 .river-horizontal, .river-vertical{ background:linear-gradient(var(--river),var(--river-2)) !important; }
 .river-center{ background:linear-gradient(135deg,var(--river),var(--river-2)) !important; }
 .chess-piece{ border-width:2px; border-style:solid; font-weight:800; font-family:"KaiTi","STKaiti","Kaiti SC","Noto Serif SC",serif;

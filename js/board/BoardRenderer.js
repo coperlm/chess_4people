@@ -259,18 +259,44 @@ class BoardRenderer {
     _contentSize() { return Config.BOARD_SIZE * this.cellSize + this.riverWidth; }
 
     /**
-     * 棋盘装饰层：九宫斜线、炮/兵起始“四角括”、坐标 0-9。
+     * 棋盘装饰层：线格（交叉点棋盘，棋子落在交点）、九宫斜线、炮/兵起始“四角括”、坐标 0-9。
      * 作为跨整格的绝对定位层叠在最上（纯视觉，pointer-events:none）。
      */
     _buildBoardOverlay() {
         const cell = this.cellSize;
-        const size = this._contentSize();
         const layer = document.createElement('div');
         layer.className = 'board-overlay';
         layer.style.gridColumn = '1 / -1';
         layer.style.gridRow = '1 / -1';
 
-        // ① 九宫斜线（每个九宫两条对角线）
+        const L = this._xCenter(0), R = this._xCenter(9);
+        const T = this._yCenter(0), B = this._yCenter(9);
+        const lw = Math.max(1, Math.round(cell * 0.03));
+        const addLine = (x, y, w, h) => {
+            const d = document.createElement('div');
+            d.className = 'board-line';
+            d.style.left = x + 'px'; d.style.top = y + 'px';
+            d.style.width = w + 'px'; d.style.height = h + 'px';
+            layer.appendChild(d);
+        };
+
+        // ① 横线：贯穿整幅（10 条；棋子就落在这些线上）
+        for (let j = 0; j < Config.BOARD_SIZE; j++) {
+            addLine(L, this._yCenter(j) - lw / 2, R - L, lw);
+        }
+        // ② 竖线：最外两条贯通；其余在河道处断开（真象棋河界处不画竖线）
+        const bankTop = this._yCenter(4), bankBottom = this._yCenter(5);
+        for (let i = 0; i < Config.BOARD_SIZE; i++) {
+            const x = this._xCenter(i) - lw / 2;
+            if (i === 0 || i === Config.BOARD_SIZE - 1) {
+                addLine(x, T - lw / 2, lw, (B - T) + lw);
+            } else {
+                addLine(x, T - lw / 2, lw, (bankTop - T) + lw / 2);
+                addLine(x, bankBottom - lw / 2, lw, (B - bankBottom) + lw);
+            }
+        }
+
+        // ③ 九宫斜线（每个九宫两条对角线）
         for (let p = 0; p < 4; p++) {
             const a = Config.PALACE_AREAS[p];
             const x0 = this._xCenter(a.x[0]), y0 = this._yCenter(a.y[0]);
@@ -289,23 +315,26 @@ class BoardRenderer {
             }
         }
 
-        // ② 炮/兵起始标记（四角小括，和真实象棋一致）
+        // ④ 炮/兵起始标记：围住“交叉点”的小四角括（和真实象棋一致）
+        const mk = Math.round(cell * 0.52);
         for (let p = 0; p < 4; p++) {
             for (const it of Config.INITIAL_POSITIONS[p]) {
                 if (it.type !== Config.PIECE_TYPES.CANNON && it.type !== Config.PIECE_TYPES.PAWN) continue;
                 const m = document.createElement('div');
                 m.className = 'start-mark';
-                m.style.left = this._xLeft(it.x) + 'px';
-                m.style.top = this._yTop(it.y) + 'px';
-                m.style.width = cell + 'px';
-                m.style.height = cell + 'px';
+                m.style.left = this._xCenter(it.x) + 'px';
+                m.style.top = this._yCenter(it.y) + 'px';
+                m.style.width = mk + 'px';
+                m.style.height = mk + 'px';
+                m.style.transform = 'translate(-50%,-50%)';
                 layer.appendChild(m);
             }
         }
 
-        // ③ 坐标标注：上下列=第1位(列 x)，左右行=第2位(行 y)。与“两位数字坐标”记谱一致。
+        // ⑤ 坐标标注：贴在棋盘外沿（内边距里）。上下列=第1位(列 x)，左右行=第2位(行 y)。
         const fs = Math.max(9, Math.round(cell * 0.28));
-        const off = Math.min(12, Math.max(6, Math.round(cell * 0.22)));
+        const off = Math.max(7, Math.round(cell * 0.16));
+        const size = this._contentSize();
         const addLabel = (kind, left, top, txt) => {
             const d = document.createElement('div');
             d.className = 'axis-label axis-label--' + kind;
