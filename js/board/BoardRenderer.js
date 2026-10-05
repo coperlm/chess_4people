@@ -177,35 +177,7 @@ class BoardRenderer {
             cell.classList.add('playable');
         }
         
-        // 添加九宫格标识线
-        if (this.isPalaceCorner(x, y)) {
-            this.addPalaceLines(cell, x, y);
-        }
-        
         return cell;
-    }
-    
-    /**
-     * 检查是否是九宫格的角落
-     */
-    isPalaceCorner(x, y) {
-        for (let player = 0; player < 4; player++) {
-            const palace = Config.PALACE_AREAS[player];
-            if ((x === palace.x[0] || x === palace.x[1]) && 
-                (y === palace.y[0] || y === palace.y[1])) {
-                return true;
-            }
-        }
-        return false;
-    }
-    
-    /**
-     * 添加九宫格对角线
-     */
-    addPalaceLines(cell, x, y) {
-        // 这里可以添加九宫格的对角线标识
-        // 暂时用CSS类标识
-        cell.classList.add('palace-corner');
     }
 
     // ---- 棋盘内容区坐标（等距：每格 cellSize） ----

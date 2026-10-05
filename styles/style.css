@@ -1409,32 +1409,7 @@ video {
   min-height: 2.5rem;
 }
 
-.chess-cell.river {
-  background-color: #87ceeb;
-  border-color: #3b82f6;
-}
-
-.chess-cell.possible-move {
-  background-color: #bbf7d0;
-  border-color: #22c55e;
-  animation: pulse 1.5s ease-in-out infinite;
-}
-
-.chess-cell.enemy-piece {
-  background-color: #fecaca;
-  border-color: #ef4444;
-}
-
-.chess-cell.selected {
-  background-color: #fbbf24;
-  border-color: #f59e0b;
-}
-
-.chess-cell.check {
-  background-color: #fca5a5;
-  border-color: #ef4444;
-  animation: flash 1s infinite;
-}
+/* （“整格填充”式高亮已废弃：交叉点棋盘改用点位标记，见文件后部 .chess-cell.* 覆盖） */
 
 /* 动画效果 */
 
@@ -1457,16 +1432,6 @@ video {
 
   to {
     box-shadow: 0 0 20px rgba(59, 130, 246, 0.8);
-  }
-}
-
-@keyframes flash {
-  0%, 100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.5;
   }
 }
 
@@ -1597,7 +1562,6 @@ video {
   --bg:#f4efe6; --ink:#2a2622; --muted:#6b6259;
   --walnut:#4a2b16; --walnut-2:#6b3e1f; --wood-line:#8a5a2b;
   --board-a:#f3d9a8; --board-b:#eccf95; --board-frame:#7a4a1e;
-  --river:#2c5d9f; --river-2:#1f4b7a;
   --grain:rgba(120,80,30,.055);
   --red:#b23b2e; --blue:#2c5d9f; --green:#1f7a55; --black:#33302c;
   --primary:#2e7d5b; --accent:#0f766e; --slate:#64748b; --slate-2:#475569; --danger:#b23b2e;
@@ -1659,15 +1623,6 @@ main h3{ color:var(--walnut-2); letter-spacing:.04em; }
   linear-gradient(160deg,var(--board-a),var(--board-b)) !important;
   border:6px solid var(--board-frame) !important; border-radius:16px !important;
   box-shadow:var(--shadow), inset 0 0 0 3px rgba(255,255,255,.35) !important; }
-.chess-cell{ position:relative; border:1px solid rgba(138,90,43,.5) !important;
-  background-image: repeating-linear-gradient(90deg, var(--grain) 0 1px, transparent 1px 7px),
-    repeating-linear-gradient(90deg, transparent 0 11px, var(--grain) 11px 12px, transparent 12px 21px); }
-.chess-cell.playable:hover{ background:rgba(255,255,255,.35); }
-.chess-cell.selected{ background:rgba(46,125,91,.18) !important; }
-.chess-cell.enemy-piece{ background:rgba(178,59,46,.16) !important; }
-.chess-cell.possible-move::after{ content:""; position:absolute; left:50%; top:50%; width:30%; height:30%; transform:translate(-50%,-50%); border-radius:50%; background:rgba(46,125,91,.55); }
-.chess-cell.last-move-from, .chess-cell.last-move-to{ box-shadow:inset 0 0 0 3px rgba(217,119,6,.6); }
-.chess-cell.check{ background:rgba(178,59,46,.30) !important; box-shadow:inset 0 0 0 3px rgba(200,40,40,.85); animation:checkPulse 1.1s ease-in-out infinite; }
 @keyframes checkPulse{ 0%,100%{ box-shadow:inset 0 0 0 3px rgba(200,40,40,.85); } 50%{ box-shadow:inset 0 0 0 3px rgba(200,40,40,.28); } }
 
 /* 棋盘装饰层：九宫斜线 / 炮兵起始标记 / 坐标标注（纯视觉） */
@@ -1904,7 +1859,6 @@ html[data-theme="dark"]{
   --bg:#141210; --ink:#ece5d8; --muted:#a79b8b;
   --walnut:#3a2413; --walnut-2:#5a3a1e; --wood-line:#7a5a35;
   --board-a:#2b2622; --board-b:#231e1a; --board-frame:#5a3a1e;
-  --river:#2b4f80; --river-2:#1f3a5f;
   --grain:rgba(255,255,255,.035);
   --red:#e26a5f; --blue:#6fa4e8; --green:#53c894; --black:#cbc4b8;
   --primary:#2e7d5b; --accent:#128f85; --slate:#6b7a90; --slate-2:#4d5866; --danger:#d05a4b;
@@ -1997,9 +1951,9 @@ html[data-theme="dark"] .draw-prompt__box{ background:#211d19; color:var(--ink);
 #lobbyHint{ margin-top:.35rem; }
 
 /* ===================== 棋盘皮肤（独立于深色模式；皮肤优先） ===================== */
-html[data-skin="jade"]{ --board-a:#e9f4e5; --board-b:#d6ecd0; --board-frame:#2f6b4f; --river:#2f6b4f; --river-2:#255740; --grain:rgba(47,107,79,.05); }
-html[data-skin="ink"]{ --board-a:#e9e6e0; --board-b:#dbd6cd; --board-frame:#3a3630; --river:#4b463f; --river-2:#37332d; --grain:rgba(58,54,48,.05); }
-html[data-skin="lake"]{ --board-a:#e5eef9; --board-b:#d2e3f4; --board-frame:#2b5d8a; --river:#2b5d8a; --river-2:#20486b; --grain:rgba(43,93,138,.05); }
+html[data-skin="jade"]{ --board-a:#e9f4e5; --board-b:#d6ecd0; --board-frame:#2f6b4f; --grain:rgba(47,107,79,.05); }
+html[data-skin="ink"]{ --board-a:#e9e6e0; --board-b:#dbd6cd; --board-frame:#3a3630; --grain:rgba(58,54,48,.05); }
+html[data-skin="lake"]{ --board-a:#e5eef9; --board-b:#d2e3f4; --board-frame:#2b5d8a; --grain:rgba(43,93,138,.05); }
 
 /* ===================== 每步倒计时 ===================== */
 .turn-timer{ font-variant-numeric:tabular-nums; font-weight:700; color:var(--muted); letter-spacing:.04em; }
