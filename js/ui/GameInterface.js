@@ -43,13 +43,11 @@ class GameInterface {
             local: $('modeLocalBtn'),
             online: $('modeOnlineBtn'),
             hint: $('setupModeHint'),
-            startLocal: $('startLocalBtn'),
-            close: $('setupCloseBtn')
+            startLocal: $('startLocalBtn')
         };
         if (this.setupEls.local) this.setupEls.local.addEventListener('click', () => this._setSetupMode('local'));
         if (this.setupEls.online) this.setupEls.online.addEventListener('click', () => this._setSetupMode('online'));
         if (this.setupEls.startLocal) this.setupEls.startLocal.addEventListener('click', () => this.startLocal());
-        if (this.setupEls.close) this.setupEls.close.addEventListener('click', () => this.closeSetup());
 
         const bind = (id, fn) => { const el = $(id); if (el) el.addEventListener('click', fn); };
         bind('setupOpenBtn', () => this.openSetup());
