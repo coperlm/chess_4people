@@ -477,17 +477,19 @@ class GameEngine {
     }
 
     /**
-     * 每步倒计时（仅视觉）：60 秒，剩余 ≤10s 变红，到点不做任何操作，只轻提示。
-     * 回合变化（走子/悔棋/重开/联机同步）时重置。
+     * 每步倒计时（仅视觉）：只在“联机对战进行中、且不在回放”时计时。60 秒，剩余 ≤10s 变红，
+     * 到点不做任何操作，只轻提示。本地对局 / 回放 / 未开始 都不显示、不计时。
      */
     updateTurnTimer() {
         const gs = this.gameState;
-        const playing = gs.gamePhase === 'playing';
-        const key = playing ? (gs.currentPlayer + ':' + gs.turn) : 'off';
+        const online = !!(window.onlineSession && window.onlineSession.active);
+        const inReplay = !!(window.replay && window.replay.active);
+        const running = gs.gamePhase === 'playing' && online && !inReplay;
+        const key = running ? (gs.currentPlayer + ':' + gs.turn) : 'off';
         if (key === this._timerKey) return;
         this._timerKey = key;
         if (this._timerId) { clearInterval(this._timerId); this._timerId = null; }
-        if (!playing) { this._renderTurnTimer(-1); return; }
+        if (!running) { this._renderTurnTimer(-1); return; }
         this._timerRemain = 60;
         this._renderTurnTimer(this._timerRemain);
         this._timerId = setInterval(() => {
@@ -505,8 +507,14 @@ class GameEngine {
 
     _renderTurnTimer(sec) {
         const el = document.getElementById('turnTimer');
+        const row = document.getElementById('turnTimerRow');
+        if (sec < 0) {
+            if (el) { el.textContent = ''; el.classList.remove('timer--red'); }
+            if (row) row.classList.add('hidden');
+            return;
+        }
+        if (row) row.classList.remove('hidden');
         if (!el) return;
-        if (sec < 0) { el.textContent = ''; el.classList.remove('timer--red'); return; }
         const m = Math.floor(sec / 60), s = sec % 60;
         el.textContent = `${m}:${String(s).padStart(2, '0')}`;
         el.classList.toggle('timer--red', sec > 0 && sec <= 10);
