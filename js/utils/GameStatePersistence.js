@@ -40,6 +40,7 @@ class GameStatePersistence {
                 ranking: gameState.ranking || null,
                 eliminationOrder: gameState.eliminationOrder || [],
                 eliminationLog: gameState.eliminationLog || [],
+                outOfPlay: gameState.outOfPlay || [],
                 pieces,   // [[x,y,type,player,facing]]
                 moves,    // [[player,piece,fx,fy,tx,ty,capPlayer,capType]]
                 undos     // [[player,piece,fx,fy,tx,ty,atMove]]
@@ -107,6 +108,7 @@ class GameStatePersistence {
             gs.ranking = savedData.ranking || null;
             gs.eliminationOrder = savedData.eliminationOrder || [];
             gs.eliminationLog = savedData.eliminationLog || [];
+            gs.outOfPlay = savedData.outOfPlay || [];
 
             // 走子历史（还原为内存中的“富对象”）
             if (Array.isArray(savedData.moves)) {

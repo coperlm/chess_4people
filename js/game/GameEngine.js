@@ -297,9 +297,9 @@ class GameEngine {
         let guard = 0;
         let finished = false;
         while (gs.gamePhase === 'playing' && guard++ < 8) {
-            // ① 将/帅被直接吃掉的玩家：彻底出局（清残子）并通报
+            // ① 将/帅被直接吃掉的玩家：彻底出局（清残子）并通报（开局移除的颜色除外）
             for (let p = 0; p < 4; p++) {
-                if (!gs.hasKing(p) && !gs.eliminationOrder.includes(p)) {
+                if (!gs.hasKing(p) && !gs.eliminationOrder.includes(p) && !gs.outOfPlay.includes(p)) {
                     gs.eliminatePlayer(p);
                     this.notifyKnockout(p, 'captured');
                 }

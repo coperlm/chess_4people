@@ -332,7 +332,7 @@ class OnlineSession {
     _groupsFor(n) {
         if (this.settings.mode === Config.MODES.FFA) return [[0], [1], [2], [3]];
         if (n >= 4) return [[0], [1], [2], [3]];
-        if (n === 3) return [[0], [1], [2, 3]];
+        if (n === 3) return [[0], [1], [2]];   // 3 人组队：各控一色，第 4 色（黑）整色移除
         if (n === 2) return [[0, 1], [2, 3]];
         return [[0, 1, 2, 3]];
     }
@@ -355,6 +355,17 @@ class OnlineSession {
 
         this.started = true;
         this.gameEngine.startNewGame();   // 房主权威开局（会应用 settings）
+
+        // 未被任何玩家分配到的颜色（如 3 人组队时的第 4 色）：整色移除，但**不算出局**
+        const assigned = new Set();
+        this.participants.forEach(p => (p.colors || []).forEach(c => assigned.add(c)));
+        let removedAny = false;
+        for (let c = 0; c < 4; c++) if (!assigned.has(c)) { this.gameEngine.gameState.removeColor(c); removedAny = true; }
+        if (removedAny) {                    // 棋盘与棋子计数都要重绘，否则界面仍显示被移除的一方
+            this.gameEngine.boardRenderer.renderPieces();
+            this.gameEngine.updateUI();
+        }
+
         this._broadcastRoster();
         this._broadcastState();           // 同步开局局面与规则给各端
         this.actNotice.send({ text: '对局开始！' });
@@ -858,6 +869,7 @@ class OnlineSession {
             settings: this.settings,
             eliminationOrder: gs.eliminationOrder,
             eliminationLog: gs.eliminationLog,
+            outOfPlay: gs.outOfPlay || [],
             undoLog: gs.undoLog || [],
             pieceCounts: gs.pieceCounts,
             moveHistory: gs.moveHistory,
@@ -903,6 +915,7 @@ class OnlineSession {
         gs.isDraw = !!d.isDraw;
         gs.eliminationOrder = d.eliminationOrder || [];
         gs.eliminationLog = d.eliminationLog || [];
+        gs.outOfPlay = Array.isArray(d.outOfPlay) ? d.outOfPlay : [];
         gs.undoLog = Array.isArray(d.undoLog) ? d.undoLog : [];
         gs.pieceCounts = Object.assign({ 0: 0, 1: 0, 2: 0, 3: 0 }, d.pieceCounts);
         gs.moveHistory = this._deserializeHistory(d.moveHistory);

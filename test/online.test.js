@@ -279,6 +279,22 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     t('再次建房：新会话未被旧收尾冲掉', s.active === true && s.roomId === 'room-b' && s.participants.length === 1 && s.participants[0].token === s.token, JSON.stringify({ active: s.active, room: s.roomId, n: s.participants.length }));
   }
 
+  // === 3 人组队：各控一色，第 4 色整色移除，且不计入“出局” ===
+  {
+    const hEngine = fakeEngine(), e1 = fakeEngine(), e2 = fakeEngine();
+    const h = new OnlineSession(hEngine), p1 = new OnlineSession(e1), p2 = new OnlineSession(e2);
+    h._open('room-3p', true); p1._open('room-3p', false); p2._open('room-3p', false);
+    await tick(); await tick();
+    h.name = '甲'; p1.name = '乙'; p2.name = '丙';
+    p1._sendHello(); p2._sendHello(); await tick(); await tick();
+    h.settings.mode = 'team'; h.startMatch(); await tick(); await tick();
+    const gs = hEngine.gameState;
+    t('3 人组队：三人各控一色', eq(h.myColors, [0]) && eq(p1.myColors, [1]) && eq(p2.myColors, [2]), JSON.stringify([h.myColors, p1.myColors, p2.myColors]));
+    t('3 人组队：第 4 色整色移除、计数归零', gs.pieceCounts[3] === 0 && !gs.hasKing(3), JSON.stringify(gs.pieceCounts));
+    t('3 人组队：第 4 色不计入出局、未误判终局', !gs.eliminationOrder.includes(3) && gs.gamePhase === 'playing', JSON.stringify({ elim: gs.eliminationOrder, phase: gs.gamePhase }));
+    t('3 人组队：客户端也移除第 4 色', e1.gameState.pieceCounts[3] === 0 && e2.gameState.pieceCounts[3] === 0);
+  }
+
   // === 回归：联机认输不应抛错（曾误用 this.gameState 导致“认输”直接报错） ===
   {
     const hEngine = fakeEngine(); const pEngine = fakeEngine();

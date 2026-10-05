@@ -96,7 +96,7 @@ function fakeEngine(ref) {
     resolveAfterMove() {
       let guard = 0, finished = false;
       while (gs.gamePhase === 'playing' && guard++ < 8) {
-        for (let p = 0; p < 4; p++) if (!gs.hasKing(p) && !gs.eliminationOrder.includes(p)) { gs.eliminatePlayer(p); this.notifyKnockout(p, 'captured'); }
+        for (let p = 0; p < 4; p++) if (!gs.hasKing(p) && !gs.eliminationOrder.includes(p) && !gs.outOfPlay.includes(p)) { gs.eliminatePlayer(p); this.notifyKnockout(p, 'captured'); }
         if (gs.checkGameEnd()) { finished = true; break; }
         const kn = gs.computeKnockouts(rv);
         if (!kn.length) break;
@@ -121,7 +121,7 @@ function sig(session) {
   let b = '';
   for (let x = 0; x < 10; x++) for (let y = 0; y < 10; y++) { const p = gs.board[x][y]; b += p ? (p.type[0] + p.player + (p.facing || '')) : '.'; }
   return b + '|cp' + gs.currentPlayer + '|t' + gs.turn + '|' + gs.gamePhase + '|' + JSON.stringify(gs.pieceCounts)
-    + '|h' + gs.moveHistory.length + '|e' + gs.eliminationOrder.join(',') + '|d' + (gs.isDraw ? 1 : 0) + '|w' + gs.winner;
+    + '|h' + gs.moveHistory.length + '|e' + gs.eliminationOrder.join(',') + '|o' + gs.outOfPlay.join(',') + '|d' + (gs.isDraw ? 1 : 0) + '|w' + gs.winner;
 }
 /** 单端本地不变量 */
 function localInv(session) {
@@ -134,8 +134,9 @@ function localInv(session) {
   }
   for (const k of [0, 1, 2, 3]) if (counts[k] !== gs.pieceCounts[k]) return 'count P' + k;
   for (const k of [0, 1, 2, 3]) {
-    if (!gs.hasKing(k) && !gs.eliminationOrder.includes(k)) return 'kingless-not-elim P' + k;
+    if (!gs.hasKing(k) && !gs.eliminationOrder.includes(k) && !gs.outOfPlay.includes(k)) return 'kingless-not-elim P' + k;
     if (gs.eliminationOrder.includes(k) && counts[k] !== 0) return 'elim-has-pieces P' + k;
+    if (gs.outOfPlay.includes(k) && counts[k] !== 0) return 'outofplay-has-pieces P' + k;
   }
   return null;
 }
@@ -179,6 +180,9 @@ async function runGame(n, rng, roomId, stats, maxPlies) {
     });
     host.started = true;
     hostEngineReset();
+    // 未被分配的颜色（如 3 人组队时的第 4 色）整色移除，与生产 startMatch 一致
+    const assigned = new Set(); host.participants.forEach(p => (p.colors || []).forEach(c => assigned.add(c)));
+    for (let c = 0; c < 4; c++) if (!assigned.has(c)) host.gameEngine.gameState.removeColor(c);
     host._broadcastRoster(); host._broadcastState();
   };
   const hostEngineReset = () => { const gs = host.gameEngine.gameState; gs.reset(); gs.setRules(host.settings); gs.startGame(); host.gameEngine.isGameActive = true; host.gameEngine.gameStartTime = Date.now(); };

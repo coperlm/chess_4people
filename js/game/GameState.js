@@ -17,6 +17,7 @@ class GameState {
         this.ranking = null;        // 结算排名（从高到低）
         this.isDraw = false;        // 是否以和棋结束
         this.undoLog = [];          // 悔棋记录（单独记录，不混入 moveHistory）
+        this.outOfPlay = [];        // 开局即被移除的颜色（如 3 人组队时多余的一方）：不算“出局”
         
         // 玩家棋子计数
         this.pieceCounts = {
@@ -233,7 +234,7 @@ class GameState {
         const out = [];
         const saved = this.currentPlayer;
         for (let p = 0; p < 4; p++) {
-            if (!this.hasKing(p) || this.eliminationOrder.includes(p)) continue;
+            if (!this.hasKing(p) || this.eliminationOrder.includes(p) || this.outOfPlay.includes(p)) continue;
             this.currentPlayer = p;
             let hasMoves = false;
             for (let x = 0; x < Config.BOARD_SIZE && !hasMoves; x++) {
@@ -253,9 +254,9 @@ class GameState {
      */
     checkGameEnd() {
         // 将/帅被直接吃掉的玩家：彻底出局（连同残子一并移出并记录），
-        // 否则会出现“无将却有残子在场”的不一致状态。
+        // 否则会出现“无将却有残子在场”的不一致状态。（开局移除的颜色除外）
         for (let p = 0; p < 4; p++) {
-            if (!this.hasKing(p) && !this.eliminationOrder.includes(p)) {
+            if (!this.hasKing(p) && !this.eliminationOrder.includes(p) && !this.outOfPlay.includes(p)) {
                 this.eliminatePlayer(p);
             }
         }
@@ -341,8 +342,24 @@ class GameState {
         this.ranking = null;
         this.isDraw = false;
         this.undoLog = [];
+        this.outOfPlay = [];
         this.pieceCounts = { 0: 10, 1: 10, 2: 10, 3: 10 };
         this.initializePieces();
+    }
+
+    /**
+     * 开局移除某个颜色（人数不足时去掉多余一方）：清空其全部棋子并计入 outOfPlay，
+     * **不计入出局（eliminationOrder）**，以免被胜利判定误当成“有人被淘汰”。
+     */
+    removeColor(player) {
+        for (let x = 0; x < Config.BOARD_SIZE; x++) {
+            for (let y = 0; y < Config.BOARD_SIZE; y++) {
+                const pc = this.board[x][y];
+                if (pc && pc.player === player) this.board[x][y] = null;
+            }
+        }
+        this.pieceCounts[player] = 0;
+        if (!this.outOfPlay.includes(player)) this.outOfPlay.push(player);
     }
 
     /**
