@@ -390,7 +390,14 @@ class GameState {
      */
     undoMove() {
         if (this.moveHistory.length === 0) return false;
-        
+
+        // 不允许悔棋跨过“淘汰”事件：否则会把已出局一方的棋子（甚至将/帅）复活，
+        // 造成“已出局却还有棋子/将”的不一致状态。
+        if (this.eliminationLog.length) {
+            const lastElimAt = this.eliminationLog[this.eliminationLog.length - 1].atMove;
+            if (this.moveHistory.length <= lastElimAt) return false;
+        }
+
         const lastMove = this.moveHistory.pop();
         
         // 恢复棋子位置

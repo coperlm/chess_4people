@@ -1,10 +1,10 @@
 /**
- * 联机随机压力测试（2 人 / 4 人）
- * 用内存版 Trystero 模拟多个浏览器，随机走子 + 随机操作（悔棋/认输/求和/踢人/交换），
- * 每一步后比对“房主与非房主”的棋盘状态，查失步（desync）与异常。
- * 运行: node test/netstress.test.js [twoPlayerGames] [fourPlayerGames]
+ * 联机随机压力测试（2/3/4/5 人，真实协议往返）
+ * - 随机走子 + 随机操作：悔棋、认输、求和、交换、踢人、中途加入、掉线重连、重开、重同步
+ * - 每步后：①逐端本地不变量（坐标/计数/出局一致）②房主 vs 各端逐字段比对（查失步）
+ * 运行: node test/netstress.test.js [n2] [n3] [n4] [n5]
+ *   ACT=undo,resign 只启用指定操作；MOVES_ONLY=1 只走子
  */
-
 global.document = {
   getElementById: () => null,
   createElement: () => ({ classList: { add() {}, remove() {}, contains() {} }, style: {}, appendChild() {} }),
@@ -12,7 +12,7 @@ global.document = {
 };
 global.window = {};
 global.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
-global.confirm = () => true;   // 求和询问 / 认输确认
+global.confirm = () => true;
 
 const path = require('path');
 const ROOT = path.join(__dirname, '..');
@@ -27,7 +27,6 @@ const PieceManager = require(path.join(ROOT, 'js/board/PieceManager.js'));
 const RuleValidator = require(path.join(ROOT, 'js/game/RuleValidator.js'));
 const OnlineSession = require(path.join(ROOT, 'js/net/OnlineSession.js'));
 
-// ---- 内存版 Trystero（用 setImmediate，快且保序） ----
 function MockTrystero() {
   const rooms = new Map();
   let counter = 0;
@@ -109,13 +108,13 @@ function fakeEngine(ref) {
     },
     onMoveCompleted() { this.resolveAfterMove(); },
     notifyKnockout(player, reason) { const s = this._sessionRef && this._sessionRef.current; if (s && s.isHost && s.active) s._broadcastEliminate(player, reason); },
-    // 与真实引擎一致：endGame 会经 window.onlineSession.onGameEnd 广播（测试里用 sessionRef 复刻，仅房主广播）
     endGame() { this.isGameActive = false; const s = this._sessionRef && this._sessionRef.current; if (s && s.isHost && s.active) s.onGameEnd(); }
   };
 }
 
 const tick = () => new Promise(r => setImmediate(r));
-const settle = async (n = 4) => { for (let i = 0; i < n; i++) await tick(); };
+const settle = async (n = 8) => { for (let i = 0; i < n; i++) await tick(); };
+function makeRng(seed) { return function () { seed |= 0; seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 
 function sig(session) {
   const gs = session.gameEngine.gameState;
@@ -124,7 +123,22 @@ function sig(session) {
   return b + '|cp' + gs.currentPlayer + '|t' + gs.turn + '|' + gs.gamePhase + '|' + JSON.stringify(gs.pieceCounts)
     + '|h' + gs.moveHistory.length + '|e' + gs.eliminationOrder.join(',') + '|d' + (gs.isDraw ? 1 : 0) + '|w' + gs.winner;
 }
-
+/** 单端本地不变量 */
+function localInv(session) {
+  const gs = session.gameEngine.gameState;
+  const counts = { 0: 0, 1: 0, 2: 0, 3: 0 };
+  for (let x = 0; x < 10; x++) for (let y = 0; y < 10; y++) {
+    const p = gs.board[x][y]; if (!p) continue;
+    if (p.x !== x || p.y !== y) return 'coord';
+    counts[p.player]++;
+  }
+  for (const k of [0, 1, 2, 3]) if (counts[k] !== gs.pieceCounts[k]) return 'count P' + k;
+  for (const k of [0, 1, 2, 3]) {
+    if (!gs.hasKing(k) && !gs.eliminationOrder.includes(k)) return 'kingless-not-elim P' + k;
+    if (gs.eliminationOrder.includes(k) && counts[k] !== 0) return 'elim-has-pieces P' + k;
+  }
+  return null;
+}
 function legalMoves(gs, rv) {
   const p = gs.currentPlayer; const out = [];
   for (let x = 0; x < 10; x++) for (let y = 0; y < 10; y++) {
@@ -134,103 +148,100 @@ function legalMoves(gs, rv) {
   return out;
 }
 
-function makeRng(seed) { return function () { seed |= 0; seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
-
 async function runGame(n, rng, roomId, stats, maxPlies) {
+  const actSet = new Set((process.env.ACT || 'all').split(','));
+  const can = k => !process.env.MOVES_ONLY && (actSet.has('all') || actSet.has(k));
+
   const hostRef = { current: null };
-  const hostEngine = fakeEngine(hostRef);
-  const host = new OnlineSession(hostEngine); hostRef.current = host;
+  const host = new OnlineSession(fakeEngine(hostRef)); hostRef.current = host;
   const peers = [];
-  host._open(roomId, true);
-  for (let i = 1; i < n; i++) {
-    const e = fakeEngine(); const s = new OnlineSession(e);
-    peers.push(s);
-    s.token = 'T' + i;
-    s._open(roomId, false);
-  }
+  host.token = 'H'; host._open(roomId, true);
+  for (let i = 1; i < n; i++) { const s = new OnlineSession(fakeEngine()); s.token = 'P' + i; peers.push(s); s._open(roomId, false); }
   await settle(3);
   host.name = 'H';
-  for (let i = 0; i < peers.length; i++) { peers[i].name = 'P' + (i + 1); peers[i]._sendHello(); }
+  peers.forEach((s, i) => { s.name = 'P' + (i + 1); s._sendHello(); });
   await settle(4);
   if (host.participants.length !== n) { stats.badHandshake++; return; }
 
-  const mode = n === 2 ? 'team' : (rng() < 0.5 ? 'ffa' : 'team');
-  const victory = rng() < 0.5 ? 'any_king' : 'last_team';
-  host.settings.mode = mode; host.settings.victory = victory; host.settings.friendlyFire = rng() < 0.5;
-  host.name = 'H'; // startMatch 用 UI 的 modeSelect 覆盖，这里直接设 settings 后手动调用 _groupsFor 路径
-  // 直接调用内部流程，绕开 _readSettingsFromUI（测试无 UI 元素）
-  const groups = host._groupsFor(n);
-  host.participants.forEach((p, i) => { p.colors = groups[i] || []; });
-  host.participants.forEach((p, i) => {
-    if (p.token === host.token) host._setMyColors(p.colors);
-    else if (p.id) host.actAssign.send({ colors: p.colors, seat: i, hostId: host.selfId, settings: host.settings }, { target: p.id });
-  });
-  host.started = true;
-  hostEngine.gameState.reset(); hostEngine.gameState.setRules(host.settings); hostEngine.gameState.startGame();
-  hostEngine.isGameActive = true; hostEngine.gameStartTime = Date.now();
-  host._broadcastRoster(); host._broadcastState();
+  const mode = (n >= 4 && rng() < 0.5) ? 'ffa' : 'team';
+  host.settings.mode = mode;
+  host.settings.victory = rng() < 0.5 ? 'any_king' : 'last_team';
+  host.settings.friendlyFire = rng() < 0.5;
+  host.name = 'H';
+
+  const startGame = () => {
+    const cnt = host.participants.length;
+    const groups = host._groupsFor(cnt);
+    host.participants.forEach((p, i) => { p.colors = groups[i] || []; });
+    host.participants.forEach((p, i) => {
+      if (p.token === host.token) host._setMyColors(p.colors);
+      else if (p.id) host.actAssign.send({ colors: p.colors, seat: i, hostId: host.selfId, settings: host.settings }, { target: p.id });
+    });
+    host.started = true;
+    hostEngineReset();
+    host._broadcastRoster(); host._broadcastState();
+  };
+  const hostEngineReset = () => { const gs = host.gameEngine.gameState; gs.reset(); gs.setRules(host.settings); gs.startGame(); host.gameEngine.isGameActive = true; host.gameEngine.gameStartTime = Date.now(); };
+  startGame();
   await settle(4);
 
   const all = [host, ...peers];
+  let joinSeq = 0;
 
   let plies = 0;
-  const acts = [];
   for (let step = 0; step < maxPlies * 3 && plies < maxPlies; step++) {
-    const hs = hostEngine.gameState;
+    const hs = host.gameEngine.gameState;
     if (hs.gamePhase !== 'playing') break;
+    const cp = hs.currentPlayer;
+    const ctrl = all.find(s => s.active && (s.myColors || []).includes(cp));
+    const pickS = () => all[Math.floor(rng() * all.length)];
     const r = rng();
-    const actSet = new Set((process.env.ACT || 'all').split(','));
-    const can = k => actSet.has('all') || actSet.has(k);
-    let act = '';
     try {
-      if (r < 0.86) {
-        const cp = hs.currentPlayer;
-        const ctrl = all.find(s => s.active && (s.myColors || []).includes(cp));
-        if (!ctrl) { act = 'noController(cp' + cp + ')'; }
+      if (r < 0.80 || !can('anyNonMove')) {
+        if (!ctrl) { /* 该色无人控制：跳过 */ }
         else {
-          const mv = legalMoves(hostEngine.gameState, hostEngine.ruleValidator);
-          if (!mv.length) { act = 'noMoves'; }
-          else {
-            const m = mv[Math.floor(rng() * mv.length)];
-            act = 'move ' + (ctrl === host ? 'H' : ctrl.name) + ' ' + m.join(',');
-            ctrl.requestMove(m[0], m[1], m[2], m[3]);
-            plies++;
-          }
+          const mv = legalMoves(hs, host.gameEngine.ruleValidator);
+          if (mv.length) { const m = mv[Math.floor(rng() * mv.length)]; ctrl.requestMove(m[0], m[1], m[2], m[3]); plies++; }
         }
-      } else if (r < 0.92 && can('undo')) {
-        const s = all[Math.floor(rng() * all.length)];
-        if (s && s.active) { act = 'undo ' + s.name; s.requestUndo(); }
-      } else if (r < 0.95 && can('resign')) {
-        const s = all[Math.floor(rng() * all.length)];
-        if (s && s.active) { act = 'resign ' + s.name; s.requestResignSelf(); }
-      } else if (r < 0.98 && can('draw')) {
-        const s = all[Math.floor(rng() * all.length)];
-        if (s && s.active) { act = 'draw ' + s.name; s.requestDraw(); }
-      } else if (r < 0.995 && can('swap')) {
-        const other = host.participants.find(p => p.token !== host.token);
-        if (other) { act = 'swap'; host.swapWithHost(other.token); }
-      } else if (can('kick')) {
-        const other = host.participants.find(p => p.token !== host.token);
-        if (other && host.participants.length > 2) { act = 'kick'; host.kickParticipant(other.token); }
+      } else if (r < 0.85 && can('undo')) {
+        const s = pickS(); if (s && s.active) s.requestUndo();
+      } else if (r < 0.88 && can('resign')) {
+        const s = pickS(); if (s && s.active) s.requestResignSelf();
+      } else if (r < 0.91 && can('draw')) {
+        const s = pickS(); if (s && s.active) s.requestDraw();
+      } else if (r < 0.93 && can('swap')) {
+        const other = host.participants.find(p => p.token !== host.token); if (other) host.swapWithHost(other.token);
+      } else if (r < 0.95 && can('kick')) {
+        const other = host.participants.find(p => p.token !== host.token); if (other && host.participants.length > 2) host.kickParticipant(other.token);
+      } else if (r < 0.97 && can('join') && all.length < 6) {
+        const s = new OnlineSession(fakeEngine()); s.token = 'J' + (++joinSeq); s.name = 'J' + joinSeq;
+        all.push(s); s._open(roomId, false); await settle(2); s._sendHello();
+      } else if (r < 0.985 && can('leaveRejoin')) {
+        const s = pickS();
+        if (s && s.active && s !== host) { await s.leave(); await settle(2); s._open(roomId, false); await settle(2); s._sendHello(); }
+      } else if (can('rematch')) {
+        if (hs.gamePhase === 'finished') { startGame(); }
+        else if (can('resync')) { const s = pickS(); if (s && s.active && !s.isHost) s.actIntent.send({ kind: 'resync' }); }
       }
     } catch (e) {
       stats.errors.push('game ' + roomId + ': ' + (e && e.message));
       break;
     }
-    acts.push(act);
     await settle(8);
 
-    // 一致性：房主 vs 每个仍然在房间里的会话
+    // ① 本地不变量
+    let bad = null;
+    for (const s of all) { if (!s.active) continue; const e = localInv(s); if (e) { bad = s.name + ':' + e; break; } }
+    if (bad) { stats.localBad++; if (stats.samples.length < 3) stats.samples.push({ room: roomId, step, local: bad }); return; }
+    // ② 跨端一致
     const hs2 = sig(host);
     for (const s of all) {
-      if (s === host) continue;
-      if (!s.active) continue;           // 被踢/离开的不比
-      const ss = sig(s);
-      if (ss !== hs2) {
+      if (s === host || !s.active) continue;
+      if (sig(s) !== hs2) {
         stats.desync++;
-        if (stats.desyncSample.length < 2) {
-          const info = x => { const g = x.gameEngine.gameState; return { cp: g.currentPlayer, turn: g.turn, phase: g.gamePhase, counts: g.pieceCounts, elim: g.eliminationOrder, elimLog: g.eliminationLog, hLen: g.moveHistory.length, hasKing: [0, 1, 2, 3].map(p => g.hasKing(p)), lastSeq: x._lastSeq, seq: x.seq }; };
-          stats.desyncSample.push({ room: roomId, step, acts: acts.slice(-6), H: info(host), P: info(s) });
+        if (stats.samples.length < 3) {
+          const info = x => { const g = x.gameEngine.gameState; return { name: x.name, cp: g.currentPlayer, turn: g.turn, phase: g.gamePhase, counts: g.pieceCounts, elim: g.eliminationOrder, hLen: g.moveHistory.length, hasKing: [0, 1, 2, 3].map(p => g.hasKing(p)) }; };
+          stats.samples.push({ room: roomId, step, H: info(host), P: info(s) });
         }
         return;
       }
@@ -238,24 +249,24 @@ async function runGame(n, rng, roomId, stats, maxPlies) {
   }
   stats.games++;
   stats.plies += plies;
-  if (hostEngine.gameState.gamePhase === 'finished') stats.finished++;
+  if (host.gameEngine.gameState.gamePhase === 'finished') stats.finished++;
   for (const s of all) { try { await s.leave(); } catch (e) {} }
 }
 
 (async () => {
-  const N2 = parseInt(process.argv[2] || '200', 10);   // 可传参放大：node test/netstress.test.js 3000 2000
-  const N4 = parseInt(process.argv[3] || '150', 10);
-  const stats = { games: 0, plies: 0, finished: 0, desync: 0, errors: [], badHandshake: 0, desyncSample: [] };
-  const rng = makeRng(20261006);
+  const c = (process.argv[2] !== undefined) ? process.argv.slice(2) : ['200', '120', '200', '80'];
+  const Ns = [2, 3, 4, 5].map((n, i) => ({ n, count: parseInt(c[i] || '0', 10) }));
+  const stats = { games: 0, plies: 0, finished: 0, desync: 0, localBad: 0, badHandshake: 0, errors: [], samples: [] };
+  const rng = makeRng(20261007);
   const t0 = Date.now();
-  for (let g = 0; g < N2; g++) await runGame(2, rng, 'r2-' + g, stats, 80);
-  for (let g = 0; g < N4; g++) await runGame(4, rng, 'r4-' + g, stats, 80);
+  for (const { n, count } of Ns) for (let g = 0; g < count; g++) { await runGame(n, rng, `r${n}-${g}`, stats, 80); if (stats.desync > 2 || stats.localBad > 2 || stats.errors.length > 2) break; }
   const secs = ((Date.now() - t0) / 1000).toFixed(1);
 
-  console.log(`\n联机随机压力: ${N2} 局(2人) + ${N4} 局(4人) = ${stats.games} 局 / ${stats.plies} 手，用时 ${secs}s`);
-  console.log(`正常结束 ${stats.finished} 局；失步 ${stats.desync}；握手失败 ${stats.badHandshake}；异常 ${stats.errors.length}`);
-  if (stats.desyncSample.length) console.log('失步样例:', JSON.stringify(stats.desyncSample.slice(0, 2), null, 1));
-  if (stats.errors.length) console.log('异常样例:', stats.errors.slice(0, 8));
-  console.log(stats.desync === 0 && stats.errors.length === 0 && stats.badHandshake === 0 ? '✅ 全部通过' : '❌ 存在问题');
-  process.exit(stats.desync === 0 && stats.errors.length === 0 && stats.badHandshake === 0 ? 0 : 1);
+  console.log(`\n联机随机压力: ${Ns.map(x => x.count + '局(' + x.n + '人)').join(' + ')} = ${stats.games} 局 / ${stats.plies} 手，用时 ${secs}s`);
+  console.log(`正常结束 ${stats.finished} 局；失步 ${stats.desync}；本地不变量失败 ${stats.localBad}；握手失败 ${stats.badHandshake}；异常 ${stats.errors.length}`);
+  if (stats.samples.length) console.log('样例:', JSON.stringify(stats.samples.slice(0, 3), null, 1));
+  if (stats.errors.length) console.log('异常:', stats.errors.slice(0, 5));
+  const ok = stats.desync === 0 && stats.localBad === 0 && stats.badHandshake === 0 && stats.errors.length === 0 && stats.games > 0;
+  console.log(ok ? '✅ 全部通过' : '❌ 存在问题');
+  process.exit(ok ? 0 : 1);
 })();
