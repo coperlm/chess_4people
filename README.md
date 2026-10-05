@@ -4,7 +4,7 @@
 
 ![](pics/Screenshot-pc.jpg)
 
-![](pics/Screenshot-pe.jpg)
+<img src="pics/Screenshot-pe.jpg" width="50%">
 
 ## 功能
 
