@@ -27,9 +27,23 @@ jobs:
             echo "标签 $TAG 已存在，跳过"
             exit 0
           fi
+          # 取“上一个标签”作为日志起点（必须在打新标签之前取，否则会取到新标签本身）
+          PREV=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag "$TAG"
           git push origin "$TAG"
-          # 发布说明由 GitHub 依据“上一个标签以来的提交”自动生成，保证每个版本都有更新日志
-          gh release create "$TAG" --title "$TAG" --generate-notes || true
+          # 用两个标签之间的提交信息生成更新日志：
+          # 本仓库是直接 push（无 PR），GitHub 的 --generate-notes 只列合并的 PR，会得到空正文，
+          # 所以这里改为直接读提交历史，保证每个版本都有内容。
+          if [ -n "$PREV" ]; then RANGE="$PREV..$TAG"; else RANGE="$TAG"; fi
+          BODY=$(git log "$RANGE" --no-merges --pretty=format:"- %s (%h)")
+          [ -z "$BODY" ] && BODY="- （本次无新提交）"
+          {
+            printf '## 更新日志\n\n%s\n\n' "$BODY"
+            if [ -n "$PREV" ]; then
+              printf '**Full Changelog**: %s/%s/compare/%s...%s\n' \
+                "${{ github.server_url }}" "${{ github.repository }}" "$PREV" "$TAG"
+            fi
+          } > /tmp/notes.md
+          gh release create "$TAG" --title "$TAG" --notes-file /tmp/notes.md || true

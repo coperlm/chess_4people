@@ -17,7 +17,7 @@ class Config {
     
     // 胜利条件
     static VICTORY = {
-        ANY_KING: 'any_king', // 将死任意一方即结束（默认）
+        ANY_KING: 'any_king', // 吃将任意一方即结束（默认）
         LAST_TEAM: 'last_team' // 仅剩一队/一人
     };
     

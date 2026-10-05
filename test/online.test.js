@@ -81,8 +81,8 @@ function fakeEngine() {
   const gs = new GameState();
   const pm = new PieceManager(gs);
   const rv = new RuleValidator(gs, pm);
-  gs.calculatePossibleMoves = (x, y) => rv.getValidMoves(x, y);
-  pm.getValidMoves = (x, y) => rv.getValidMoves(x, y);
+  gs.ruleValidator = rv;
+  pm.ruleValidator = rv;
   const br = { clearSelection() {}, renderPieces() {}, setNetworkMode() {}, setPlayerPosition() {} };
   return {
     gameState: gs, pieceManager: pm, ruleValidator: rv, boardRenderer: br,
@@ -191,6 +191,53 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   await peer.leave(); await tick();
   const seat = host.participants.find(p => p.token !== host.token);
   t('玩家离开后席位保留但标记离线', host.participants.length === 2 && !!seat && seat.id === null, JSON.stringify(host.participants.map(p => ({ id: p.id }))));
+
+  // === 时序回归：一手吃将导致淘汰时，必须“先广播走子、后广播淘汰”，且 move.seq < eliminate.seq ===
+  // （否则玩家端会因 d.seq <= lastSeq 丢弃走子而失步）
+  {
+    const put = (gs, type, player, x, y) => gs.setPiece(x, y, new ChessPiece(type, player, x, y));
+    const clearBoard = gs => { for (let x = 0; x < Config.BOARD_SIZE; x++) for (let y = 0; y < Config.BOARD_SIZE; y++) gs.board[x][y] = null; };
+    const hEngine = fakeEngine();
+    let hRef = null;
+    // 让结算像真实引擎那样：先清“将被吃”的残子并广播，再判困毙
+    hEngine.onMoveCompleted = function () {
+      const gs = this.gameState;
+      for (let p = 0; p < 4; p++) {
+        if (!gs.hasKing(p) && !gs.eliminationOrder.includes(p)) {
+          gs.eliminatePlayer(p);
+          if (hRef && hRef.isHost) hRef._broadcastEliminate(p, 'captured');
+        }
+      }
+      gs.checkGameEnd();
+      const ko = gs.computeKnockouts(this.ruleValidator);
+      for (const k of ko) { gs.eliminatePlayer(k.player); if (hRef && hRef.isHost) hRef._broadcastEliminate(k.player, k.reason); }
+      gs.checkGameEnd();
+    };
+    const h = new OnlineSession(hEngine);
+    hRef = h;
+    h._open('room-seq', true);
+    await tick();
+    h.started = true; h.myColors = [0];
+    clearBoard(hEngine.gameState);
+    put(hEngine.gameState, 'king', 3, 0, 0);   // 黑将
+    put(hEngine.gameState, 'rook', 3, 1, 3);   // 黑方残子（待清理）
+    put(hEngine.gameState, 'king', 0, 0, 9);   // 红帅
+    put(hEngine.gameState, 'rook', 0, 5, 0);   // 红车：走 (5,0)->(0,0) 吃掉黑将
+    hEngine.gameState.currentPlayer = 0; hEngine.gameState.gamePhase = 'playing';
+
+    const sends = [];
+    const wrap = (act, name) => { if (!act) return; const orig = act.send.bind(act); act.send = (d, o) => { sends.push({ name, seq: d && d.seq }); return orig(d, o); }; };
+    wrap(h.actMove, 'move'); wrap(h.actEliminate, 'eliminate');
+
+    h.requestMove(5, 0, 0, 0);
+    await tick(); await tick();
+
+    const iMove = sends.findIndex(s => s.name === 'move');
+    const iElim = sends.findIndex(s => s.name === 'eliminate');
+    t('吃将一手：先发走子、后发淘汰', iMove !== -1 && iElim !== -1 && iMove < iElim, JSON.stringify(sends));
+    t('吃将一手：move.seq < eliminate.seq', iMove !== -1 && iElim !== -1 && sends[iMove].seq < sends[iElim].seq, JSON.stringify(sends));
+    t('被吃将的黑方已出局（残子清空）', hEngine.gameState.pieceCounts[3] === 0 && hEngine.gameState.getPiece(1, 3) === null);
+  }
 
   console.log(`\n联机协议测试: ${pass} 通过, ${fail} 失败`);
   if (fail) { console.log('\n失败项:'); failures.forEach(f => console.log('  ✗ ' + f)); process.exit(1); }

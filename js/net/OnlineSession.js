@@ -554,11 +554,16 @@ class OnlineSession {
         const mover = piece ? piece.player : gs.currentPlayer;
         const ptype = piece ? piece.type : 'pawn';
         if (!gs.movePiece(fromX, fromY, toX, toY)) return;
+
+        // 先广播走子（较小 seq），再做结算：若本手吃将/令对手困毙，
+        // 结算会广播淘汰（seq 更大）——保证客户端严格按 seq 顺序“先落子、后淘汰”。
+        // 若顺序反了，走子会因 d.seq <= lastSeq 被客户端丢弃而导致失步。
         this.seq++;
+        this.actMove.send({ seq: this.seq, from: [fromX, fromY], to: [toX, toY], by: mover });
+
         ge.boardRenderer.clearSelection();
         ge.boardRenderer.renderPieces();
-        ge.onMoveCompleted();               // 结算：将死/困毙淘汰、结束、历史、存档、UI
-        this.actMove.send({ seq: this.seq, from: [fromX, fromY], to: [toX, toY], by: mover });
+        ge.onMoveCompleted();               // 结算：吃将/困毙淘汰、结束、历史、存档、UI（可能再 ++seq 广播 eliminate）
         this._notifyMove(mover, fromX, fromY, toX, toY, ptype);
         this._refreshStatus();
         this._saveRecord();
@@ -646,7 +651,8 @@ class OnlineSession {
         const ge = this.gameEngine, gs = ge.gameState;
         if (gs.gamePhase !== 'playing') return;
         gs.eliminatePlayer(player);
-        Utils.showMessage(`${Config.PLAYER_COLORS[player].name}${reason === 'resign' ? '认输' : '被将死'}`, 'warning');
+        const label = reason === 'resign' ? '认输' : reason === 'captured' ? '将/帅被吃' : '无子可动（困毙）';
+        Utils.showMessage(`${Config.PLAYER_COLORS[player].name}${label}`, 'warning');
         this.seq++;
         ge.boardRenderer.renderPieces();
         if (gs.checkGameEnd()) {

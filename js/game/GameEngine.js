@@ -105,15 +105,10 @@ class GameEngine {
      * 更新对象间的引用关系
      */
     updateReferences() {
-        // 更新GameState中的可能移动计算
-        this.gameState.calculatePossibleMoves = (x, y) => {
-            return this.ruleValidator.getValidMoves(x, y);
-        };
-        
-        // 更新PieceManager中的有效移动获取
-        this.pieceManager.getValidMoves = (x, y) => {
-            return this.ruleValidator.getValidMoves(x, y);
-        };
+        // 显式注入规则验证器：GameState/PieceManager 通过它计算合法走法。
+        // 之前用“运行时打补丁”的方式覆写方法，独立调用时会退化为空走法，属隐式契约。
+        this.gameState.ruleValidator = this.ruleValidator;
+        this.pieceManager.ruleValidator = this.ruleValidator;
     }
     
     /**
@@ -247,7 +242,7 @@ class GameEngine {
             // 更新界面
             this.updateUI();
             
-            // 统一结算：将死 / 困毙（可连锁），并立即重绘界面
+            // 统一结算：将被吃 / 困毙（可连锁），并立即重绘界面
             this.resolveAfterMove();
             
             // 结算中若已结束，endGame 已处理
@@ -272,7 +267,7 @@ class GameEngine {
      * 检查将军状态
      */
     /**
-     * 每步之后统一结算：将死 / 困毙（无子可动）一律淘汰，可连锁；并立即重绘界面。
+     * 每步之后统一结算：将/帅被吃 或 困毙（完全无子可动）一律淘汰，可连锁；并立即重绘界面。
      * 解决两个问题：①困毙卡死；②淘汰后棋子/当前玩家/高亮残留。
      */
     resolveAfterMove() {
@@ -280,7 +275,17 @@ class GameEngine {
         let guard = 0;
         let finished = false;
         while (gs.gamePhase === 'playing' && guard++ < 8) {
-            const knocked = gs.computeKnockouts(this.pieceManager, this.ruleValidator);
+            // ① 将/帅被直接吃掉的玩家：彻底出局（清残子）并通报
+            for (let p = 0; p < 4; p++) {
+                if (!gs.hasKing(p) && !gs.eliminationOrder.includes(p)) {
+                    gs.eliminatePlayer(p);
+                    this.notifyKnockout(p, 'captured');
+                }
+            }
+            if (gs.checkGameEnd()) { finished = true; break; }
+
+            // ② 困毙（完全无子可动）
+            const knocked = gs.computeKnockouts(this.ruleValidator);
             if (!knocked.length) {
                 const p = gs.currentPlayer;
                 if (this.pieceManager.isInCheck(p)) {
@@ -306,7 +311,8 @@ class GameEngine {
      */
     notifyKnockout(player, reason) {
         const name = Config.PLAYER_COLORS[player].name;
-        Utils.showMessage(reason === 'stalemate' ? `${name}无子可动（困毙）` : `${name}被将死！`, 'error');
+        const label = reason === 'captured' ? '将/帅被吃' : '无子可动（困毙）';
+        Utils.showMessage(`${name}${label}！`, 'error');
         if (window.onlineSession && window.onlineSession.active && window.onlineSession.isHost) {
             window.onlineSession._broadcastEliminate(player, reason);
         }

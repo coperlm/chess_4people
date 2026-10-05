@@ -56,7 +56,7 @@ class Replay {
     }
 
     _modeText(m) { return m === Config.MODES.FFA ? '四人混战' : '两两组队'; }
-    _victoryText(v) { return v === Config.VICTORY.LAST_TEAM ? '仅剩一队' : '将死任意一方'; }
+    _victoryText(v) { return v === Config.VICTORY.LAST_TEAM ? '仅剩一队' : '吃将任意一方'; }
     _resultText(gs) {
         const w = gs.winner;
         if (w === 'TEAM1') return '红蓝队获胜';

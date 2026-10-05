@@ -197,52 +197,13 @@ class PieceManager {
     }
     
     /**
-     * 检查将死状态
-     */
-    isCheckmate(player) {
-        if (!this.isInCheck(player)) return false;
-        
-        // 尝试所有可能的移动，看是否能解除将军
-        const playerPieces = this.getPlayerPieces(player);
-        
-        for (const piece of playerPieces) {
-            const possibleMoves = this.getValidMoves(piece.x, piece.y);
-            const fromX = piece.x;
-            const fromY = piece.y;
-            
-            for (const move of possibleMoves) {
-                // 模拟移动：先移除原位置，再放到目标位置
-                // 注意：setPiece 会改写 piece.x/piece.y，所以必须用固定的 fromX/fromY
-                const originalPiece = this.gameState.getPiece(move.x, move.y);
-                this.gameState.removePiece(fromX, fromY);
-                this.gameState.setPiece(move.x, move.y, piece);
-                
-                // 检查是否还在将军状态
-                const stillInCheck = this.isInCheck(player);
-                
-                // 用固定的原始坐标恢复棋盘状态
-                this.gameState.setPiece(fromX, fromY, piece);
-                this.gameState.setPiece(move.x, move.y, originalPiece);
-                
-                if (!stillInCheck) {
-                    return false; // 找到了解救方法，不是将死
-                }
-            }
-        }
-        
-        return true; // 无法解救，将死
-    }
-    
-    /**
      * 获取指定位置棋子的有效移动
      */
     getValidMoves(x, y) {
         const piece = this.gameState.getPiece(x, y);
         if (!piece) return [];
-        
-        // 这里会调用规则验证器来获取有效移动
-        // 暂时返回空数组，在RuleValidator中实现具体逻辑
-        return [];
+        // 依赖由 GameEngine 注入的 ruleValidator（见 updateReferences）
+        return this.ruleValidator ? this.ruleValidator.getValidMoves(x, y) : [];
     }
     
     /**

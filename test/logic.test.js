@@ -2,7 +2,7 @@
  * 四人象棋 - 核心规则回归测试（Node，无浏览器）
  * 运行: node test/logic.test.js   或   npm test
  *
- * 覆盖：兵/卒固定朝向与过河规则、将死判定、吃子/悔棋、棋盘可玩性。
+ * 覆盖：兵/卒固定朝向与过河规则、将军语义（不强制应对/困毙/吃将出局）、吃子/悔棋、棋盘可玩性。
  */
 
 // ---- 浏览器最小桩 ----
@@ -37,8 +37,8 @@ function makeGame() {
   const gs = new GameState();
   const pm = new PieceManager(gs);
   const rv = new RuleValidator(gs, pm);
-  gs.calculatePossibleMoves = (x, y) => rv.getValidMoves(x, y);
-  pm.getValidMoves = (x, y) => rv.getValidMoves(x, y);
+  gs.ruleValidator = rv;
+  pm.ruleValidator = rv;
   return { gs, pm, rv };
 }
 function emptyBoard(gs) {
@@ -80,7 +80,8 @@ for (let p = 0; p < 4; p++) {
       x = nx.x; y = nx.y;
     }
     const targetQuad = quad(x, y);
-    t(`P${p} 兵(${q.x},${q.y}) 朝向 ${q.facing} 指向敌人象限`, Utils.isEnemy(p, targetQuad), `到达象限${targetQuad}`);
+    const isEnemyQuad = p !== targetQuad && Config.TEAMS.TEAM1.includes(p) !== Config.TEAMS.TEAM1.includes(targetQuad);
+    t(`P${p} 兵(${q.x},${q.y}) 朝向 ${q.facing} 指向敌人象限`, isEnemyQuad, `到达象限${targetQuad}`);
   }
 }
 
@@ -139,45 +140,64 @@ for (let p = 0; p < 4; p++) {
 t('全部兵/卒均可后退走法总数为 0', backwardTotal === 0, 'count=' + backwardTotal);
 
 // =====================================================================
-// 4. 将死判定：可垫将/可逃 不能判为将死；真正无解才判将死；且不破坏坐标
+// 4. 将军语义：本变体“将军不强制应对”——被将军仍可走子；
+//    只有「将/帅被吃」或「困毙（完全无子可动）」才出局（无“将死自动出局”）
 // =====================================================================
-// 4a. 黑将被两车照两列，仅剩"垫将"一条路 -> 不应判将死
+// 4a. 被将军时仍可走“与解将无关”的棋子（旧规则会禁止）；但会触发弹窗条件
 {
   const { gs, pm, rv } = makeGame(); emptyBoard(gs);
-  const bk = put(gs, 'king', 3, 0, 0);
-  put(gs, 'king', 0, 4, 9);
-  put(gs, 'rook', 0, 0, 9);
-  put(gs, 'rook', 0, 1, 9);
-  const br = put(gs, 'rook', 3, 3, 1); // 可走到(0,1)/(1,1)垫将
+  put(gs, 'king', 3, 0, 0);   // 黑将
+  put(gs, 'king', 0, 0, 9);   // 红帅
+  put(gs, 'rook', 0, 0, 5);   // 红车照 x=0 列 => 黑被将军
+  put(gs, 'rook', 3, 3, 1);   // 黑车（与解将无关）
   gs.currentPlayer = 3; gs.gamePhase = 'playing';
-  const blockLegal = rv.isValidMove(3, 1, 0, 1) || rv.isValidMove(3, 1, 1, 1);
-  t('垫将走法本身合法', blockLegal);
-  t('可垫将解将 => 不是将死', pm.isCheckmate(3) === false);
-  t('isCheckmate 后黑将坐标未被污染', bk.x === 0 && bk.y === 0, `${bk.x},${bk.y}`);
-  t('isCheckmate 后仍正确判定被将军', pm.isInCheck(3) === true);
-  t('isCheckmate 后红车仍在原位', !!gs.getPiece(3, 1) && gs.getPiece(3, 1).player === 3);
+  t('构造：黑确实被将军', pm.isInCheck(3) === true);
+  t('被将军时允许走无关棋子（新规则）', rv.isValidMove(3, 1, 4, 1) === true);
+  t('该走法走完仍被将军 => 触发弹窗条件', rv.wouldBeInCheckAfterMove(3, 1, 4, 1, 3) === true);
+  t('被将军但仍有子可走 => 不算困毙、不被出局', !gs.computeKnockouts(rv).some(k => k.player === 3));
 }
-// 4b. 真正的将死：黑将(0,0)，红车照(0,y)与(1,y)两列，红车还照(2,0)行口，黑无子可动
+// 4b. 能解将的走法：不触发弹窗（wouldBeInCheckAfterMove=false）
 {
-  const { gs, pm } = makeGame(); emptyBoard(gs);
+  const { gs, rv } = makeGame(); emptyBoard(gs);
   put(gs, 'king', 3, 0, 0);
-  put(gs, 'king', 0, 4, 9);
-  put(gs, 'rook', 0, 0, 5);  // 照 x=0 列
-  put(gs, 'rook', 0, 1, 5);  // 照 x=1 列
-  put(gs, 'rook', 0, 2, 0);  // 照 y=0 行（封住(2,0)？将不能走(2,0)，且(0,1)(1,0)被列照）
+  put(gs, 'king', 0, 0, 9);
+  put(gs, 'rook', 0, 0, 5);   // 照 x=0 列
+  put(gs, 'rook', 3, 3, 1);   // 黑车可垫到 (0,1) 解将
   gs.currentPlayer = 3; gs.gamePhase = 'playing';
-  t('构造局面：黑确实被将军', pm.isInCheck(3) === true);
-  // 黑将(0,0) 逃格：(1,0)被x=1车照，(0,1)被x=0车照 -> 无路，且无其它黑子 => 将死
-  t('无解局面 => 判为将死', pm.isCheckmate(3) === true);
+  t('垫将走法合法', rv.isValidMove(3, 1, 0, 1) === true);
+  t('解将走法不触发弹窗', rv.wouldBeInCheckAfterMove(3, 1, 0, 1, 3) === false);
 }
-// 4c. 将可逃则不是将死
+// 4c. 困毙（完全无子可动）=> 结算为 stalemate（唯一会“自动出局”的情形，兜底）
 {
-  const { gs, pm } = makeGame(); emptyBoard(gs);
-  put(gs, 'king', 3, 0, 0);
-  put(gs, 'king', 0, 4, 9);
-  put(gs, 'rook', 0, 0, 5); // 只照 x=0
+  const { gs, pm, rv } = makeGame(); emptyBoard(gs);
+  put(gs, 'king', 3, 0, 0);      // 黑将
+  put(gs, 'advisor', 3, 1, 0);   // 四个士互相堵死，也堵死将的两个逃格
+  put(gs, 'advisor', 3, 0, 1);
+  put(gs, 'advisor', 3, 2, 1);
+  put(gs, 'advisor', 3, 1, 2);
+  put(gs, 'king', 0, 0, 9);      // 红帅（x=0 列被 (0,1) 的士挡住，不将军）
   gs.currentPlayer = 3; gs.gamePhase = 'playing';
-  t('只有一列被照 => 将可逃到(1,0) => 不是将死', pm.isCheckmate(3) === false);
+  t('困毙局面：黑未被将军', pm.isInCheck(3) === false);
+  const k = gs.computeKnockouts(rv);
+  t('困毙 => 结算原因为 stalemate', k.length === 1 && k[0].player === 3 && k[0].reason === 'stalemate', JSON.stringify(k));
+}
+// 4d. 将/帅被“直接吃掉”：该玩家须彻底出局、残子清空
+//     （否则会出现“无将却有残子在场”的不一致状态）
+{
+  const { gs, rv } = makeGame(); emptyBoard(gs);
+  put(gs, 'king', 0, 0, 9);  // 红帅
+  put(gs, 'rook', 0, 0, 5);  // 红车：可沿 x=0 直取黑将
+  put(gs, 'king', 3, 0, 0);  // 黑将（已在红车射程内）
+  put(gs, 'rook', 3, 1, 3);  // 黑方残子（不在 x=0 列上，避免挡车）
+  gs.currentPlayer = 0; gs.gamePhase = 'playing';
+  t('吃将走法本身合法', rv.isValidMove(0, 5, 0, 0) === true);
+  gs.movePiece(0, 5, 0, 0);
+  t('黑将已被吃、红车就位', !gs.hasKing(3) && !!gs.getPiece(0, 0) && gs.getPiece(0, 0).player === 0);
+  t('此时黑方残子仍在场上（待结算）', !!gs.getPiece(1, 3));
+  const ended = gs.checkGameEnd();
+  t('黑方被彻底出局：残子清空、计数归零', gs.getPiece(1, 3) === null && gs.pieceCounts[3] === 0);
+  t('黑方进入出局名单', gs.eliminationOrder.includes(3));
+  t('吃将触发终局（默认吃将即结束）', ended === true && gs.gamePhase === 'finished');
 }
 
 // =====================================================================

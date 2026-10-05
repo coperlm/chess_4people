@@ -28,8 +28,8 @@ function makeGame(rules) {
   if (rules) gs.setRules(rules);
   const pm = new PieceManager(gs);
   const rv = new RuleValidator(gs, pm);
-  gs.calculatePossibleMoves = (x, y) => rv.getValidMoves(x, y);
-  pm.getValidMoves = (x, y) => rv.getValidMoves(x, y);
+  gs.ruleValidator = rv;
+  pm.ruleValidator = rv;
   return { gs, pm, rv };
 }
 const OPP = { up: 'down', down: 'up', left: 'right', right: 'left' };
@@ -69,7 +69,7 @@ const MODES = [
   { mode: 'team', victory: 'last_team', friendlyFire: false },
   { mode: 'ffa', victory: 'last_team', friendlyFire: false }
 ];
-let totalPlies = 0, games = 0, finishedGames = 0, pawnChecks = 0, mateChecks = 0, mateCorruptions = 0;
+let totalPlies = 0, games = 0, finishedGames = 0, pawnChecks = 0, mateChecks = 0;
 for (let g = 0; g < 40; g++) {
   const rules = MODES[g % MODES.length];
   const { gs, pm, rv } = makeGame(rules);
@@ -103,21 +103,11 @@ for (let g = 0; g < 40; g++) {
     // 一致性
     const err = checkBoardConsistency(gs);
     t('棋盘与坐标/计数一致', err === null, err);
-    // 将死判定健全性 + 不污染棋盘
+    // 将军不再强制应对：被将军的玩家不会因此出局（只有被吃将/困毙才出局）
     const np = gs.currentPlayer;
     if (pm.isInCheck(np)) {
       mateChecks++;
-      const h1 = boardHash(gs);
-      const mate = pm.isCheckmate(np);
-      const h2 = boardHash(gs);
-      if (h1 !== h2) { mateCorruptions++; t('isCheckmate 不污染棋盘', false, JSON.stringify(rules)); }
-      // 独立求“是否有解”
-      let escape = false;
-      for (let x = 0; x < Config.BOARD_SIZE && !escape; x++) for (let y = 0; y < Config.BOARD_SIZE && !escape; y++) {
-        const pc = gs.board[x][y];
-        if (pc && pc.player === np && rv.getValidMoves(x, y).length) escape = true;
-      }
-      t('将死判定与“是否有解”一致', mate === !escape, `mate=${mate} escape=${escape}`);
+      t('被将军不导致出局（新规则）', !gs.eliminationOrder.includes(np));
     }
     // undo 还原
     gs.undoMove();
@@ -204,7 +194,7 @@ for (let g = 0; g < 10; g++) {
   // 构造纯文本（与导出同样格式的核心：模式 + 走子 + 淘汰）
   const st = gs.rules;
   const modeTxt = st.mode === 'ffa' ? '四人混战' : '两两组队';
-  const vicTxt = st.victory === 'last_team' ? '仅剩一队' : '将死任意一方';
+  const vicTxt = st.victory === 'last_team' ? '仅剩一队' : '吃将任意一方';
   const lines = ['四人象棋对局记录', '版本: 1', '模式: ' + modeTxt, '胜利条件: ' + vicTxt, '友伤: ' + (st.friendlyFire ? '开' : '关'), '走子:'];
   gs.moveHistory.forEach((mv, i) => lines.push(`${i + 1}. ${Config.PLAYER_COLORS[mv.player].name} ${Config.PIECE_NAMES[mv.player][mv.piece]} (${mv.from.x},${mv.from.y})->(${mv.to.x},${mv.to.y})`));
   (gs.eliminationLog || []).forEach(e => lines.push(`淘汰 ${Config.PLAYER_COLORS[e.player].name} ${e.atMove}`));
@@ -227,7 +217,7 @@ for (let g = 0; g < 10; g++) {
   rp.exit();
 }
 
-// ============ 5. 结算不卡死（将死 / 困毙 一律淘汰，可连锁） ============
+// ============ 5. 结算不卡死（将被吃 / 困毙 一律淘汰，可连锁） ============
 {
   let games2 = 0, plies2 = 0, stalls = 0;
   for (let g = 0; g < 40; g++) {
@@ -241,10 +231,12 @@ for (let g = 0; g < 10; g++) {
       if (!all.length) { stalls++; break; }   // 结算后不该出现“当前方无棋可走”
       const c = all[Math.floor(Math.random() * all.length)];
       gs.movePiece(c.x, c.y, c.mv.x, c.mv.y); plies2++;
-      // 复刻引擎的结算：computeKnockouts -> eliminate -> checkGameEnd -> nextPlayer
+      // 复刻引擎的结算：先清“无将残子”，再 computeKnockouts(困毙) -> eliminate -> checkGameEnd -> nextPlayer
       let guard = 0;
       while (gs.gamePhase === 'playing' && guard++ < 8) {
-        const kn = gs.computeKnockouts(pm, rv);
+        for (let q = 0; q < 4; q++) if (!gs.hasKing(q) && !gs.eliminationOrder.includes(q)) gs.eliminatePlayer(q);
+        if (gs.checkGameEnd()) break;
+        const kn = gs.computeKnockouts(rv);
         if (!kn.length) break;
         kn.forEach(k => gs.eliminatePlayer(k.player));
         if (gs.checkGameEnd()) break;
@@ -258,6 +250,6 @@ for (let g = 0; g < 10; g++) {
 
 // ============ 汇总 ============
 console.log(`\n深度测试: ${pass} 通过, ${fail} 失败`);
-console.log(`覆盖：${games} 局 / ${totalPlies} 手；走完的对局 ${finishedGames}；兵卒校验 ${pawnChecks}；将死校验 ${mateChecks}（坐标污染 ${mateCorruptions}）；车/炮路径 ${pathChecks}；回放往返 ${replayChecks}`);
+console.log(`覆盖：${games} 局 / ${totalPlies} 手；走完的对局 ${finishedGames}；兵卒校验 ${pawnChecks}；被将军次数 ${mateChecks}；车/炮路径 ${pathChecks}；回放往返 ${replayChecks}`);
 if (fail) { console.log('\n失败样例:'); failures.forEach(f => console.log('  ✗ ' + f)); process.exit(1); }
 console.log('✅ 全部通过');

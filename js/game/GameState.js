@@ -222,10 +222,12 @@ class GameState {
     }
     
     /**
-     * 计算“无棋可走”的玩家：将死（被将军且无解）或困毙（未被将军但无子可动）
-     * 返回 [{player, reason}]，不修改棋盘。用临时切换 currentPlayer 的方式枚举（getValidMoves 依赖当前回合）。
+     * 计算“困毙”（当前没有任何一步可走）的玩家。
+     * 本变体不强制应对将军：被将军方仍可自由走子，因此不存在“将死自动出局”，
+     * 只有「将/帅被吃」或「完全无子可动（困毙）」才出局。
+     * 返回 [{player, reason:'stalemate'}]，不修改棋盘。用临时切换 currentPlayer 的方式枚举（getValidMoves 依赖当前回合）。
      */
-    computeKnockouts(pieceManager, ruleValidator) {
+    computeKnockouts(ruleValidator) {
         const out = [];
         const saved = this.currentPlayer;
         for (let p = 0; p < 4; p++) {
@@ -238,9 +240,8 @@ class GameState {
                     if (pc && pc.player === p && ruleValidator.getValidMoves(x, y).length) hasMoves = true;
                 }
             }
-            const inCheck = pieceManager.isInCheck(p);
             this.currentPlayer = saved;
-            if (!hasMoves) out.push({ player: p, reason: inCheck ? 'checkmate' : 'stalemate' });
+            if (!hasMoves) out.push({ player: p, reason: 'stalemate' });
         }
         return out;
     }
@@ -249,10 +250,11 @@ class GameState {
      * 检查游戏是否结束
      */
     checkGameEnd() {
-        // 记录淘汰顺序
+        // 将/帅被直接吃掉的玩家：彻底出局（连同残子一并移出并记录），
+        // 否则会出现“无将却有残子在场”的不一致状态。
         for (let p = 0; p < 4; p++) {
             if (!this.hasKing(p) && !this.eliminationOrder.includes(p)) {
-                this.eliminationOrder.push(p);
+                this.eliminatePlayer(p);
             }
         }
         
@@ -316,10 +318,8 @@ class GameState {
     calculatePossibleMoves(x, y) {
         const piece = this.getPiece(x, y);
         if (!piece) return [];
-        
-        // 这里会调用规则验证器来计算具体的移动
-        // 暂时返回空数组，后续会在RuleValidator中实现
-        return [];
+        // 依赖由 GameEngine 注入的 ruleValidator（见 updateReferences）
+        return this.ruleValidator ? this.ruleValidator.getValidMoves(x, y) : [];
     }
     
     /**

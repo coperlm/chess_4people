@@ -21,12 +21,9 @@ class RuleValidator {
         if (!this.isPieceMovementValid(piece, fromX, fromY, toX, toY)) {
             return false;
         }
-        
-        // 检查移动后是否会导致自己被将军
-        if (this.wouldBeInCheckAfterMove(fromX, fromY, toX, toY, piece.player)) {
-            return false;
-        }
-        
+
+        // 本变体不强制应对将军：允许“走完会被将军”的走法（由界面二次确认）。
+        // 是否会被将军交由 wouldBeInCheckAfterMove 查询，界面据此弹窗。
         return true;
     }
     
@@ -231,7 +228,7 @@ class RuleValidator {
     }
     
     /**
-     * 检查移动后是否会导致自己被将军
+     * 查询“走这步之后本方是否会被将军”（供界面弹窗二次确认用，不再用于合法性拦截）
      */
     wouldBeInCheckAfterMove(fromX, fromY, toX, toY, player) {
         // 模拟移动

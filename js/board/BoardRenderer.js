@@ -466,6 +466,12 @@ class BoardRenderer {
         
         // 尝试移动
         if (this.ruleValidator.isValidMove(selected.x, selected.y, x, y)) {
+            // 本变体不强制应对将军：若这步走完本方会被将军（无视将军 / 自暴将），二次确认；
+            // 能解将的走法天然不会触发。
+            const mover = this.gameState.getPiece(selected.x, selected.y);
+            if (mover && this.ruleValidator.wouldBeInCheckAfterMove(selected.x, selected.y, x, y, mover.player)) {
+                if (!confirm('走这步后你的将/帅会被将军（可能被吃），确定继续吗？')) return;
+            }
             if (this.isNetworkMode && window.onlineSession && window.onlineSession.active) {
                 // 联机：不本地执行，交给房主权威校验后广播
                 window.onlineSession.requestMove(selected.x, selected.y, x, y);

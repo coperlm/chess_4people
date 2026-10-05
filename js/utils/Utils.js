@@ -105,21 +105,6 @@ class Utils {
     }
     
     /**
-     * 检查是否为队友
-     */
-    static isTeammate(player1, player2) {
-        return (Config.TEAMS.TEAM1.includes(player1) && Config.TEAMS.TEAM1.includes(player2)) ||
-               (Config.TEAMS.TEAM2.includes(player1) && Config.TEAMS.TEAM2.includes(player2));
-    }
-    
-    /**
-     * 检查是否为敌人
-     */
-    static isEnemy(player1, player2) {
-        return !this.isTeammate(player1, player2) && player1 !== player2;
-    }
-    
-    /**
      * 显示消息提示
      */
     static showMessage(message, type = 'info', duration = 3000) {
