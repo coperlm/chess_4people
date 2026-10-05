@@ -105,6 +105,14 @@
                     <div id="chessBoard" class="bg-amber-100 p-4 rounded-lg shadow-xl border-4 border-amber-800" style="width: fit-content; height: fit-content;">
                         <!-- 棋盘格子和河界将通过JavaScript动态生成 -->
                     </div>
+
+                    <!-- 事件横幅：将军 / 困毙 / 将死（盖在棋盘正中央的圆环） -->
+                    <div id="eventBanner" class="event-banner" data-type="check" aria-live="assertive">
+                        <div class="event-banner__ring">
+                            <span id="eventBannerText" class="event-banner__text"></span>
+                        </div>
+                        <div id="eventBannerSub" class="event-banner__sub"></div>
+                    </div>
                 </div>
             </div>
 

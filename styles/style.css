@@ -1963,3 +1963,47 @@ html[data-theme="dark"] .turn-timer.timer--red{ color:#f87171; }
 html[data-theme="dark"] .chat-log{ background:#1a1613; border-color:#3a3128; }
 html[data-theme="dark"] .chip{ background:#241f1a; border-color:#3a3128; color:var(--ink); }
 html[data-theme="dark"] .chip:hover{ background:#2e271f; }
+
+/* ===================== 事件横幅（将军 / 困毙 / 将死） ===================== */
+.event-banner{
+  position:absolute; inset:0; display:none; flex-direction:column;
+  align-items:center; justify-content:center; gap:.45rem;
+  pointer-events:none; z-index:40;
+}
+.event-banner--show{ display:flex; }
+.event-banner[data-type="check"]{ color:#b45309; }
+.event-banner[data-type="danger"]{ color:#c02626; }
+.event-banner[data-type="info"]{ color:#3f4fbf; }
+.event-banner__ring{
+  width:38%; min-width:84px; max-width:200px; aspect-ratio:1/1;
+  display:flex; align-items:center; justify-content:center;
+  border-radius:50%; border:3px solid currentColor;
+  background:radial-gradient(closest-side, rgba(255,255,255,.95), rgba(255,255,255,.72) 66%, rgba(255,255,255,0) 72%);
+  box-shadow:0 0 0 6px rgba(255,255,255,.30), 0 10px 26px rgba(0,0,0,.18);
+}
+.event-banner--show .event-banner__ring{
+  animation:eventPop .42s cubic-bezier(.2,1.5,.4,1) both, eventPulse 1.6s ease-in-out .5s infinite;
+}
+.event-banner__text{
+  font-family:"KaiTi","STKaiti","Kaiti SC","Noto Serif SC",serif;
+  font-size:clamp(22px,6.2vmin,50px); font-weight:800; letter-spacing:.1em; text-indent:.1em;
+  text-shadow:0 2px 6px rgba(0,0,0,.18); white-space:nowrap;
+}
+.event-banner__sub{ font-size:.82rem; font-weight:700; color:#5c5c66; text-shadow:0 1px 2px rgba(255,255,255,.7); }
+.event-banner--out{ animation:eventOut .34s ease forwards; }
+.event-banner--out .event-banner__ring{ animation:none; }
+@keyframes eventPop{ from{ transform:scale(.35); opacity:0; } to{ transform:scale(1); opacity:1; } }
+@keyframes eventPulse{ 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.06); } }
+@keyframes eventOut{ to{ opacity:0; transform:scale(.9); } }
+html[data-theme="dark"] .event-banner__ring{
+  background:radial-gradient(closest-side, rgba(30,26,22,.95), rgba(30,26,22,.70) 66%, rgba(30,26,22,0) 72%);
+  box-shadow:0 0 0 6px rgba(0,0,0,.35), 0 10px 26px rgba(0,0,0,.5);
+}
+html[data-theme="dark"] .event-banner__sub{ color:#d7d2ca; }
+html[data-theme="dark"] .event-banner[data-type="check"]{ color:#f0b24a; }
+html[data-theme="dark"] .event-banner[data-type="danger"]{ color:#ff6b6b; }
+html[data-theme="dark"] .event-banner[data-type="info"]{ color:#8fa2ff; }
+@media (prefers-reduced-motion: reduce){
+  .event-banner--show .event-banner__ring{ animation:none; }
+  .event-banner--out{ animation:none; }
+}

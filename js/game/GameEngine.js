@@ -311,14 +311,16 @@ class GameEngine {
             if (!knocked.length) {
                 const p = gs.currentPlayer;
                 if (this.pieceManager.isInCheck(p)) {
-                    Utils.showMessage(`${Config.PLAYER_COLORS[p].name}被将军！`, 'warning');
+                    Utils.showBanner('将军', 'check', `${Config.PLAYER_COLORS[p].name}被将军`);
                     if (window.sound) window.sound.play('check');
                 }
                 break;
             }
             for (const k of knocked) {
+                // 无子可动：被将军者判「将死」，否则「困毙」（仅影响横幅文案，出局逻辑一致）
+                const wasInCheck = this.pieceManager.isInCheck(k.player);
                 gs.eliminatePlayer(k.player);
-                this.notifyKnockout(k.player, k.reason);
+                this.notifyKnockout(k.player, wasInCheck ? 'checkmate' : 'stalemate');
                 changed = true;
             }
             if (gs.checkGameEnd()) { finished = true; break; }
@@ -335,11 +337,20 @@ class GameEngine {
      */
     notifyKnockout(player, reason) {
         const name = Config.PLAYER_COLORS[player].name;
-        const label = reason === 'captured' ? '将/帅被吃'
-            : reason === 'kicked' ? '被房主移出'
-            : reason === 'resign' ? '认输'
-            : '无子可动（困毙）';
-        Utils.showMessage(`${name}${label}！`, 'error');
+        // 淘汰横幅：将帅被吃 / 将死 / 困毙 用棋盘中央的圆形横幅；其余保留普通提示
+        const banner = {
+            captured: ['将帅被吃', 'danger', '出局'],
+            checkmate: ['将死', 'danger', '无路可走'],
+            stalemate: ['困毙', 'info', '无子可动']
+        }[reason];
+        if (banner) {
+            Utils.showBanner(banner[0], banner[1], `${name} ${banner[2]}`);
+        } else {
+            const label = reason === 'kicked' ? '被房主移出'
+                : reason === 'resign' ? '认输'
+                : '无子可动（困毙）';
+            Utils.showMessage(`${name}${label}！`, 'error');
+        }
         if (window.onlineSession && window.onlineSession.active && window.onlineSession.isHost) {
             window.onlineSession._broadcastEliminate(player, reason);
         }

@@ -150,6 +150,35 @@ class Utils {
         // 同时在控制台输出
         const prefix = type === 'error' ? '❌' : type === 'warning' ? '⚠️' : type === 'success' ? '✅' : 'ℹ️';
     }
+
+    /**
+     * 棋盘中央的醒目事件横幅（圆环 + 文字）：将军 / 困毙 / 将死 / 将帅被吃。
+     * @param {string} headline 圆环内的大字（如「困毙」「将军」）
+     * @param {string} type 'check' | 'danger' | 'info'
+     * @param {string} sub 圆环下方的小字（如「黑方 无子可动」）
+     */
+    static showBanner(headline, type = 'check', sub = '') {
+        if (typeof document === 'undefined') return;
+        const el = document.getElementById('eventBanner');
+        if (!el) return;
+        const txt = document.getElementById('eventBannerText');
+        const subEl = document.getElementById('eventBannerSub');
+        if (txt) txt.textContent = headline || '';
+        if (subEl) subEl.textContent = sub || '';
+        el.dataset.type = type;
+        // 先移除再强制重排，保证每次都能重播入场动画
+        el.classList.remove('event-banner--show', 'event-banner--out');
+        void el.offsetWidth;
+        el.classList.add('event-banner--show');
+        if (Utils._bannerTimer) clearTimeout(Utils._bannerTimer);
+        Utils._bannerTimer = setTimeout(() => {
+            el.classList.add('event-banner--out');
+            Utils._bannerTimer = setTimeout(() => {
+                el.classList.remove('event-banner--show', 'event-banner--out');
+                Utils._bannerTimer = null;
+            }, 360);
+        }, 1500);
+    }
     
     /**
      * HTML转义工具
