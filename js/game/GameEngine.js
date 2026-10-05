@@ -398,20 +398,27 @@ class GameEngine {
     showGameResult() {
         const gs = this.gameState;
         const winner = gs.winner;
-        let message = '游戏结束！';
-        if (gs.isDraw) message = '🤝 和棋';
-        else if (winner === 'TEAM1') message = '🎉 红蓝队获胜！';
-        else if (winner === 'TEAM2') message = '🎉 绿黑队获胜！';
-        else if (typeof winner === 'number') message = `🎉 ${Config.PLAYER_COLORS[winner].name} 获胜！`;
-        
-        let rankText = '';
-        if (gs.ranking && gs.ranking.length) {
-            rankText = '\n\n排名：\n' + gs.ranking.map((k, i) => `  ${i + 1}. ${this._rankLabel(k)}`).join('\n');
+        let title = '对局结束';
+        if (gs.isDraw) title = '和棋';
+        else if (winner === 'TEAM1') title = '红蓝队获胜';
+        else if (winner === 'TEAM2') title = '绿黑队获胜';
+        else if (typeof winner === 'number' && Config.PLAYER_COLORS[winner]) title = `${Config.PLAYER_COLORS[winner].name}获胜`;
+
+        const el = id => document.getElementById(id);
+        const t = el('resultTitle'), b = el('resultBody');
+        if (t) t.textContent = title;
+        if (b) {
+            let html = '';
+            if (gs.ranking && gs.ranking.length) {
+                html += '<h4>排名</h4><ol>' + gs.ranking.map(k => `<li>${Utils.escapeHtml(this._rankLabel(k))}</li>`).join('') + '</ol>';
+            }
+            html += `<div>总回合数：${gs.turn - 1}</div>`;
+            html += `<div>游戏时长：${Utils.escapeHtml(this.getGameDuration())}</div>`;
+            b.innerHTML = html;
         }
-        
-        setTimeout(() => {
-            alert(`${message}${rankText}\n\n总回合数: ${gs.turn - 1}\n游戏时长: ${this.getGameDuration()}`);
-        }, 1000);
+        const rb = el('resultReplayBtn');
+        if (rb) rb.classList.toggle('hidden', !(gs.moveHistory && gs.moveHistory.length));
+        if (window.gameInterface && window.gameInterface.openModal) window.gameInterface.openModal('resultModal');
     }
     
     /**
@@ -449,6 +456,24 @@ class GameEngine {
         this.updateButtons();
         this.updateBoardEnabled();
         this.updateTurnTimer();
+        this.updateCheckHighlight();
+    }
+
+    /**
+     * 被将军的将/帅高亮（棋盘红标），与横幅配套；每端按各自已同步的棋盘计算，结果一致。
+     */
+    updateCheckHighlight() {
+        const br = this.boardRenderer;
+        if (!br || !br.setCheckPlayers) return;
+        const gs = this.gameState;
+        const players = [];
+        if (gs.gamePhase === 'playing') {
+            for (let p = 0; p < 4; p++) {
+                if (gs.hasKing(p) && !gs.eliminationOrder.includes(p) && !gs.outOfPlay.includes(p)
+                    && this.pieceManager.isInCheck(p)) players.push(p);
+            }
+        }
+        br.setCheckPlayers(players);
     }
 
     /**

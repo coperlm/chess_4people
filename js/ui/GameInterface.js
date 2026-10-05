@@ -56,6 +56,7 @@ class GameInterface {
         bind('roomSetupBtn', () => this.openSetup());
         bind('replayOpenBtn', () => this.openReplay());
         bind('rulesOpenBtn', () => this.openRules());
+        bind('resultReplayBtn', () => { this.closeModalById('resultModal'); this.openReplay(); });
 
         // 统一：右上角 ✕ 关闭 + 点击遮罩关闭 + ESC 关闭最上层弹窗 + 无障碍标注
         document.querySelectorAll('.modal-x').forEach(btn => {

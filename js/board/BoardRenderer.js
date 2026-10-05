@@ -180,6 +180,9 @@ class BoardRenderer {
         };
         for (let i = 1; i <= 5; i++) mkV(i);
         for (let i = 7; i <= 11; i++) mkV(i);
+
+        // 棋盘装饰层：九宫斜线 + 炮/兵起始标记 + 坐标标注（纯视觉，不拦截点击）
+        this._buildBoardOverlay();
         
         // 渲染棋子
         this.renderPieces();
@@ -247,14 +250,111 @@ class BoardRenderer {
         // 暂时用CSS类标识
         cell.classList.add('palace-corner');
     }
+
+    // ---- 棋盘内容区坐标（相对网格内容，含河带偏移） ----
+    _xLeft(i) { return i < 5 ? i * this.cellSize : 5 * this.cellSize + this.riverWidth + (i - 5) * this.cellSize; }
+    _yTop(j) { return j < 5 ? j * this.cellSize : 5 * this.cellSize + this.riverWidth + (j - 5) * this.cellSize; }
+    _xCenter(i) { return this._xLeft(i) + this.cellSize / 2; }
+    _yCenter(j) { return this._yTop(j) + this.cellSize / 2; }
+    _contentSize() { return Config.BOARD_SIZE * this.cellSize + this.riverWidth; }
+
+    /**
+     * 棋盘装饰层：九宫斜线、炮/兵起始“四角括”、坐标 0-9。
+     * 作为跨整格的绝对定位层叠在最上（纯视觉，pointer-events:none）。
+     */
+    _buildBoardOverlay() {
+        const cell = this.cellSize;
+        const size = this._contentSize();
+        const layer = document.createElement('div');
+        layer.className = 'board-overlay';
+        layer.style.gridColumn = '1 / -1';
+        layer.style.gridRow = '1 / -1';
+
+        // ① 九宫斜线（每个九宫两条对角线）
+        for (let p = 0; p < 4; p++) {
+            const a = Config.PALACE_AREAS[p];
+            const x0 = this._xCenter(a.x[0]), y0 = this._yCenter(a.y[0]);
+            const x1 = this._xCenter(a.x[1]), y1 = this._yCenter(a.y[1]);
+            const dx = x1 - x0, dy = y1 - y0;
+            const len = Math.hypot(dx, dy);
+            const mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+            const deg = Math.atan2(dy, dx) * 180 / Math.PI;
+            for (const sgn of [1, -1]) {
+                const ln = document.createElement('div');
+                ln.className = 'palace-line';
+                ln.style.left = mx + 'px'; ln.style.top = my + 'px';
+                ln.style.width = len + 'px';
+                ln.style.transform = `translate(-50%,-50%) rotate(${deg * sgn}deg)`;
+                layer.appendChild(ln);
+            }
+        }
+
+        // ② 炮/兵起始标记（四角小括，和真实象棋一致）
+        for (let p = 0; p < 4; p++) {
+            for (const it of Config.INITIAL_POSITIONS[p]) {
+                if (it.type !== Config.PIECE_TYPES.CANNON && it.type !== Config.PIECE_TYPES.PAWN) continue;
+                const m = document.createElement('div');
+                m.className = 'start-mark';
+                m.style.left = this._xLeft(it.x) + 'px';
+                m.style.top = this._yTop(it.y) + 'px';
+                m.style.width = cell + 'px';
+                m.style.height = cell + 'px';
+                layer.appendChild(m);
+            }
+        }
+
+        // ③ 坐标标注：上下列=第1位(列 x)，左右行=第2位(行 y)。与“两位数字坐标”记谱一致。
+        const fs = Math.max(9, Math.round(cell * 0.28));
+        const off = Math.min(12, Math.max(6, Math.round(cell * 0.22)));
+        const addLabel = (kind, left, top, txt) => {
+            const d = document.createElement('div');
+            d.className = 'axis-label axis-label--' + kind;
+            d.textContent = txt;
+            d.style.fontSize = fs + 'px';
+            d.style.left = left + 'px';
+            d.style.top = top + 'px';
+            layer.appendChild(d);
+        };
+        for (let i = 0; i < Config.BOARD_SIZE; i++) {
+            const cx = this._xCenter(i), cy = this._yCenter(i);
+            addLabel('col', cx, -off, String(i));
+            addLabel('col', cx, size + off, String(i));
+            addLabel('row', -off, cy, String(i));
+            addLabel('row', size + off, cy, String(i));
+        }
+
+        this.boardElement.appendChild(layer);
+    }
+
+    /**
+     * 被将军的将/帅所在格子持续高亮（红色，直到解将）。传空数组即清除。
+     */
+    setCheckPlayers(players) {
+        if (!this.boardElement) return;
+        this.boardElement.querySelectorAll('.chess-cell.check').forEach(c => c.classList.remove('check'));
+        if (!players || !players.length) return;
+        const set = new Set(players);
+        for (let x = 0; x < Config.BOARD_SIZE; x++) {
+            for (let y = 0; y < Config.BOARD_SIZE; y++) {
+                const pc = this.gameState.getPiece(x, y);
+                if (pc && pc.type === Config.PIECE_TYPES.KING && set.has(pc.player)) {
+                    const cell = document.getElementById(CoordinateMapper.positionToId(x, y));
+                    if (cell) cell.classList.add('check');
+                }
+            }
+        }
+    }
     
     /**
      * 渲染所有棋子
      */
     renderPieces(move) {
-        // 传了走子坐标就做一次平移“飞行”动画（出错则退回无动画，绝不影响对局）
-        let ghost = null;
-        if (move && this._animEnabled()) ghost = this._captureMoveGhost(move);
+        // 传了走子坐标就做动画（出错则退回无动画，绝不影响对局）：走子“飞行”+ 被吃子淡出
+        let ghost = null, capGhost = null;
+        if (move && this._animEnabled()) {
+            ghost = this._captureMoveGhost(move);
+            capGhost = this._captureCapturedGhost(move);
+        }
 
         // 清除所有现有棋子
         this.clearAllPieces();
@@ -270,6 +370,7 @@ class BoardRenderer {
         }
 
         if (ghost) this._runMoveGhost(ghost, move);
+        if (capGhost) this._runCaptureGhost(capGhost);
     }
 
     _animEnabled() {
@@ -323,6 +424,35 @@ class BoardRenderer {
                 try { if (real) real.style.opacity = ''; } catch (e) {}
                 if (this._ghost === g) { this._ghost = null; this._ghostReal = null; }
             }, 200);
+        } catch (e) { /* 动画失败不影响对局 */ }
+    }
+
+    /** 重绘前抓取“被吃子”的影子（DOM 仍是走子前，to 格上若还有子即为被吃子） */
+    _captureCapturedGhost(move) {
+        try {
+            const cell = document.getElementById(CoordinateMapper.positionToId(move.toX, move.toY));
+            const el = cell && cell.querySelector('.chess-piece');
+            if (!el) return null;
+            return { node: el.cloneNode(true), rect: el.getBoundingClientRect() };
+        } catch (e) { return null; }
+    }
+
+    /** 被吃子：原地淡出并缩小旋转，最后移除 */
+    _runCaptureGhost(ghost) {
+        try {
+            const g = ghost.node;
+            g.style.position = 'fixed';
+            g.style.left = ghost.rect.left + 'px';
+            g.style.top = ghost.rect.top + 'px';
+            g.style.width = ghost.rect.width + 'px';
+            g.style.height = ghost.rect.height + 'px';
+            g.style.margin = '0';
+            g.style.pointerEvents = 'none';
+            g.style.zIndex = '54';
+            g.style.transition = 'opacity .3s ease, transform .3s ease';
+            document.body.appendChild(g);
+            requestAnimationFrame(() => { try { g.style.opacity = '0'; g.style.transform = 'scale(.4) rotate(22deg)'; } catch (e) {} });
+            setTimeout(() => { try { g.remove(); } catch (e) {} }, 360);
         } catch (e) { /* 动画失败不影响对局 */ }
     }
 
@@ -425,8 +555,9 @@ class BoardRenderer {
      * 绑定事件（支持触摸和鼠标）
      */
     bindEvents() {
-        // 鼠标点击事件
+        // 鼠标点击事件（拖拽结束会抑制随后合成的 click）
         this.boardElement.addEventListener('click', (e) => {
+            if (this._suppressClick) { this._suppressClick = false; return; }
             this.handleCellClick(e);
         });
         
@@ -448,11 +579,121 @@ class BoardRenderer {
                 this.handleCellClick(e);
             }
         });
+
+        // 桌面端：按住拖拽走子（与点击选择共存；未超过阈值则由 click 处理）
+        this.boardElement.addEventListener('mousedown', (e) => this._onDragStart(e));
+        document.addEventListener('mousemove', (e) => this._onDragMove(e));
+        document.addEventListener('mouseup', (e) => this._onDragEnd(e));
         
         // 防止移动端长按菜单
         this.boardElement.addEventListener('contextmenu', (e) => {
             e.preventDefault();
         });
+    }
+
+    /** 拖拽走子：按下——只记录候选，真正开始拖拽在移动超阈值时 */
+    _onDragStart(e) {
+        if (e.button !== 0) return;
+        if (this.isNetworkMode && !this.isMyTurn()) return;
+        const cell = e.target.closest && e.target.closest('.chess-cell');
+        if (!cell) return;
+        const x = parseInt(cell.dataset.x), y = parseInt(cell.dataset.y);
+        const piece = this.gameState.getPiece(x, y);
+        if (!piece || piece.player !== this.gameState.currentPlayer) return;
+        if (this.isNetworkMode && !this.canControlPiece(piece)) return;
+        this._dragFrom = { x, y };
+        this._dragStartPt = { x: e.clientX, y: e.clientY };
+        this._dragging = false;
+        this._dragEl = null; this._dragReal = null;
+    }
+
+    /** 拖拽走子：移动超过 6px 才真正进入拖拽（选中 + 跟随光标的影子） */
+    _onDragMove(e) {
+        if (!this._dragFrom) return;
+        if (!this._dragging) {
+            if (Math.hypot(e.clientX - this._dragStartPt.x, e.clientY - this._dragStartPt.y) < 6) return;
+            this._dragging = true;
+            this.handlePieceSelection(this._dragFrom.x, this._dragFrom.y);   // 选中 + 高亮可走点
+            try {
+                const cell = document.getElementById(CoordinateMapper.positionToId(this._dragFrom.x, this._dragFrom.y));
+                const el = cell && cell.querySelector('.chess-piece');
+                if (el && this._animEnabled()) {
+                    const rect = el.getBoundingClientRect();
+                    const g = el.cloneNode(true);
+                    g.className = (g.className || '') + ' drag-ghost';
+                    g.style.position = 'fixed';
+                    g.style.left = rect.left + 'px'; g.style.top = rect.top + 'px';
+                    g.style.width = rect.width + 'px'; g.style.height = rect.height + 'px';
+                    g.style.margin = '0'; g.style.pointerEvents = 'none';
+                    document.body.appendChild(g);
+                    this._dragEl = g; this._dragW = rect.width; this._dragH = rect.height;
+                    el.style.opacity = '0.35'; this._dragReal = el;
+                }
+            } catch (err) { /* ignore */ }
+        }
+        if (this._dragEl) {
+            this._dragEl.style.left = (e.clientX - this._dragW / 2) + 'px';
+            this._dragEl.style.top = (e.clientY - this._dragH / 2) + 'px';
+        }
+    }
+
+    /** 拖拽走子：松开——落到合法格则走子，否则还原 */
+    _onDragEnd(e) {
+        if (!this._dragFrom) return;
+        const wasDragging = this._dragging;
+        const from = this._dragFrom;
+        this._dragFrom = null; this._dragging = false;
+        if (this._dragEl) { try { this._dragEl.remove(); } catch (err) {} this._dragEl = null; }
+        if (this._dragReal) { try { this._dragReal.style.opacity = ''; } catch (err) {} this._dragReal = null; }
+        if (!wasDragging) return;   // 未进入拖拽：交给 click 处理
+        this._suppressClick = true;
+        setTimeout(() => { this._suppressClick = false; }, 0);
+        // 用几何换算落点格（不依赖命中检测，任何环境都稳）；再不济退回 elementFromPoint
+        let cell = this._cellFromPoint(e.clientX, e.clientY);
+        if (!cell) {
+            try { const el = document.elementFromPoint(e.clientX, e.clientY); cell = el && el.closest ? el.closest('.chess-cell') : null; } catch (err) { cell = null; }
+        }
+        if (!cell) { this.clearSelection(); return; }
+        const tx = parseInt(cell.dataset.x), ty = parseInt(cell.dataset.y);
+        if (tx === from.x && ty === from.y) { this.clearSelection(); return; }
+        this.handleMove(tx, ty);
+    }
+
+    /** 把视口坐标换算成棋盘格子（考虑内边距、边框与河带）；落在河带/棋盘外返回 null */
+    _cellFromPoint(clientX, clientY) {
+        try {
+            const rect = this.boardElement.getBoundingClientRect();
+            const cs = getComputedStyle(this.boardElement);
+            const padL = parseFloat(cs.paddingLeft) + parseFloat(cs.borderLeftWidth);
+            const padT = parseFloat(cs.paddingTop) + parseFloat(cs.borderTopWidth);
+            const c = this.cellSize, r = this.riverWidth;
+            const map = (v) => {
+                if (v < 0) return null;
+                if (v < 5 * c) return Math.floor(v / c);
+                if (v < 5 * c + r) return null;
+                if (v < 10 * c + r) return 5 + Math.floor((v - 5 * c - r) / c);
+                return null;
+            };
+            const x = map(clientX - rect.left - padL);
+            const y = map(clientY - rect.top - padT);
+            if (x === null || y === null || x < 0 || x > 9 || y < 0 || y > 9) return null;
+            return document.getElementById(CoordinateMapper.positionToId(x, y));
+        } catch (e) { return null; }
+    }
+
+    /** 非法走子：让被选的棋子抖一下（主流象棋的即时反馈） */
+    shakeSelected() {
+        const sel = this.gameState.selectedPiece;
+        if (!sel) return;
+        const cell = document.getElementById(CoordinateMapper.positionToId(sel.x, sel.y));
+        const el = cell && cell.querySelector('.chess-piece');
+        if (!el) return;
+        try {
+            el.classList.remove('shake');
+            void el.offsetWidth;
+            el.classList.add('shake');
+            setTimeout(() => { try { el.classList.remove('shake'); } catch (e) {} }, 420);
+        } catch (e) { /* ignore */ }
     }
     
     /**
@@ -498,7 +739,9 @@ class BoardRenderer {
             }
         } else {
             // 单机模式下只能选择当前玩家的棋子
-            if (!piece || piece.player !== this.gameState.currentPlayer) {
+            if (!piece) return;
+            if (piece.player !== this.gameState.currentPlayer) {
+                Utils.showMessage(`现在轮到${Config.PLAYER_COLORS[this.gameState.currentPlayer].name}走棋`, 'warning');
                 return;
             }
         }
@@ -547,6 +790,7 @@ class BoardRenderer {
             }
         } else {
             Utils.showMessage('无效移动！', 'error');
+            this.shakeSelected();
         }
     }
     
@@ -721,25 +965,23 @@ class BoardRenderer {
      * 高亮最后一步移动
      */
     highlightLastMove() {
+        // 清除上一次的最后一步标记（保留到下一步再更新，符合主流象棋）
+        if (this._lastMoveCells) {
+            this._lastMoveCells.forEach(c => { try { c.classList.remove('last-move-from', 'last-move-to'); } catch (e) {} });
+            this._lastMoveCells = null;
+        }
         const lastMove = this.gameState.getLastMove();
-        if (lastMove) {
-            const fromCell = document.getElementById(
-                CoordinateMapper.positionToId(lastMove.from.x, lastMove.from.y)
-            );
-            const toCell = document.getElementById(
-                CoordinateMapper.positionToId(lastMove.to.x, lastMove.to.y)
-            );
-            
-            if (fromCell && toCell) {
-                fromCell.classList.add('last-move-from');
-                toCell.classList.add('last-move-to');
-                
-                // 3秒后移除高亮
-                setTimeout(() => {
-                    fromCell.classList.remove('last-move-from');
-                    toCell.classList.remove('last-move-to');
-                }, 3000);
-            }
+        if (!lastMove) return;
+        const fromCell = document.getElementById(
+            CoordinateMapper.positionToId(lastMove.from.x, lastMove.from.y)
+        );
+        const toCell = document.getElementById(
+            CoordinateMapper.positionToId(lastMove.to.x, lastMove.to.y)
+        );
+        if (fromCell && toCell) {
+            fromCell.classList.add('last-move-from');
+            toCell.classList.add('last-move-to');
+            this._lastMoveCells = [fromCell, toCell];
         }
     }
 }

@@ -326,6 +326,21 @@
         </div>
     </div>
 
+    <!-- 结算弹窗（取代原生 alert） -->
+    <div id="resultModal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <div class="modal-head">
+                <h3 class="modal-title" id="resultTitle">对局结束</h3>
+                <button class="modal-x" data-close="resultModal" title="关闭">✕</button>
+            </div>
+            <div id="resultBody" class="rules-body"></div>
+            <div class="modal-actions">
+                <button id="resultReplayBtn" class="online-btn online-btn--join">查看对局记录</button>
+                <button class="online-btn online-btn--start" data-close="resultModal">知道了</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 回放控制条（回放时显示在底部） -->
     <div id="replayBar" class="replay-bar hidden">
         <button id="replayFirstBtn" class="online-btn online-btn--leave">⏮</button>
