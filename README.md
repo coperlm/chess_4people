@@ -2,6 +2,10 @@
 
 纯前端的支持1-4人的变体中国象棋，支持免服务器联机（基于WebRTC P2P+Trystero），已部署到 GitHub Pages。
 
+![](pics/Screenshot-pc.jpg)
+
+![](pics/Screenshot-pe.jpg)
+
 ## 功能
 
 - **两种对局方式**：`本地对战`（同一设备轮流操作四个颜色）、`联机对战`（创建房间后，用邀请链接加入）。
