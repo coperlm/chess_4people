@@ -96,15 +96,6 @@ class Utils {
     }
     
     /**
-     * 格式化移动记录
-     */
-    static formatMove(piece, fromX, fromY, toX, toY, captured = null) {
-        const pieceName = Config.PIECE_NAMES[piece.player][piece.type];
-        const captureText = captured ? `吃${Config.PIECE_NAMES[captured.player][captured.type]}` : '';
-        return `${pieceName}(${fromX},${fromY})→(${toX},${toY}) ${captureText}`.trim();
-    }
-    
-    /**
      * 显示消息提示
      */
     static showMessage(message, type = 'info', duration = 3000) {

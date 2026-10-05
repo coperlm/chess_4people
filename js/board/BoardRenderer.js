@@ -505,7 +505,7 @@ class BoardRenderer {
                 this.renderPieces();
                 
                 // 显示移动信息
-                const moveText = Utils.formatMove(piece, fromX, fromY, toX, toY, capturedPiece);
+                const moveText = Notation.format({ player: piece.player, piece: piece.type, from: { x: fromX, y: fromY }, to: { x: toX, y: toY }, captured: capturedPiece });
                 Utils.showMessage(moveText, 'success');
                 
                 // 检查游戏是否结束

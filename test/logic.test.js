@@ -304,11 +304,10 @@ t('全部兵/卒均可后退走法总数为 0', backwardTotal === 0, 'count=' + 
 // =====================================================================
 {
   const mv = { player: 0, piece: 'rook', from: { x: 9, y: 5 }, to: { x: 9, y: 2 }, captured: null };
-  t('坐标记谱', Notation.format(mv, 'coord') === '红方 车 (9,5)→(9,2)', Notation.format(mv, 'coord'));
-  t('中文记谱', Notation.format(mv, 'cn') === '红方 车 (九,五)→(九,二)', Notation.format(mv, 'cn'));
+  t('记谱：两位数字无分隔符', Notation.format(mv) === '红方 车 95→92', Notation.format(mv));
+  t('记谱 span 短串', Notation.span({ x: 9, y: 6 }, { x: 9, y: 5 }) === '96→95', Notation.span({ x: 9, y: 6 }, { x: 9, y: 5 }));
   const cap = { player: 0, piece: 'rook', from: { x: 9, y: 5 }, to: { x: 9, y: 2 }, captured: { player: 2, type: 'pawn' } };
-  t('中文记谱含吃子', Notation.format(cap, 'cn').includes('吃绿方卒'), Notation.format(cap, 'cn'));
-  t('坐标记谱含吃子', Notation.format(cap, 'coord').includes('吃绿方卒'), Notation.format(cap, 'coord'));
+  t('记谱含吃子', Notation.format(cap).includes('吃绿方卒'), Notation.format(cap));
 
   const { gs } = makeGame(); gs.gamePhase = 'playing'; gs.currentPlayer = 0;
   gs.movePiece(0, 6, 0, 5);

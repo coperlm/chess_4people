@@ -30,6 +30,7 @@ class OnlineSession {
         this._resuming = false;
         this._failoverTimer = null;
         this._drawYes = null;   // 求和：已同意的 token 集合
+        this.mySeat = null;     // 我在名册中的座位号（非房主用，标注“你”）
     }
 
     // ================= 初始化 =================
@@ -184,6 +185,7 @@ class OnlineSession {
         this.seq = 0;
         this._lastSeq = 0;
         this.myColors = [];
+        this.mySeat = null;
         this.participants = [];
         this.token = this.token || this._loadToken();
         this.name = (this.el && this.el.name && this.el.name.value.trim()) || this.name || this._randomId();
@@ -327,10 +329,10 @@ class OnlineSession {
         const groups = this._groupsFor(n);
         this.participants.forEach((p, i) => { p.colors = groups[i] || []; });
 
-        for (const p of this.participants) {
+        this.participants.forEach((p, i) => {
             if (p.token === this.token) this._setMyColors(p.colors);
-            else if (p.id) this.actAssign.send({ colors: p.colors, hostId: this.selfId, settings: this.settings }, { target: p.id });
-        }
+            else if (p.id) this.actAssign.send({ colors: p.colors, seat: i, hostId: this.selfId, settings: this.settings }, { target: p.id });
+        });
 
         this.started = true;
         this.gameEngine.startNewGame();   // 房主权威开局（会应用 settings）
@@ -378,8 +380,7 @@ class OnlineSession {
         const name = Config.PLAYER_COLORS[mover].name;
         const pname = (Config.PIECE_NAMES[mover] && Config.PIECE_NAMES[mover][pieceType]) || '';
         const mine = this.myColors.includes(mover);
-        const style = (window.settings && window.settings.notation) || 'coord';
-        Utils.showMessage(`${name} ${pname} ${Notation.span({ x: fromX, y: fromY }, { x: toX, y: toY }, style)}`, mine ? 'success' : 'info');
+        Utils.showMessage(`${name} ${pname} ${Notation.span({ x: fromX, y: fromY }, { x: toX, y: toY })}`, mine ? 'success' : 'info');
         if (window.sound) window.sound.play(captured ? 'capture' : 'move');
     }
 
@@ -476,7 +477,7 @@ class OnlineSession {
         }
         // 回执：分配席位（若已开局）
         if (this.started) {
-            this.actAssign.send({ colors: p.colors, hostId: this.selfId, settings: this.settings }, { target: peerId });
+            this.actAssign.send({ colors: p.colors, seat: this.participants.indexOf(p), hostId: this.selfId, settings: this.settings }, { target: peerId });
             this.actState.send(this._snapshot(), { target: peerId });
         }
         this._broadcastRoster();
@@ -490,6 +491,7 @@ class OnlineSession {
         if (d.hostId) this.hostId = d.hostId;
         // 只记录设置；真正应用以房主广播的局面快照为准（避免局中改设置导致两端规则不一致）
         if (d.settings) this.settings = Object.assign({}, Config.DEFAULT_RULES, d.settings);
+        if (typeof d.seat === 'number') this.mySeat = d.seat;
         this.started = true;
         this._setMyColors(d.colors || []);
         // 开局：自动关闭设置弹窗，回主页面
@@ -707,14 +709,43 @@ class OnlineSession {
         this.actDraw.send({ kind: 'offer', token: this.token, name: this.name || '玩家' });
         Utils.showMessage('已发起求和，等待其他玩家同意…', 'info');
     }
-    _onDraw(d) {
+    /**
+     * 非阻塞的“是否同意和棋”询问。
+     * 不能用 confirm()：标签页在后台时浏览器会直接把它当成“取消”并立即返回 false，
+     * 导致对方根本没看到弹窗、发起方却收到“被拒绝”。这里改用页面内的按钮。
+     */
+    _promptDraw(name) {
+        const d = document.getElementById('drawPrompt');
+        const txt = document.getElementById('drawPromptText');
+        const ok = document.getElementById('drawAcceptBtn');
+        const no = document.getElementById('drawRejectBtn');
+        if (!d || !txt || !ok || !no) return Promise.resolve(confirm(`『${name}』提议和棋，是否同意？`));  // 无 DOM（如测试）时退化
+        if (this._drawPromptOpen) return Promise.resolve(false);   // 已有询问在显示：本次视为拒绝，避免叠加
+        this._drawPromptOpen = true;
+        txt.textContent = `『${name}』提议和棋，是否同意？`;
+        d.classList.remove('hidden');
+        return new Promise(resolve => {
+            const done = val => {
+                d.classList.add('hidden');
+                ok.removeEventListener('click', onOk);
+                no.removeEventListener('click', onNo);
+                this._drawPromptOpen = false;
+                resolve(val);
+            };
+            const onOk = () => done(true);
+            const onNo = () => done(false);
+            ok.addEventListener('click', onOk);
+            no.addEventListener('click', onNo);
+        });
+    }
+
+    async _onDraw(d) {
         if (!d) return;
         if (d.kind === 'offer') {
             if (d.token === this.token) return;                 // 自己发起的，不弹
-            if (this.isHost) this._drawYes = this._drawYes || new Set();
-            if (this.isHost) this._drawYes.add(d.token);        // 提议者视为已同意
-            const who = Utils.escapeHtml(d.name || '对方');
-            if (confirm(`『${who}』提议和棋，是否同意？`)) {
+            if (this.isHost) { this._drawYes = this._drawYes || new Set(); this._drawYes.add(d.token); }  // 提议者视为已同意
+            const agreed = await this._promptDraw(d.name || '对方');
+            if (agreed) {
                 if (this.isHost) { this._drawYes.add(this.token); this._tryResolveDraw(); }
                 else this.actDraw.send({ kind: 'accept', token: this.token }, { target: this.hostId });
             } else {
@@ -847,25 +878,27 @@ class OnlineSession {
             count: this.participants.length,
             started: this.started,
             settings: this.settings,
-            seats: this.participants.map(p => ({ name: p.name || '', colors: p.colors }))
+            seats: this.participants.map(p => ({ name: p.name || '', colors: p.colors, host: p.token === this.token }))
         });
     }
     _renderRoster() {
         if (!this.el || !this.el.roster) return;
         const nameOf = (n, i) => Utils.escapeHtml(n ? n : `玩家${i + 1}`);
+        const roleOf = s => (s.colors || []).length ? s.colors.map(c => Config.PLAYER_COLORS[c].name).join('+') : '待分配';
         if (this.isHost) {
             this.el.roster.innerHTML = this.participants.map((p, i) => {
-                const role = p.colors.length ? p.colors.map(c => Config.PLAYER_COLORS[c].name).join('+') : '待分配';
                 const online = p.token === this.token || p.id ? '' : '（离线）';
-                return `<div>#${i + 1} ${nameOf(p.name, i)} ${p.token === this.token ? '(房主/你)' : online} — ${Utils.escapeHtml(role)}</div>`;
+                return `<div>#${i + 1} ${nameOf(p.name, i)} ${p.token === this.token ? '(房主/你)' : online} — ${Utils.escapeHtml(roleOf(p))}</div>`;
             }).join('');
         } else if (this._roster) {
             const d = this._roster;
             let html = `<div>房间内 ${d.count} 人</div>`;
             const seats = d.seats || [];
             html += seats.map((s, i) => {
-                const role = (s.colors || []).length ? s.colors.map(c => Config.PLAYER_COLORS[c].name).join('+') : '待分配';
-                return `<div>#${i + 1} ${nameOf(s.name, i)} — ${Utils.escapeHtml(role)}</div>`;
+                // 非房主视角：标出谁是房主、哪个是自己
+                const tag = i === 0 || s.host ? '（房主）' : '';
+                const you = (this.mySeat === i) ? '（你）' : '';
+                return `<div>#${i + 1} ${nameOf(s.name, i)} ${tag}${you} — ${Utils.escapeHtml(roleOf(s))}</div>`;
             }).join('');
             this.el.roster.innerHTML = html;
         } else {

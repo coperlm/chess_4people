@@ -277,9 +277,8 @@ class Replay {
         br.renderPieces();
 
         if (this.el && this.el.status) {
-            const style = (window.settings && window.settings.notation) || 'coord';
             const last = index > 0 ? this.moves[index - 1] : null;
-            const mv = last ? Notation.span({ x: last.from[0], y: last.from[1] }, { x: last.to[0], y: last.to[1] }, style) : '初始局面';
+            const mv = last ? Notation.span({ x: last.from[0], y: last.from[1] }, { x: last.to[0], y: last.to[1] }) : '初始局面';
             const flag = this._sigBad ? '⚠️ 签名不匹配 ' : '';
             this.el.status.textContent = `${flag}回放 ${index}/${this.moves.length} 步：${mv}`;
         }
@@ -312,11 +311,11 @@ class Replay {
         if (typeof document === 'undefined') return;
         const el = document.getElementById('moveHistory');
         if (!el) return;
-        const style = (window.settings && window.settings.notation) || 'coord';
         const parts = [];
         for (let i = 0; i < this.moves.length; i++) {
             const d = this.descriptors && this.descriptors[i];
-            const txt = d ? Notation.format(d, style) : `(${this.moves[i].from.join(',')})→(${this.moves[i].to.join(',')})`;
+            const txt = d ? Notation.format(d)
+                : Notation.span({ x: this.moves[i].from[0], y: this.moves[i].from[1] }, { x: this.moves[i].to[0], y: this.moves[i].to[1] });
             const cls = d ? Config.PLAYER_COLORS[d.player].color : '';
             const mark = (i + 1 === this.index) ? ' replay-move--active' : ((i + 1 < this.index) ? ' replay-move--past' : '');
             parts.push(`<div class="text-sm replay-move${mark} ${cls}" data-idx="${i + 1}">${i + 1}. ${txt}</div>`);
@@ -328,9 +327,6 @@ class Replay {
         const cur = el.querySelector('.replay-move--active');
         if (cur && cur.scrollIntoView) cur.scrollIntoView({ block: 'nearest' });
     }
-
-    /** 记谱方式变更后刷新回放走法列表 */
-    refreshView() { if (this.active) this._renderMoveList(); }
 
     _applyRaw(gs, from, to) {
         const pc = gs.getPiece(from[0], from[1]);

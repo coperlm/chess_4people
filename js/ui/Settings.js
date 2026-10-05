@@ -2,7 +2,7 @@
 class Settings {
     constructor() {
         this.KEY = 'chess4p_settings';
-        this.data = Object.assign({ theme: 'light', sound: false, notation: 'coord' }, this._load());
+        this.data = Object.assign({ theme: 'light', sound: false }, this._load());
         this._bound = false;
         this.el = null;
     }
@@ -12,14 +12,13 @@ class Settings {
 
     get theme() { return this.data.theme === 'dark' ? 'dark' : 'light'; }
     get soundEnabled() { return !!this.data.sound; }
-    get notation() { return this.data.notation === 'cn' ? 'cn' : 'coord'; }
 
     init() {
         this.apply();
         if (this._bound || typeof document === 'undefined') return;
         this._bound = true;
         const $ = id => document.getElementById(id);
-        this.el = { dark: $('settingDark'), sound: $('settingSound'), notation: $('settingNotation'), open: $('settingsOpenBtn') };
+        this.el = { dark: $('settingDark'), sound: $('settingSound'), open: $('settingsOpenBtn') };
         if (this.el.dark) {
             this.el.dark.checked = this.theme === 'dark';
             this.el.dark.addEventListener('change', () => this.setTheme(this.el.dark.checked ? 'dark' : 'light'));
@@ -27,10 +26,6 @@ class Settings {
         if (this.el.sound) {
             this.el.sound.checked = this.soundEnabled;
             this.el.sound.addEventListener('change', () => this.setSound(this.el.sound.checked));
-        }
-        if (this.el.notation) {
-            this.el.notation.value = this.notation;
-            this.el.notation.addEventListener('change', () => this.setNotation(this.el.notation.value));
         }
         if (this.el.open && window.gameInterface) {
             this.el.open.addEventListener('click', () => window.gameInterface.openModal('settingsModal'));
@@ -46,12 +41,6 @@ class Settings {
 
     setTheme(v) { this.data.theme = v === 'dark' ? 'dark' : 'light'; this.apply(); this._save(); }
     setSound(v) { this.data.sound = !!v; this.apply(); this._save(); }
-    setNotation(v) {
-        this.data.notation = v === 'cn' ? 'cn' : 'coord';
-        this._save();
-        if (window.gameEngine && window.gameEngine.updateMoveHistory) window.gameEngine.updateMoveHistory();
-        if (window.replay && window.replay.refreshView) window.replay.refreshView();
-    }
 }
 
 if (typeof module !== 'undefined' && module.exports) module.exports = Settings;

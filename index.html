@@ -167,7 +167,6 @@
 
             <div class="modal-actions">
                 <button id="startLocalBtn" class="online-btn online-btn--start hidden">开始本地对局</button>
-                <button id="installAppBtn" class="online-btn online-btn--leave hidden">安装到桌面</button>
             </div>
         </div>
     </div>
@@ -185,14 +184,18 @@
             <div class="setup-group">
                 <label class="online-check"><input id="settingSound" type="checkbox"> 音效（默认关闭）</label>
             </div>
-            <div class="setup-group">
-                <label class="online-label" for="settingNotation">记谱方式</label>
-                <select id="settingNotation" class="online-input">
-                    <option value="coord">坐标记谱：车 (9,5)→(9,2)</option>
-                    <option value="cn">中文记谱：车 (九,五)→(九,二)</option>
-                </select>
+            <div class="online-status">设置会自动保存。<button id="installAppBtn" class="link-btn hidden">安装到桌面</button></div>
+        </div>
+    </div>
+
+    <!-- 求和询问（非阻塞；后台标签页里 confirm 会被浏览器直接当“取消”，故用页面内按钮） -->
+    <div id="drawPrompt" class="draw-prompt hidden">
+        <div class="draw-prompt__box">
+            <div id="drawPromptText" class="draw-prompt__text">对方提议和棋？</div>
+            <div class="modal-actions">
+                <button id="drawAcceptBtn" class="online-btn online-btn--start">同意</button>
+                <button id="drawRejectBtn" class="online-btn online-btn--leave">拒绝</button>
             </div>
-            <div class="online-status">设置会自动保存。</div>
         </div>
     </div>
 
@@ -251,7 +254,8 @@
                 <h4>操作</h4>
                 <ul>
                     <li>点击棋子选中，再点目标位置落子；<b>ESC</b> 取消选择/关弹窗，<b>Ctrl+Z</b> 悔棋，<b>Ctrl+N</b> 对局设置。</li>
-                    <li>「设置」里可切换 <b>深色模式</b>、<b>音效</b>（默认关闭）、<b>记谱方式</b>（坐标 / 中文）；悔棋可连点多次（多步），每次都会记入「悔棋记录」。</li>
+                    <li>「设置」里可切换 <b>深色模式</b> 与 <b>音效</b>（默认关闭）；悔棋可连点多次（多步），每次都会记入「悔棋记录」。</li>
+                    <li>记谱用两位数字表示一格（如 <code>95</code> 即第 9 列第 5 行），10×10 下每位都是一位数，故无需分隔符。</li>
                 </ul>
             </div>
         </div>
@@ -269,7 +273,7 @@
                 <button id="importReplayBtn" class="online-btn online-btn--join">导入回放</button>
             </div>
             <input id="importReplayInput" type="file" accept=".txt,text/plain" class="hidden">
-            <div class="online-status">导出为单行编码（含签名，人不可读）；导入后按「设置」里的记谱方式列出走法，可逐手查看。</div>
+            <div class="online-status">导出为单行编码（含签名，人不可读）；导入后会在「移动历史」里列出走法，可点击跳转。</div>
             <div id="replaySig" class="online-status"></div>
         </div>
     </div>

@@ -524,16 +524,12 @@ class GameEngine {
     /**
      * 更新移动历史显示
      */
-    /** 当前记谱方式（由设置决定；无设置时回退坐标记谱） */
-    _notationStyle() { return (window.settings && window.settings.notation) || 'coord'; }
-
     updateMoveHistory() {
         const historyElement = document.getElementById('moveHistory');
         if (!historyElement) return;
 
         const history = this.gameState.moveHistory;
         const undoLog = this.gameState.undoLog || [];
-        const style = this._notationStyle();
 
         if (history.length === 0 && undoLog.length === 0) {
             historyElement.innerHTML = '<p class="text-gray-500 text-sm">暂无移动记录</p>';
@@ -544,14 +540,14 @@ class GameEngine {
         // 走子（最新在上）
         history.slice().reverse().forEach(move => {
             const cls = Config.PLAYER_COLORS[move.player].color;
-            parts.push(`<div class="text-sm ${cls}">${Notation.format(move, style)}</div>`);
+            parts.push(`<div class="text-sm ${cls}">${Notation.format(move)}</div>`);
         });
         // 悔棋记录（单独列出，最新在上）
         if (undoLog.length) {
             parts.push('<div class="move-subhead">悔棋记录</div>');
             undoLog.slice().reverse().forEach(u => {
                 const cls = Config.PLAYER_COLORS[u.player].color;
-                parts.push(`<div class="text-sm move-line--undo ${cls}">↩ ${Notation.format(u, style)}</div>`);
+                parts.push(`<div class="text-sm move-line--undo ${cls}">↩ ${Notation.format(u)}</div>`);
             });
         }
         historyElement.innerHTML = parts.join('');
