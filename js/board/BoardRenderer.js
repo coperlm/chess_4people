@@ -138,7 +138,7 @@ class BoardRenderer {
             }
         }
 
-        // 棋盘装饰层：线格 + 九宫斜线 + 炮/兵起始标记 + 坐标 + 河界文字（纯视觉，不拦截点击）
+        // 棋盘装饰层：线格 + 九宫斜线 + 坐标 + 河界文字（纯视觉，不拦截点击）
         this._buildBoardOverlay();
         
         // 渲染棋子
@@ -188,7 +188,7 @@ class BoardRenderer {
     _contentSize() { return Config.BOARD_SIZE * this.cellSize; }
 
     /**
-     * 棋盘装饰层：线格（交叉点棋盘，棋子落在交点）、九宫斜线、炮/兵起始“四角括”、坐标 0-9。
+     * 棋盘装饰层：线格（交叉点棋盘，棋子落在交点）、九宫斜线、坐标 0-9、河界文字。
      * 作为跨整格的绝对定位层叠在最上（纯视觉，pointer-events:none）。
      */
     _buildBoardOverlay() {
@@ -262,24 +262,7 @@ class BoardRenderer {
             }
         }
 
-        // ④ 炮/兵起始标记：围住“交叉点”的四角括（略大于棋子，臂尖能露出棋子外）
-        const mk = Math.round(cell * 0.96);
-        for (let p = 0; p < 4; p++) {
-            for (const it of Config.INITIAL_POSITIONS[p]) {
-                if (it.type !== Config.PIECE_TYPES.CANNON && it.type !== Config.PIECE_TYPES.PAWN) continue;
-                const m = document.createElement('div');
-                m.className = 'start-mark';
-                m.style.left = this._xCenter(it.x) + 'px';
-                m.style.top = this._yCenter(it.y) + 'px';
-                m.style.width = mk + 'px';
-                m.style.height = mk + 'px';
-                m.style.transform = 'translate(-50%,-50%)';
-                for (let k = 0; k < 4; k++) m.appendChild(document.createElement('i'));
-                layer.appendChild(m);
-            }
-        }
-
-        // ⑤ 河界文字：河界是“同底色空白带”，只用文字 + 断线标示（横竖一致，贴近真象棋）
+        // ④ 河界文字：河界是“同底色空白带”，只用文字 + 断线标示（横竖一致，贴近真象棋）
         if (cell >= 30) {
             const rfs = Math.max(12, Math.round(cell * 0.46));
             const midHb = (this._yCenter(4) + this._yCenter(5)) / 2;   // 横河中线
@@ -298,7 +281,7 @@ class BoardRenderer {
             addRiverText(midVb, this._yCenter(7), '汉界', true);
         }
 
-        // ⑥ 坐标标注：贴在棋盘外沿（内边距里）。上下列=第1位(列 x)，左右行=第2位(行 y)。
+        // ⑤ 坐标标注：贴在棋盘外沿（内边距里）。上下列=第1位(列 x)，左右行=第2位(行 y)。
         const fs = Math.max(9, Math.round(cell * 0.28));
         const off = Math.max(7, Math.round(cell * 0.16));
         const size = this._contentSize();
