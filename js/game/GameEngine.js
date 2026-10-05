@@ -478,8 +478,9 @@ class GameEngine {
     }
 
     /**
-     * 每步倒计时（仅视觉）：只在“联机对战进行中、且不在回放”时计时。60 秒，剩余 ≤10s 变红，
+     * 每步倒计时（仅视觉）：只在“联机对战进行中、且不在回放”时计时。60 秒，剩余 ≤10s 变红（含 0:00 一直保持红），
      * 到点不做任何操作，只轻提示。本地对局 / 回放 / 未开始 都不显示、不计时。
+     * 剩余按“本回合开始时间”算差值：房主记开始时间并随快照广播，各端据此对齐；刷新后接着走、不重置回 60。
      */
     updateTurnTimer() {
         const gs = this.gameState;
@@ -487,22 +488,24 @@ class GameEngine {
         const inReplay = !!(window.replay && window.replay.active);
         const running = gs.gamePhase === 'playing' && online && !inReplay;
         const key = running ? (gs.currentPlayer + ':' + gs.turn) : 'off';
-        if (key === this._timerKey) return;
+        if (key === this._timerKey) { this._serverTurnStartedAt = null; return; }
         this._timerKey = key;
         if (this._timerId) { clearInterval(this._timerId); this._timerId = null; }
-        if (!running) { this._renderTurnTimer(-1); return; }
-        this._timerRemain = 60;
-        this._renderTurnTimer(this._timerRemain);
+        if (!running) { this._renderTurnTimer(-1); this._serverTurnStartedAt = null; return; }
+        // 本回合开始时间：房主取现在；其余端优先用房主随快照广播来的（刷新/重连能接着走）
+        const isHost = !!(window.onlineSession && window.onlineSession.isHost);
+        this._turnStartedAt = isHost ? Date.now() : (this._serverTurnStartedAt || Date.now());
+        this._serverTurnStartedAt = null;
+        const remainOf = () => Math.max(0, 60 - Math.floor((Date.now() - this._turnStartedAt) / 1000));
+        this._renderTurnTimer(remainOf());
         this._timerId = setInterval(() => {
-            this._timerRemain--;
-            if (this._timerRemain <= 0) {
+            const remain = remainOf();
+            this._renderTurnTimer(remain);
+            if (remain <= 0) {
                 clearInterval(this._timerId); this._timerId = null;
-                this._renderTurnTimer(0);
                 const p = this.gameState.currentPlayer;
                 Utils.showMessage(`该 ${Config.PLAYER_COLORS[p].name} 走棋了`, 'info');
-                return;
             }
-            this._renderTurnTimer(this._timerRemain);
         }, 1000);
     }
 
@@ -518,7 +521,7 @@ class GameEngine {
         if (!el) return;
         const m = Math.floor(sec / 60), s = sec % 60;
         el.textContent = `${m}:${String(s).padStart(2, '0')}`;
-        el.classList.toggle('timer--red', sec > 0 && sec <= 10);
+        el.classList.toggle('timer--red', sec <= 10);   // 含 0:00：到点后保持红色
     }
     
     /**

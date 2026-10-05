@@ -945,6 +945,7 @@ class OnlineSession {
             seq: this.seq,
             currentPlayer: gs.currentPlayer,
             turn: gs.turn,
+            turnStartedAt: (this.gameEngine && this.gameEngine._turnStartedAt) || null,   // 各端据此对齐倒计时
             gamePhase: gs.gamePhase,
             startedAt: (this.gameEngine && this.gameEngine.gameStartTime) || null,
             winner: gs.winner,
@@ -1011,6 +1012,7 @@ class OnlineSession {
         // 同步本局开始时间（非房主原样没有 gameStartTime，导致结算显示“游戏时长：未知”）
         if (d.startedAt) ge.gameStartTime = d.startedAt;
         else if (!ge.gameStartTime && d.gamePhase === 'playing') ge.gameStartTime = Date.now();
+        if (d.turnStartedAt) ge._serverTurnStartedAt = d.turnStartedAt;   // 倒计时按房主的“回合开始时间”对齐（刷新后接着走）
         ge.boardRenderer.clearSelection();
         ge.boardRenderer.renderPieces();
         ge.updateUI();
