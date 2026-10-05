@@ -251,11 +251,17 @@ class OnlineSession {
         if (isHost) {
             this.hostId = this.selfId;
             const roster = (record && record.roster) || [];
-            this.participants = [{ token: this.token, id: this.selfId, colors: [], name: this.name }];
+            // record.roster 里也含房主一条：重连时要把房主自己的颜色恢复回来，否则会变成“观战”
+            const savedSelf = roster.find(r => r.token === this.token);
+            this.participants = [{ token: this.token, id: this.selfId, colors: (savedSelf && savedSelf.colors) || [], name: this.name }];
+            const seen = new Set([this.token]);
             for (const r of roster) {
-                if (r.token === this.token) continue;
+                if (!r.token || seen.has(r.token)) continue;   // 跳过自己 + 去重
+                seen.add(r.token);
                 this.participants.push({ token: r.token, id: null, colors: r.colors || [], name: r.name || '' });
             }
+            // 重连且已开局：把房主颜色应用上（否则只能观战）
+            if (this._resuming && this.participants[0].colors.length) this.myColors = this.participants[0].colors.slice();
             if (this._resuming) {
                 this.started = !!(record && record.started);
                 this.settings = Object.assign({}, Config.DEFAULT_RULES, (record && record.settings) || {});

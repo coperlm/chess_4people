@@ -56,9 +56,9 @@ class GameInterface {
         bind('rulesOpenBtn', () => this.openRules());
         bind('resultReplayBtn', () => { this.closeModalById('resultModal'); this.openReplay(); });
 
-        // 统一：右上角 ✕ 关闭 + 点击遮罩关闭 + ESC 关闭最上层弹窗 + 无障碍标注
-        document.querySelectorAll('.modal-x').forEach(btn => {
-            btn.setAttribute('aria-label', '关闭');
+        // 统一：关闭按钮（✕ 或任意带 data-close 的按钮）+ 点击遮罩关闭 + ESC 关闭最上层弹窗 + 无障碍标注
+        document.querySelectorAll('[data-close]').forEach(btn => {
+            if (btn.classList.contains('modal-x')) btn.setAttribute('aria-label', '关闭');
             btn.addEventListener('click', () => this.closeModalById(btn.dataset.close));
         });
         document.querySelectorAll('.modal-overlay').forEach(ov => {

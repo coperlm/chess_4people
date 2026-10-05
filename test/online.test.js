@@ -452,6 +452,30 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     h._clearOfflineTimer();
   }
 
+  // === 房主断线重连：必须恢复房主自己的颜色（否则会变成“观战”），且名册不重复 ===
+  {
+    const hE = fakeEngine();
+    hE.persistence = { loadGameState: () => ({ gamePhase: 'playing' }), restoreGameState: () => {}, clearSavedState: () => {} };
+    const h = new OnlineSession(hE);
+    h.token = 'HOST';
+    const record = {
+      roomId: 'room-resume', isHost: true, token: 'HOST', started: true,
+      settings: { mode: 'team', victory: 'any_king', friendlyFire: false },
+      roster: [
+        { token: 'HOST', name: '房主', colors: [0, 1] },
+        { token: 'PEER', name: '乙', colors: [2, 3] },
+        { token: 'PEER', name: '乙', colors: [2, 3] }   // 故意塞一条重复，验证去重
+      ]
+    };
+    h._resuming = true;
+    h._open('room-resume', true, record);
+    await tick(); await tick();
+    t('房主重连恢复自己的颜色', eq(h.myColors, [0, 1]), JSON.stringify(h.myColors));
+    t('房主重连仍是参战者且已开局', h.myColors.length > 0 && h.started === true);
+    t('房主重连后名册去重（房主+1人）', h.participants.length === 2, JSON.stringify(h.participants.map(p => p.token)));
+    t('房主重连席位颜色正确', eq(h.participants[0].colors, [0, 1]), JSON.stringify(h.participants.map(p => p.colors)));
+  }
+
   console.log(`\n联机协议测试: ${pass} 通过, ${fail} 失败`);
   if (fail) { console.log('\n失败项:'); failures.forEach(f => console.log('  ✗ ' + f)); process.exit(1); }
   console.log('✅ 全部通过');
