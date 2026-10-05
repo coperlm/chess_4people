@@ -6,6 +6,7 @@ class BoardRenderer {
         this.ruleValidator = ruleValidator;
         this.boardElement = document.getElementById('chessBoard');
         this.selectedCell = null;
+        this.premove = null;   // 预备走子：{ from:[x,y], to:[x,y]|null }
         
         // 网络模式相关
         this.isNetworkMode = false;
@@ -689,6 +690,96 @@ class BoardRenderer {
         } catch (e) { /* ignore */ }
     }
     
+    // ===================== 预备走子（仅：联机 + 恰好四人） =====================
+    /**
+     * 是否允许预备走子。要求：联机对局进行中、恰好 4 名玩家参战、非回放、且自己有色可走。
+     * 四人轮流等待最久，预走收益最大；人数更少或本地热座不启用。
+     */
+    _premoveEnabled() {
+        const os = window.onlineSession;
+        if (!os || !os.active || !os.started) return false;
+        if (!this.isNetworkMode) return false;
+        if (window.replay && window.replay.active) return false;
+        if (!this.myColors || !this.myColors.length) return false;
+        const players = (os.participants || []).filter(p => p && p.colors && p.colors.length);
+        return players.length === 4;
+    }
+
+    /** 非己方回合的点击：设置 / 改选 / 取消「预备走子」 */
+    _handlePremoveClick(x, y) {
+        const gs = this.gameState;
+        // 再点一次起点 = 取消
+        if (this.premove && this.premove.from[0] === x && this.premove.from[1] === y) {
+            this.cancelPremove();
+            Utils.showMessage('已取消预备走子', 'info');
+            return;
+        }
+        const piece = gs.getPiece(x, y);
+        // 点自己的棋子 → 记为预备起点
+        if (piece && this.myColors.includes(piece.player)) {
+            this.premove = { from: [x, y], to: null };
+            this._renderPremove();
+            return;
+        }
+        // 已有起点 → 设落点（用“忽略回合”的校验，确认这一步本身成立）
+        if (this.premove && this.premove.from) {
+            const [fx, fy] = this.premove.from;
+            if (!this.ruleValidator.isValidMove(fx, fy, x, y, true)) {
+                Utils.showMessage('这一步走不了', 'warning');
+                return;
+            }
+            this.premove.to = [x, y];
+            this._renderPremove();
+            Utils.showMessage('预备走子已记下，轮到你时自动执行', 'info');
+        }
+    }
+
+    /** 轮到自己时尝试执行预备走子（由 GameEngine.updateUI 调用） */
+    tryExecutePremove() {
+        if (!this.premove || !this.premove.to) return;
+        // 条件不再满足（离开房间/人数变化/回放）→ 直接清掉
+        if (!this._premoveEnabled()) { this.cancelPremove(); return; }
+        if (this.gameState.gamePhase !== 'playing' || !this.isMyTurn()) return;   // 还没轮到，继续等待
+        const [fx, fy] = this.premove.from;
+        const [tx, ty] = this.premove.to;
+        const piece = this.gameState.getPiece(fx, fy);
+        const okPiece = !!(piece && this.myColors.includes(piece.player));
+        const okMove = okPiece && this.ruleValidator.isValidMove(fx, fy, tx, ty);
+        const selfCheck = okMove && this.ruleValidator.wouldBeInCheckAfterMove(fx, fy, tx, ty, piece.player);
+        this.cancelPremove();
+        if (!okMove || selfCheck) {
+            Utils.showMessage(selfCheck ? '预备走子会让你被将军，已取消' : '预备走子已失效', 'warning');
+            return;
+        }
+        this._proceedMove(fx, fy, tx, ty);
+    }
+
+    /** 清除预备走子状态与高亮 */
+    cancelPremove() {
+        if (!this.premove) return;
+        this.premove = null;
+        this._clearPremoveVisual();
+    }
+
+    _renderPremove() {
+        this._clearPremoveVisual();
+        if (!this.premove) return;
+        const [fx, fy] = this.premove.from;
+        const fc = document.getElementById(CoordinateMapper.positionToId(fx, fy));
+        if (fc) fc.classList.add('premove-from');
+        if (this.premove.to) {
+            const [tx, ty] = this.premove.to;
+            const tc = document.getElementById(CoordinateMapper.positionToId(tx, ty));
+            if (tc) tc.classList.add('premove-to');
+        }
+    }
+
+    _clearPremoveVisual() {
+        if (!this.boardElement) return;
+        this.boardElement.querySelectorAll('.premove-from, .premove-to')
+            .forEach(c => c.classList.remove('premove-from', 'premove-to'));
+    }
+
     /**
      * 处理格子点击事件
      */
@@ -696,14 +787,16 @@ class BoardRenderer {
         const cell = e.target.closest('.chess-cell');
         if (!cell) return;
         
+        const x = parseInt(cell.dataset.x);
+        const y = parseInt(cell.dataset.y);
+        
         // 网络模式下检查是否是自己的回合
         if (this.isNetworkMode && !this.isMyTurn()) {
+            // 预备走子：仅“联机 + 恰好四人”时可用（见 _premoveEnabled）
+            if (this._premoveEnabled()) { this._handlePremoveClick(x, y); return; }
             Utils.showMessage('现在不是你的回合', 'warning');
             return;
         }
-        
-        const x = parseInt(cell.dataset.x);
-        const y = parseInt(cell.dataset.y);
         
         if (this.gameState.selectedPiece) {
             // 已有选中的棋子，尝试移动
@@ -908,6 +1001,7 @@ class BoardRenderer {
      * 处理游戏结束
      */
     handleGameEnd() {
+        this.cancelPremove();
         const winner = this.gameState.winner;
         let message = '';
         
@@ -939,6 +1033,7 @@ class BoardRenderer {
         try {
             
             this.clearSelection();
+            this.cancelPremove();
             
             if (this.boardElement) {
                 this.boardElement.style.pointerEvents = 'auto';

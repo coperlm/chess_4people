@@ -324,6 +324,25 @@ t('全部兵/卒均可后退走法总数为 0', backwardTotal === 0, 'count=' + 
   t('和棋：finished + isDraw + 无 winner', gs.gamePhase === 'finished' && gs.isDraw === true && gs.winner === null);
 }
 
+// ---- 预备走子：RuleValidator.isValidMove 的 ignoreTurn 开关（默认行为不变） ----
+{
+  const { gs, rv } = makeGame();
+  emptyBoard(gs);
+  put(gs, 'rook', 0, 0, 5);
+  put(gs, 'king', 0, 0, 7);
+  put(gs, 'pawn', 0, 0, 3, 'up');      // 同色，挡在 (0,3)
+  gs.gamePhase = 'playing';
+  gs.currentPlayer = 1;                // 当前不是红方回合
+
+  t('非己方回合：默认校验拒绝该走法', rv.isValidMove(0, 5, 0, 4) === false);
+  t('预备走子：ignoreTurn 放行同一走法', rv.isValidMove(0, 5, 0, 4, true) === true);
+  t('ignoreTurn 不绕过路径规则（被己方子挡住）', rv.isValidMove(0, 5, 0, 0, true) === false);
+  t('ignoreTurn 不绕过“不能吃己方子”', rv.isValidMove(0, 5, 0, 7, true) === false);
+  t('ignoreTurn 不影响正常走法判定', rv.isValidMove(0, 5, 0, 6, true) === true);
+  t('getValidMoves 默认受回合限制（返回空）', rv.getValidMoves(0, 5).length === 0);
+  t('getValidMoves(ignoreTurn) 返回可走点', rv.getValidMoves(0, 5, true).length > 0);
+}
+
 // ---- 汇总 ----
 console.log(`\n规则回归测试: ${pass} 通过, ${fail} 失败`);
 if (fail) { console.log('\n失败项:'); failures.forEach(f => console.log('  ✗ ' + f)); process.exit(1); }

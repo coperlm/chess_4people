@@ -8,9 +8,13 @@ class RuleValidator {
     /**
      * 验证移动是否合法
      */
-    isValidMove(fromX, fromY, toX, toY) {
+    /**
+     * @param {boolean} [ignoreTurn] 仅用于「预备走子」：非己方回合也按同一套规则校验收否可行。
+     *        仅跳过「是否为当前回合方」这一条，其余规则不变。默认 false，行为与以往完全一致。
+     */
+    isValidMove(fromX, fromY, toX, toY, ignoreTurn = false) {
         // 基础验证
-        if (!this.isBasicMoveValid(fromX, fromY, toX, toY)) {
+        if (!this.isBasicMoveValid(fromX, fromY, toX, toY, ignoreTurn)) {
             return false;
         }
         
@@ -30,7 +34,7 @@ class RuleValidator {
     /**
      * 基础移动验证
      */
-    isBasicMoveValid(fromX, fromY, toX, toY) {
+    isBasicMoveValid(fromX, fromY, toX, toY, ignoreTurn = false) {
         // 坐标范围检查
         if (!Utils.isValidPosition(fromX, fromY) || !Utils.isValidPosition(toX, toY)) {
             return false;
@@ -47,8 +51,8 @@ class RuleValidator {
             return false;
         }
         
-        // 只能移动当前玩家的棋子
-        if (piece.player !== this.gameState.currentPlayer) {
+        // 只能移动当前玩家的棋子（预备走子在非己方回合校验时跳过此条）
+        if (!ignoreTurn && piece.player !== this.gameState.currentPlayer) {
             return false;
         }
         
@@ -252,7 +256,7 @@ class RuleValidator {
     /**
      * 获取指定位置棋子的所有合法移动
      */
-    getValidMoves(x, y) {
+    getValidMoves(x, y, ignoreTurn = false) {
         const piece = this.gameState.getPiece(x, y);
         if (!piece) return [];
         
@@ -263,7 +267,7 @@ class RuleValidator {
         
         // 验证每个移动是否合法
         for (const move of possibleMoves) {
-            if (this.isValidMove(x, y, move.x, move.y)) {
+            if (this.isValidMove(x, y, move.x, move.y, ignoreTurn)) {
                 moves.push(move);
             }
         }

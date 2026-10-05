@@ -1666,22 +1666,34 @@ html[data-theme="dark"] .chess-cell.playable:hover{ background:radial-gradient(c
 .chess-cell.check::after{ content:""; position:absolute; left:50%; top:50%; width:94%; height:94%; transform:translate(-50%,-50%); border-radius:50%; box-shadow:0 0 0 3px rgba(200,40,40,.9), 0 0 16px 6px rgba(200,40,40,.5); animation:checkPulse 1.1s ease-in-out infinite; }
 .chess-cell.last-move-from, .chess-cell.last-move-to{ background:none !important; box-shadow:none !important; }
 .chess-cell.last-move-from::before, .chess-cell.last-move-to::before{ content:""; position:absolute; left:50%; top:50%; width:58%; height:58%; transform:translate(-50%,-50%); border-radius:50%; background:rgba(217,119,6,.30); }
+/* 预备走子：起点/落点用紫色虚线框标示（与“最后一步/将军/选中”区分；用 outline 不与其他伪元素/阴影冲突） */
+.chess-cell.premove-from, .chess-cell.premove-to{ outline:2px dashed #8b5cf6; outline-offset:-3px; background-image:linear-gradient(rgba(139,92,246,.16), rgba(139,92,246,.16)); }
+html[data-theme="dark"] .chess-cell.premove-from, html[data-theme="dark"] .chess-cell.premove-to{ outline-color:#a78bfa; }
 @media (prefers-reduced-motion: reduce){ .chess-cell.check::after{ animation:none; } }
 /* 河界不再填色：河界是“同底色空白带”，只靠线格断开 + 河界文字标示（见 .river-text） */
 .chess-piece{ border-width:2px; border-style:solid; font-weight:800; font-family:"KaiTi","STKaiti","Kaiti SC","Noto Serif SC",serif;
-  box-shadow:0 3px 7px rgba(0,0,0,.32), 0 1px 2px rgba(0,0,0,.22), inset 0 -3px 6px rgba(0,0,0,.16), inset 0 3px 5px rgba(255,255,255,.92) !important; }
+  box-shadow:0 6px 14px -4px rgba(60,30,10,.45), 0 2px 3px rgba(0,0,0,.26),
+    inset 0 -4px 8px rgba(0,0,0,.20), inset 0 4px 6px rgba(255,255,255,.95),
+    inset 0 0 0 1px rgba(255,255,255,.22) !important; }
 /* 棋子内圈“刻线”（传统棋子中间那道圈），纯装饰 */
 .chess-piece::before{ content:""; position:absolute; inset:9%; border-radius:50%; pointer-events:none;
-  box-shadow:inset 0 0 0 1.5px rgba(0,0,0,.14), 0 1px 0 rgba(255,255,255,.5); }
-.chess-piece.selected{ box-shadow:0 0 0 3px rgba(46,125,91,.8), 0 3px 8px rgba(0,0,0,.3) !important; }
+  box-shadow:inset 0 0 0 1.5px rgba(0,0,0,.16), 0 1px 0 rgba(255,255,255,.6); }
+/* 四色「非颜色」区分：红/蓝、绿/黑 棋子用字完全相同（帅/士/相/兵 vs 将/仕/象/卒）、
+   只靠颜色区分，色觉障碍或小屏下难以分辨。给四种颜色各配一种**边沿描线样式**做冗余线索：
+   红=实线 / 蓝=虚线 / 绿=点线 / 黑=双线。 */
+.chess-piece[data-player="0"]{ border-style:solid; }
+.chess-piece[data-player="1"]{ border-style:dashed; }
+.chess-piece[data-player="2"]{ border-style:dotted; border-width:3px; }
+.chess-piece[data-player="3"]{ border-style:double; border-width:4px; }
+.chess-piece.selected{ box-shadow:0 0 0 3px rgba(46,125,91,.8), 0 6px 14px -4px rgba(0,0,0,.4) !important; }
 .chess-piece[data-player="0"]{ color:var(--red) !important; border-color:#c9544a !important;
-  background:repeating-radial-gradient(circle at 50% 47%, rgba(120,60,40,.05) 0 1px, transparent 1px 5px), radial-gradient(circle at 32% 28%, #fff, #f6dcd7) !important; }
+  background:radial-gradient(circle at 50% 122%, rgba(90,30,20,.16), transparent 60%), repeating-radial-gradient(circle at 50% 47%, rgba(120,60,40,.05) 0 1px, transparent 1px 5px), radial-gradient(circle at 32% 26%, #fff, #f6dcd7) !important; }
 .chess-piece[data-player="1"]{ color:var(--blue) !important; border-color:#4a7cc4 !important;
-  background:repeating-radial-gradient(circle at 50% 47%, rgba(40,70,120,.05) 0 1px, transparent 1px 5px), radial-gradient(circle at 32% 28%, #fff, #d9e6f8) !important; }
+  background:radial-gradient(circle at 50% 122%, rgba(30,50,100,.16), transparent 60%), repeating-radial-gradient(circle at 50% 47%, rgba(40,70,120,.05) 0 1px, transparent 1px 5px), radial-gradient(circle at 32% 26%, #fff, #d9e6f8) !important; }
 .chess-piece[data-player="2"]{ color:var(--green) !important; border-color:#3fa079 !important;
-  background:repeating-radial-gradient(circle at 50% 47%, rgba(30,100,70,.05) 0 1px, transparent 1px 5px), radial-gradient(circle at 32% 28%, #fff, #d7efe4) !important; }
+  background:radial-gradient(circle at 50% 122%, rgba(20,70,50,.16), transparent 60%), repeating-radial-gradient(circle at 50% 47%, rgba(30,100,70,.05) 0 1px, transparent 1px 5px), radial-gradient(circle at 32% 26%, #fff, #d7efe4) !important; }
 .chess-piece[data-player="3"]{ color:var(--black) !important; border-color:#6b6259 !important;
-  background:repeating-radial-gradient(circle at 50% 47%, rgba(60,55,48,.05) 0 1px, transparent 1px 5px), radial-gradient(circle at 32% 28%, #fff, #e3ddd4) !important; }
+  background:radial-gradient(circle at 50% 122%, rgba(50,45,40,.16), transparent 60%), repeating-radial-gradient(circle at 50% 47%, rgba(60,55,48,.05) 0 1px, transparent 1px 5px), radial-gradient(circle at 32% 26%, #fff, #e3ddd4) !important; }
 
 #messageToast{ border-radius:12px; box-shadow:var(--shadow); font-weight:600; max-width:calc(100vw - 2rem); }
 

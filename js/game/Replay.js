@@ -228,6 +228,7 @@ class Replay {
         this.rules = data.rules || Config.DEFAULT_RULES;
         this.descriptors = this._buildDescriptors(this.moves);
         const br = this.ge.boardRenderer;
+        if (br.cancelPremove) br.cancelPremove();
         this._live = br.gameState;
         this.active = true;
         if (br.boardElement) br.boardElement.style.pointerEvents = 'none';

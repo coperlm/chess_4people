@@ -69,7 +69,10 @@ class GameInterface {
         document.addEventListener('keydown', (e) => {
             if (e.key !== 'Escape') return;
             const open = [...document.querySelectorAll('.modal-overlay')].filter(m => !m.classList.contains('hidden'));
-            if (open.length) open[open.length - 1].classList.add('hidden');
+            if (open.length) { open[open.length - 1].classList.add('hidden'); return; }
+            // 没有弹窗时，ESC 取消防预备走子
+            const br = this.gameEngine && this.gameEngine.boardRenderer;
+            if (br && br.cancelPremove) br.cancelPremove();
         });
     }
 

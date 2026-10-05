@@ -205,6 +205,7 @@ class GameEngine {
             if (!ok) return;
             if (this.gameState.undoMove()) {
                 if (window.sound) window.sound.play('undo');
+                this.boardRenderer.cancelPremove();
                 this.boardRenderer.update();
                 this.updateUI();
                 this.updateMoveHistory();
@@ -463,6 +464,9 @@ class GameEngine {
         this.updateBoardEnabled();
         this.updateTurnTimer();
         this.updateCheckHighlight();
+        // 回合变化后：若本方有「预备走子」且轮到自己，自动执行（仅联机四人，见 BoardRenderer.tryExecutePremove）
+        const br = this.boardRenderer;
+        if (br && br.tryExecutePremove) br.tryExecutePremove();
     }
 
     /**

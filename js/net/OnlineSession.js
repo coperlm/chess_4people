@@ -336,6 +336,7 @@ class OnlineSession {
         this._drawYes = null;
         this._clearFailoverTimer();
         this._clearOfflineTimer();
+        try { if (this.gameEngine && this.gameEngine.boardRenderer && this.gameEngine.boardRenderer.cancelPremove) this.gameEngine.boardRenderer.cancelPremove(); } catch (e) { /* ignore */ }
         this._applyNetworkMode(false);
         return room;
     }
@@ -747,6 +748,7 @@ class OnlineSession {
         if (window.sound) window.sound.play('undo');
         this.seq++;
         ge.boardRenderer.clearSelection();
+        if (ge.boardRenderer.cancelPremove) ge.boardRenderer.cancelPremove();
         ge.boardRenderer.renderPieces();
         ge.updateUI();
         if (ge.updateMoveHistory) ge.updateMoveHistory();
