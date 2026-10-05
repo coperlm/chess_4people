@@ -96,7 +96,14 @@ class GameInterface {
         p.classList.toggle('hidden', !(active || this.setupMode === 'online'));
     }
     closeSetup() { this.closeModalById('setupModal'); }
-    openReplay() { this.openModal('replayModal'); }
+    openReplay() {
+        this.openModal('replayModal');
+        // 还没有走子则禁用「导出回放」（空回放没有意义）
+        const rp = window.replay;
+        if (rp && rp.el && rp.el.export) {
+            rp.el.export.disabled = !((this.gameEngine.gameState.moveHistory || []).length);
+        }
+    }
     closeReplay() { this.closeModalById('replayModal'); }
     openRules() { this.openModal('rulesModal'); }
 

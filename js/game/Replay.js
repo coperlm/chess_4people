@@ -60,6 +60,8 @@ class Replay {
         const gs = this.ge.gameState;
         const st = (window.onlineSession && window.onlineSession.settings) || Config.DEFAULT_RULES;
         const hist = gs.moveHistory || [];
+        // 没有走子不允许导出（空回放没有意义）
+        if (!hist.length) { Utils.showMessage('还没有走子，无法导出对局', 'warning'); return; }
         const now = new Date();
         const pad = n => String(n).padStart(2, '0');
 
@@ -342,7 +344,7 @@ class Replay {
         br.renderPieces();
         if (this.el) {
             if (this.el.controls) this.el.controls.classList.add('hidden');
-            if (this.el.export) this.el.export.disabled = false;
+            if (this.el.export) this.el.export.disabled = !((this.ge.gameState.moveHistory || []).length);
             if (this.el.import) this.el.import.disabled = false;
             if (this.el.status) this.el.status.textContent = '';
         }
