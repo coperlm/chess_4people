@@ -754,6 +754,9 @@ class OnlineSession {
     _doUndo(broadcast, who) {
         const ge = this.gameEngine, gs = ge.gameState;
         if (!gs.undoMove()) return;
+        // 悔棋→局面又变了：之前对“求和”的同意作废，需要重新确认（与“走新子会作废求和”同理）
+        const hadDraw = !!this._drawYes;
+        this._drawYes = null;
         if (window.sound) window.sound.play('undo');
         this.seq++;
         ge.boardRenderer.clearSelection();
@@ -764,6 +767,7 @@ class OnlineSession {
         if (broadcast) {
             this.actUndo.send({ seq: this.seq });
             if (who) this.actNotice.send({ text: `${who} 悔棋` });
+            if (hadDraw) this.actNotice.send({ text: '求和需重新确认' });
         }
         this._checkOfflineTurn();   // 悔棋后当前回合可能落到某位离线玩家
     }
@@ -771,6 +775,7 @@ class OnlineSession {
         if (this.isHost || !d) return;
         if (d.seq <= this._lastSeq) return;
         this._lastSeq = d.seq;
+        this._drawYes = null;   // 悔棋→局面变了：本地挂着的求和同意作废
         const ge = this.gameEngine, gs = ge.gameState;
         gs.undoMove();
         if (window.sound) window.sound.play('undo');

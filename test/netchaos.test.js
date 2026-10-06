@@ -232,6 +232,41 @@ function makeMove(host, s) {
     await teardown(all);
   }
 
+  // ===== 8) 对局进行中新人加入 → 只能观战（无颜色），但能拿到局面快照 =====
+  {
+    const room = newRoom();
+    const { host, peers, all } = await setupRoom(4, room);
+    const gs = host.gameEngine.gameState;
+    const ctrl = [host, ...peers].find(s => (s.myColors || []).includes(gs.currentPlayer));
+    makeMove(host, ctrl); await settle(6);          // 进入对局中
+
+    const late = newSession(null, 'LATE', '路人');
+    late._open(room, false); await settle(3); late._sendHello(); await settle(8);
+    t('[中途加入] 新人进入房间名单', host.participants.some(p => p.token === 'LATE'));
+    t('[中途加入] 新人对局中只能是观战（无颜色）', (late.myColors || []).length === 0);
+    t('[中途加入] 新人拿到局面快照（看得到棋盘）', sig(late) === sig(host));
+    t('[中途加入] 房主对局不受影响，仍在进行', gs.gamePhase === 'playing');
+    await teardown([...all, late]);
+  }
+
+  // ===== 9) 悔棋 → 之前的“求和同意”作废，需重新确认 =====
+  {
+    const room = newRoom();
+    const { host, peers, all } = await setupRoom(4, room);
+    const gs = host.gameEngine.gameState;
+    const ctrl = [host, ...peers].find(s => (s.myColors || []).includes(gs.currentPlayer));
+    makeMove(host, ctrl); await settle(6);          // 需有一步可悔
+
+    host._drawYes = new Set([peers[1].token]);      // 假设有一个“进行中的求和”
+    host._doUndo(true, 'H'); await settle(4);
+    t('[求和作废] 房主悔棋后清空求和同意票', host._drawYes === null);
+
+    peers[0]._drawYes = new Set(['zz']);
+    peers[0]._onUndo({ seq: peers[0]._lastSeq + 1 }); await settle(2);
+    t('[求和作废] 客户端悔棋后也清空求和票', peers[0]._drawYes === null);
+    await teardown(all);
+  }
+
   console.log(`\n联机混沌测试（虚拟时钟）: ${pass} 通过, ${fail} 失败`);
   if (fail) { console.log('失败项:'); failures.forEach(f => console.log('  ✗ ' + f)); process.exit(1); }
   console.log('✅ 全部通过');
