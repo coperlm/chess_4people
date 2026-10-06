@@ -111,18 +111,21 @@ APK 由 GitHub Actions 构建，**本机不需要装 Android SDK**。
 密钥由你自己生成并保管，仓库里不含任何密钥。生成后填进仓库 Secrets（`Settings → Secrets and variables → Actions`）：
 
 ```bash
-keytool -genkeypair -v -keystore release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias chess4p
-base64 -w0 release.jks        # 输出填 ANDROID_KEYSTORE_BASE64
+# 生成密钥（会提示输入口令；PKCS12 下"密钥口令"直接回车沿用密钥库口令即可）
+keytool -genkeypair -keystore release.jks -alias chess4p \
+  -keyalg RSA -keysize 2048 -validity 10000 \
+  -dname "CN=chess4p, OU=dev, O=Four-way-Xiangqi, C=CN"
+base64 -w0 release.jks        # 输出的一长串（无换行）就是 ANDROID_KEYSTORE_BASE64
 ```
 
 | Secret | 值 |
 | --- | --- |
 | `ANDROID_KEYSTORE_BASE64` | `base64 -w0 release.jks` 的输出 |
-| `ANDROID_KEYSTORE_PASSWORD` | 生成时设的 keystore 口令 |
-| `ANDROID_KEY_ALIAS` | `chess4p` |
-| `ANDROID_KEY_PASSWORD` | 生成时设的 key 口令 |
+| `ANDROID_KEYSTORE_PASSWORD` | 生成时设的密钥库口令 |
+| `ANDROID_KEY_ALIAS` | `chess4p`（必须与 `-alias` 一致） |
+| `ANDROID_KEY_PASSWORD` | 与密钥库口令**相同**（PKCS12 不支持两者不同） |
 
-⚠️ keystore 丢了就无法再给已装的包升级（只能卸载重装），务必自己备份。
+⚠️`release.jks` 别放进仓库（`.gitignore` 已挡 `*.jks`），放仓库外目录并连同口令一起备份。keystore 丢了就无法再给已装的包升级（只能卸载重装）。
 
 ### APK 与网页版的差异
 

@@ -4,6 +4,7 @@ tmp/
 # Capacitor：www/ 由 tools/build-web.js 生成，不入库（android/ 的产物由 android/.gitignore 管）
 www/
 
-# 签名密钥绝不入库
+# 签名密钥绝不入库（正常应放在仓库外，这里再挡一道，含其 base64 导出）
 *.jks
 *.keystore
+release.jks*
