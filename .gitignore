@@ -1,2 +1,9 @@
 node_modules/
 tmp/
+
+# Capacitor：www/ 由 tools/build-web.js 生成，不入库（android/ 的产物由 android/.gitignore 管）
+www/
+
+# 签名密钥绝不入库
+*.jks
+*.keystore

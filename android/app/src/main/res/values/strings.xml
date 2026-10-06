@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">四人象棋</string>
+    <string name="title_activity_main">四人象棋</string>
+    <string name="package_name">io.github.coperlm.chess4p</string>
+    <string name="custom_url_scheme">io.github.coperlm.chess4p</string>
+</resources>

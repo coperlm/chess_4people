@@ -6,7 +6,9 @@
   "scripts": {
     "test": "node test/logic.test.js && node test/engine.test.js && node test/online.test.js && node test/netchaos.test.js && node test/replay.test.js && node test/persist.test.js && node test/deep.test.js && node test/stress.test.js && node test/netstress.test.js",
     "serve": "node server.js",
-    "e2e": "node test/e2e/run.js"
+    "e2e": "node test/e2e/run.js",
+    "build:web": "node tools/build-web.js",
+    "cap:sync": "npm run build:web && cap sync android"
   },
   "keywords": [
     "chess",
@@ -15,5 +17,10 @@
     "javascript",
     "p2p"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/cli": "^8.5.2",
+    "@capacitor/core": "^8.5.2"
+  }
 }

@@ -182,6 +182,10 @@
                     <button id="createRoomBtn" class="online-btn online-btn--create">创建房间</button>
                 </div>
                 <div class="online-row">
+                    <input id="joinRoomInput" class="online-input online-input--code" type="text" maxlength="8" placeholder="房间号" autocomplete="off" autocapitalize="off" spellcheck="false">
+                    <button id="joinRoomBtn" class="online-btn online-btn--join">加入房间</button>
+                </div>
+                <div class="online-row">
                     <button id="startOnlineBtn" class="online-btn online-btn--start hidden" disabled>开始 / 重开（房主）</button>
                     <button id="leaveRoomBtn" class="online-btn online-btn--leave hidden">离开房间</button>
                 </div>
@@ -270,7 +274,7 @@
                 <h4>怎么玩（手机 / 电脑通用）</h4>
                 <ul>
                     <li><b>本地</b>：点「新游戏 / 房间状态」→ 选<b>本地对战</b> → 开始，多人轮流在同一台设备上下（一台手机或一台电脑都行）。</li>
-                    <li><b>联机</b>：点「新游戏」→ 选<b>联机对战</b> → <b>创建房间</b>并「复制邀请链接」；朋友<b>打开链接</b>即自动加入；人到齐后由<b>房主</b>选好模式并点「开始」。</li>
+                    <li><b>联机</b>：点「新游戏」→ 选<b>联机对战</b> → <b>创建房间</b>并「复制邀请链接」；朋友<b>打开链接</b>即自动加入（也可在「加入房间」处<b>输入房间号</b>加入）；人到齐后由<b>房主</b>选好模式并点「开始」。</li>
                     <li><b>下棋</b>：点一下自己的棋子选中（会亮出可走点），再点目标位置落下；电脑上也可<b>按住棋子拖到目标格</b>。</li>
                     <li><b>手机</b>：窄屏会自动变成<b>单列</b>（棋盘在最上方），按钮加大方便点按；竖屏、横屏都能玩。</li>
                 </ul>
@@ -310,7 +314,7 @@
                 </ul>
                 <h4>联机</h4>
                 <ul>
-                    <li>创建房间后点「复制邀请链接」分享；朋友打开带 <code>?room=</code> 的链接即自动加入。</li>
+                    <li>创建房间后点「复制邀请链接」分享；朋友打开带 <code>?room=</code> 的链接即自动加入；也可<b>输入房间号</b>点「加入房间」。</li>
                     <li>房主是裁判，其他端会复核每手合法性；房主掉线 20 秒后由在线玩家自动接任，刷新会自动续局。</li>
                     <li>身份用本机保存的 token 识别（换设备/清缓存会变成新身份）。</li>
                     <li>有人掉线时名册会显示「（离线）」；<b>30 秒</b>内未重连则<b>自动跳过其回合</b>（跳过不等于淘汰），中途重连会自动回到原座位。</li>
@@ -394,7 +398,8 @@
     
     <!-- PWA Service Worker 注册 -->
     <script>
-        if ('serviceWorker' in navigator) {
+        // APK 内页面由 WebView 从本地加载，Service Worker 没有意义，还可能把旧代码缓存住 → 跳过
+        if ('serviceWorker' in navigator && !window.__CHESS4P_NATIVE__) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('service-worker.js')
                     .then(() => {})

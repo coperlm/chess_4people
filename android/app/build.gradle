@@ -1,0 +1,78 @@
+apply plugin: 'com.android.application'
+
+// 版本号单一来源：仓库根的 package.json（与网页版顶部显示的版本号同一处），发版只需改它
+def pkg = new groovy.json.JsonSlurper().parseText(file('../../package.json').text)
+def (verMajor, verMinor, verPatch) = pkg.version.tokenize('.').collect { it.toInteger() }
+
+// 签名密钥只从环境变量读（CI 里由 Secrets 注入），仓库里不含任何密钥。
+// 未配置时回退 AGP 自带的 debug 签名，保证设置 Secrets 之前也能出可安装的包。
+def releaseKeyPath = System.getenv("ANDROID_KEYSTORE_PATH")
+def signingConfigName = releaseKeyPath ? "release" : "debug"
+
+android {
+    namespace = "io.github.coperlm.chess4p"
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "io.github.coperlm.chess4p"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        // Android 要求 versionCode 是递增整数，semver 不能直接用 → 映射为 major*10000+minor*100+patch
+        // （例：2.2.1 → 20201）。注意 minor/patch 需小于 100。
+        versionCode verMajor * 10000 + verMinor * 100 + verPatch
+        versionName pkg.version
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    signingConfigs {
+        // 没配密钥就不声明：留一个缺 storeFile 的空配置会被 AGP 校验挑错
+        if (releaseKeyPath) {
+            release {
+                storeFile file(releaseKeyPath)
+                storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword System.getenv("ANDROID_KEY_PASSWORD")
+            }
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // 用变量而非三元表达式：`signingConfig a ? b : c` 会被 Groovy 解析成 `signingConfig(a) ? b : c`
+            signingConfig signingConfigs.getByName(signingConfigName)
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}

@@ -1,0 +1,13 @@
+{
+  "appId": "io.github.coperlm.chess4p",
+  "appName": "四人象棋",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "SystemBars": {
+      "initialViewportFitValueHint": "cover"
+    }
+  }
+}

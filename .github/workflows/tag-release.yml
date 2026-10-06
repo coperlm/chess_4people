@@ -2,31 +2,43 @@ name: Auto Tag & Release
 
 # 只要把 package.json 的 version 改大并 push，就自动打上同名 tag 并创建 Release。
 # 应用内的版本号是“运行时读取 package.json”，所以无需别处再改。
+# Android 包也在这个 workflow 里出：因为用 GITHUB_TOKEN 打出的 tag 不会触发新的
+# workflow（GitHub 的防递归机制），APK 构建必须并进来，不能单独挂 on: push: tags。
+# 手动触发（workflow_dispatch）只出 APK，不碰 tag / Release。
 on:
   push:
     branches: [ "回溯到不登录", main, master ]
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
   tag:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      created: ${{ steps.release.outputs.created }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: 按 package.json 自动打标签 / 发布
+        id: release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           VERSION=$(node -p "require('./package.json').version")
           TAG="v$VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
             echo "标签 $TAG 已存在，跳过"
+            echo "created=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          echo "created=true" >> "$GITHUB_OUTPUT"
           # 取“上一个标签”作为日志起点（必须在打新标签之前取，否则会取到新标签本身）
           PREV=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
           git config user.name  "github-actions[bot]"
@@ -47,3 +59,81 @@ jobs:
             fi
           } > /tmp/notes.md
           gh release create "$TAG" --title "$TAG" --notes-file /tmp/notes.md || true
+
+  # 出 APK 并挂到该版本的 Release 上。只有真的产生了新版本（或手动触发）才构建，
+  # 免得同一个版本被 push 几次就重打几次包。
+  apk:
+    needs: tag
+    if: always() && (github.event_name == 'workflow_dispatch' || needs.tag.outputs.created == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Gradle 8.14 + AGP 8.13 要求 JDK 17~21（本地 Java 27 带不动，别照搬到本机）
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # --include=dev：Capacitor CLI 在 devDependencies 里；若 CI 环境设了 NODE_ENV=production 会被跳过
+      - name: 安装依赖
+        run: npm ci --include=dev
+
+      - name: 暂存 Web 资源并同步到 android 工程
+        run: npm run cap:sync
+
+      # 密钥从 Secrets 读（base64）。没配就跳过，gradle 会回退 debug 签名，保证流程能跑通。
+      - name: 准备签名密钥
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+            echo "已载入签名密钥"
+          else
+            echo "未配置 ANDROID_KEYSTORE_BASE64 → 本次产物为 debug 签名，仅供自测，不能上架"
+          fi
+
+      - name: 构建 APK
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+
+      - name: 整理产物
+        id: apk
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          SUFFIX=""
+          [ -n "$ANDROID_KEYSTORE_PATH" ] || SUFFIX="-debug-signed"
+          OUT="chess4p-v${VERSION}${SUFFIX}.apk"
+          cp android/app/build/outputs/apk/release/app-release.apk "$OUT"
+          echo "file=$OUT" >> "$GITHUB_OUTPUT"
+          ls -lh "$OUT"
+
+      - name: 上传为构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: ${{ steps.apk.outputs.file }}
+
+      - name: 挂到 Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v$(node -p "require('./package.json').version")"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${{ steps.apk.outputs.file }}" --clobber
+            echo "已上传到 Release $TAG"
+          else
+            echo "Release $TAG 不存在（手动触发且版本未发布）→ 仅保留在 Actions 构建产物里"
+          fi

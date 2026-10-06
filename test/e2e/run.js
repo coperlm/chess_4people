@@ -197,6 +197,41 @@ const MOVE_IIFE = `(() => {
     await sleep(500);
     t('[E2E] 重连后局面追平房主', (await snap(cli2.sessionId)) === (await snap(host.sessionId)), `${await snap(cli2.sessionId)} vs ${await snap(host.sessionId)}`);
 
+    // ---- 房间号加入（APK 内没有可点的邀请链接，这是唯一入口，必须走真实 UI 验证）----
+    const host2Ctx = (await cdp.send('Target.createBrowserContext')).browserContextId;
+    const joinCtx = (await cdp.send('Target.createBrowserContext')).browserContextId;
+
+    const host2 = await newPage(host2Ctx, 'peer4', `${pageUrl}?_peer=peer4`);
+    t('[E2E] 第二房主页加载', await waitFor(host2.sessionId, READY));
+    await evalOn(host2.sessionId, "document.getElementById('createRoomBtn').click()");
+    const room2 = await evalOn(host2.sessionId, 'window.onlineSession.roomId');
+    t('[E2E] 点「创建房间」按钮建房', !!room2, 'roomId=' + room2);
+    t('[E2E] 大厅显示房间号', (await evalOn(host2.sessionId, "document.getElementById('lobbyRoomCode').textContent.trim()")) === room2);
+
+    const joiner = await newPage(joinCtx, 'peer5', `${pageUrl}?_peer=peer5`);
+    t('[E2E] 加入方页加载', await waitFor(joiner.sessionId, READY));
+
+    // 非法房间号不该建立会话
+    await evalOn(joiner.sessionId, `(() => {
+      document.getElementById('joinRoomInput').value = '!!';
+      document.getElementById('joinRoomBtn').click();
+    })()`);
+    t('[E2E] 非法房间号不加入', (await evalOn(joiner.sessionId, 'window.onlineSession.active')) === false);
+
+    // 把房主显示的房间号填进输入框再点「加入房间」
+    const clicked = await evalOn(joiner.sessionId, `(() => {
+      const inp = document.getElementById('joinRoomInput');
+      const btn = document.getElementById('joinRoomBtn');
+      if (!inp || !btn) return 'no-ui';
+      inp.value = ${JSON.stringify(room2)};
+      inp.dispatchEvent(new Event('input', { bubbles: true }));
+      btn.click();
+      return 'clicked';
+    })()`);
+    t('[E2E] 存在「加入房间」输入框与按钮', clicked === 'clicked', 'r=' + clicked);
+    t('[E2E] 输入房间号后成功加入', await waitFor(joiner.sessionId, `window.onlineSession.active === true && window.onlineSession.roomId === ${JSON.stringify(room2)}`));
+    t('[E2E] 房主看到该玩家进房', await waitFor(host2.sessionId, 'window.onlineSession.participants.length >= 2', 6000));
+
     // ---- 页面报错 ----
     const benign = /Failed to fetch|package\.json|favicon|ERR_FILE_NOT_FOUND|ServiceWorker|net::ERR_/i;
     for (const p of Object.values(pages)) {

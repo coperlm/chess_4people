@@ -8,7 +8,7 @@
 
 ## 功能
 
-- **两种对局方式**：`本地对战`（同一设备轮流操作四个颜色）、`联机对战`（创建房间后，用邀请链接加入）。
+- **两种对局方式**：`本地对战`（同一设备轮流操作四个颜色）、`联机对战`（创建房间后，用邀请链接或房间号加入）。
 - **两种对战模式**：`两两组队`（红蓝 vs 绿黑，对角线是队友）、`四人混战`（各自为战，按死亡顺序排 1–4 名）。
 - **胜利条件**：`吃将任意一方即结束`（默认）/ `仅剩一队`。
 - **友伤**：可开关`允许吃队友棋子`。
@@ -67,6 +67,10 @@ js/
   main.js                  # 入口
 vendor/trystero.nostr.iife.js  # 打包后的 Trystero（无需 CDN）
 server.js                  # 局域网静态服务器（可选）
+tools/build-web.js         # 生成 www/（Capacitor 打包用的静态资源暂存，白名单拷贝）
+tools/make-android-icons.sh # 由 assets/icons 生成安卓图标与启动图（ImageMagick）
+capacitor.config.json      # Capacitor 配置（appId / webDir）
+android/                   # Capacitor 生成的安卓工程（Gradle 已定制：版本号、签名）
 test/                      # Node 测试（规则/联机协议/回放/随机化压力）
 ```
 
@@ -93,6 +97,49 @@ npm run e2e     # 真浏览器多端 E2E：headless chromium 开两个隔离上�
 - `test/netstress.test.js`：2/3/4/5 人随机对局 + 随机操作（悔棋/认输/求和/踢人/掉线重连/重开），查失步。
 - `test/netchaos.test.js`：用**虚拟时钟**把「离线 30s 自动跳过」「房主失联 20s 接任」瞬间步进，专抓**时序竞态**。
 - `npm run e2e`：在**真实浏览器**里验证跨端同步与真实 DOM 渲染；离线运行（由 CDP 驱动中转消息，不依赖公共中继）。
+
+## Android APK
+
+APK 由 GitHub Actions 构建，**本机不需要装 Android SDK**。
+
+- **正式包**：把 `package.json` 的 `version` 改大并 push（与网页版发版同一个动作）→ 自动打 tag、建 Release，并把签名 APK 一并传到该 Release。
+- **临时包**：Actions → `Auto Tag & Release` → `Run workflow`（只出 APK，不碰 tag / Release）。
+- 未配置签名密钥时，CI 出的是 `-debug-signed` 包：能装能玩，但不能上架、也不能覆盖正式包升级。
+
+### 签名密钥（一次性）
+
+密钥由你自己生成并保管，仓库里不含任何密钥。生成后填进仓库 Secrets（`Settings → Secrets and variables → Actions`）：
+
+```bash
+keytool -genkeypair -v -keystore release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias chess4p
+base64 -w0 release.jks        # 输出填 ANDROID_KEYSTORE_BASE64
+```
+
+| Secret | 值 |
+| --- | --- |
+| `ANDROID_KEYSTORE_BASE64` | `base64 -w0 release.jks` 的输出 |
+| `ANDROID_KEYSTORE_PASSWORD` | 生成时设的 keystore 口令 |
+| `ANDROID_KEY_ALIAS` | `chess4p` |
+| `ANDROID_KEY_PASSWORD` | 生成时设的 key 口令 |
+
+⚠️ keystore 丢了就无法再给已装的包升级（只能卸载重装），务必自己备份。
+
+### APK 与网页版的差异
+
+- 页面资源内嵌在安装包里（origin 是 `https://localhost`），**单机离线可玩**；联机仍需联网（P2P 信令走公共中继）。
+- **联机靠房间号**：APK 里「复制邀请链接」复制的是 4 位房间号，对方在游戏里点「加入房间」输入即可（网页版照旧可直接点链接加入）。
+- `versionCode` 由 `package.json` 版本号映射而来（`2.2.1 → 20201`），发版仍只改 `package.json` 一处。
+- 返回键不退出应用，而是退回桌面——误触不至于丢掉整局联机。
+- 改了图标要重新生成：`bash tools/make-android-icons.sh`（需 ImageMagick）。
+
+### 本机出包（可选）
+
+需要 Android SDK + **JDK 17~21**（Gradle 8.14 带不动更新的 JDK，本机 JDK 27 会失败）：
+
+```bash
+npm run cap:sync
+cd android && ./gradlew assembleRelease      # 产物在 android/app/build/outputs/apk/release/
+```
 
 ## 开发
 

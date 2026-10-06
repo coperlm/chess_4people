@@ -49,6 +49,8 @@ class OnlineSession {
             ff: $('friendlyFireCheck'),
             create: $('createRoomBtn'),
             copy: $('copyInviteBtn'),
+            join: $('joinRoomBtn'),
+            joinInput: $('joinRoomInput'),
             status: $('onlineStatus'),
             roster: $('onlineRoster'),
             start: $('startOnlineBtn'),
@@ -70,6 +72,12 @@ class OnlineSession {
         });
         if (this.el.create) this.el.create.addEventListener('click', () => this._onCreate());
         if (this.el.copy) this.el.copy.addEventListener('click', () => this._copyInvite());
+        if (this.el.join) this.el.join.addEventListener('click', () => this._onJoin());
+        if (this.el.joinInput) this.el.joinInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); this._onJoin(); }
+        });
+        // APK 里复制的是房间号而不是链接，按钮文案跟着变，免得名不副实
+        if (this.el.copy && window.__CHESS4P_NATIVE__) this.el.copy.textContent = '复制房间号';
         if (this.el.start) this.el.start.addEventListener('click', () => this.startMatch());
         if (this.el.leave) this.el.leave.addEventListener('click', () => this.leave());
         this._syncSettingsUI();
@@ -162,11 +170,17 @@ class OnlineSession {
 
     _inviteLink() { return `${location.origin}${location.pathname}?room=${this.roomId}`; }
     _copyInvite() {
-        const link = this._inviteLink();
-        const manual = () => this._setStatus('请手动复制邀请链接：' + link, 'ok');
+        // 打包成 APK 后页面来自 WebView 本地，origin 是 https://localhost，这个链接别人点不开
+        // → 改为复制房间号，让对方在游戏里「加入房间」输入（房间号就是链接里的 ?room=，跨端通用）
+        const native = !!window.__CHESS4P_NATIVE__;
+        const text = native ? this.roomId : this._inviteLink();
+        const done = native
+            ? `房间号已复制：${text}（朋友在游戏里点「加入房间」输入即可）`
+            : `邀请链接已复制：${text}`;
+        const manual = () => this._setStatus(native ? `请把房间号发给朋友：${text}` : '请手动复制邀请链接：' + text, 'ok');
         try {
             if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(link).then(() => this._setStatus('邀请链接已复制：' + link, 'ok')).catch(manual);
+                navigator.clipboard.writeText(text).then(() => this._setStatus(done, 'ok')).catch(manual);
             } else manual();
         } catch (e) { manual(); }
     }
@@ -185,6 +199,20 @@ class OnlineSession {
 
     _onCreate() {
         this._open(this._genCode(), true);
+    }
+
+    /**
+     * 输入房间号加入（APK 内没有可点的邀请链接，只能靠房间号；网页端同样可用）
+     */
+    _onJoin() {
+        if (!this.el || !this.el.joinInput) return;
+        const code = (this.el.joinInput.value || '').trim().toLowerCase();
+        if (!this._validCode(code)) {
+            this._setStatus('房间号无效：应为 3–8 位字母或数字', 'error');
+            return;
+        }
+        if (this.active && this.roomId === code) return;   // 已在同一房间，别把会话重开一遍
+        this._open(code, false);
     }
 
     _open(roomId, isHost, record) {
@@ -296,9 +324,10 @@ class OnlineSession {
         if (this.el) {
             show(this.el.leave, true);
             show(this.el.copy, true);
-            // 已在房间内：隐藏“创建房间”（房主/非房主都一样，避免留下一个灰按钮）
+            // 已在房间内：隐藏“创建房间”，房主/非房主都一样，避免留下一个灰按钮
             if (this.el.create) { this.el.create.disabled = true; this.el.create.classList.add('hidden'); }
             if (this.el.join) { this.el.join.disabled = true; this.el.join.classList.add('hidden'); }
+            show(this.el.joinInput, false);
             show(this.el.start, isHost);
         }
         this._syncSettingsUI();
@@ -350,6 +379,7 @@ class OnlineSession {
             if (this.el.copy) this.el.copy.classList.add('hidden');
             if (this.el.create) { this.el.create.disabled = false; this.el.create.classList.remove('hidden'); }
             if (this.el.join) { this.el.join.disabled = false; this.el.join.classList.remove('hidden'); }
+            if (this.el.joinInput) this.el.joinInput.classList.remove('hidden');
             if (this.el.start) this.el.start.classList.add('hidden');
         }
         this._syncSettingsUI();

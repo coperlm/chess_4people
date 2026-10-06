@@ -1503,6 +1503,7 @@ video {
   background: #fff;
   color: #111827;
 }
+.online-input--code { flex: 1; min-width: 0; }
 .online-row { display: flex; gap: .5rem; margin-top: .6rem; }
 .online-btn {
   border: 0;
@@ -1576,6 +1577,8 @@ body{
   padding-bottom:calc(env(safe-area-inset-bottom,0px));
 }
 header.bg-amber-800{ background:linear-gradient(135deg,var(--walnut) 0%,var(--walnut-2) 100%) !important; box-shadow:0 6px 20px -8px rgba(40,20,5,.6); }
+/* APK：WebView 边到边（viewport-fit=cover）时给顶部安全区留白，标题不被状态栏压住；网页端 env() 为 0，无影响 */
+html.native-app header.bg-amber-800{ padding-top:calc(env(safe-area-inset-top, 0px) + .75rem); }
 header.bg-amber-800 h1{ letter-spacing:.12em; }
 header.bg-amber-800 p{ color:#ecd9b8 !important; letter-spacing:.14em; }
 
