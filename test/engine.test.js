@@ -145,6 +145,36 @@ function cleanup(ge) { if (ge._resultTimer) { clearTimeout(ge._resultTimer); ge.
   cleanup(ge);
 })();
 
-console.log(`\n引擎结算测试: ${pass} 通过, ${fail} 失败`);
-if (fail) { console.log('失败用例：\n - ' + failures.join('\n - ')); process.exit(1); }
-console.log('✅ 全部通过');
+// ------------------------------------------------------------------
+// D) 求和必须先二次确认（与“认输/悔棋”一致）：拒绝不和棋，同意才和棋
+// ------------------------------------------------------------------
+async function testDrawConfirm() {
+  const ge = makeEngine();
+  const gs = ge.gameState;
+  gs.startGame(); ge.isGameActive = true;
+
+  const origConfirm = Utils.confirmModal, origShow = Utils.showMessage;
+  Utils.showMessage = () => {};
+  let asked = null;
+  Utils.confirmModal = (msg) => { asked = msg; return Promise.resolve(false); };
+
+  ge.draw();
+  await Promise.resolve(); await Promise.resolve();
+  t('[求和] 会先弹确认', typeof asked === 'string' && asked.length > 0, 'asked=' + asked);
+  t('[求和] 拒绝确认则不结束对局', gs.gamePhase === 'playing' && !gs.isDraw, 'phase=' + gs.gamePhase);
+
+  Utils.confirmModal = (msg) => { asked = msg; return Promise.resolve(true); };
+  ge.draw();
+  await Promise.resolve(); await Promise.resolve();
+  t('[求和] 同意确认才和棋', gs.gamePhase === 'finished' && gs.isDraw === true, 'phase=' + gs.gamePhase);
+
+  Utils.confirmModal = origConfirm; Utils.showMessage = origShow;
+  cleanup(ge);
+}
+
+(async () => {
+  await testDrawConfirm();
+  console.log(`\n引擎结算测试: ${pass} 通过, ${fail} 失败`);
+  if (fail) { console.log('失败用例：\n - ' + failures.join('\n - ')); process.exit(1); }
+  console.log('✅ 全部通过');
+})();

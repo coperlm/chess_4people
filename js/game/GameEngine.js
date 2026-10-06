@@ -220,14 +220,20 @@ class GameEngine {
      * 求和：本地直接和棋；联机发起/响应求和
      */
     draw() {
+        // 求和与“认输/悔棋”一致：先二次确认，避免误触直接终局
         if (window.onlineSession && window.onlineSession.active) {
-            window.onlineSession.requestDraw();
+            Utils.confirmModal('确定要提议和棋吗？（需其他玩家同意）').then(ok => {
+                if (ok) window.onlineSession.requestDraw();
+            });
             return;
         }
         if (!this.isGameActive || this.gameState.gamePhase !== 'playing') return;
-        this.gameState.declareDraw();
-        Utils.showMessage('双方同意和棋', 'info');
-        this.endGame();
+        Utils.confirmModal('确定要和棋吗？和棋后本局立即结束。').then(ok => {
+            if (!ok) return;
+            this.gameState.declareDraw();
+            Utils.showMessage('和棋', 'info');
+            this.endGame();
+        });
     }
     
     /**
@@ -617,14 +623,17 @@ class GameEngine {
         const surrenderBtn = document.getElementById('surrenderBtn');
         const drawBtn = document.getElementById('drawBtn');
 
-        // 观战者（联机中无颜色者）不能悔棋/认输/求和
+        // 观战者（无颜色）与“已出局”的玩家都不能悔棋/认输/求和
+        const gs = this.gameState;
         const os = window.onlineSession;
+        const mine = (os && os.active && os.myColors) || null;
         const spectator = !!(os && os.active && (!os.myColors || !os.myColors.length));
-        const playing = this.isGameActive && this.gameState.gamePhase === 'playing'
+        const out = !!(mine && mine.length && mine.every(c => gs.eliminationOrder.includes(c)));
+        const playing = this.isGameActive && gs.gamePhase === 'playing'
             && !(window.replay && window.replay.active);   // 回放中禁用“悔棋/认输/求和”（此时 gameState 仍是实时对局）
 
-        const canUndo = playing && this.gameState.moveHistory.length > 0 && !spectator;
-        const canSurrender = playing && !spectator;
+        const canUndo = playing && gs.moveHistory.length > 0 && !spectator && !out;
+        const canSurrender = playing && !spectator && !out;
 
         if (undoBtn) undoBtn.disabled = !canUndo;
         if (surrenderBtn) surrenderBtn.disabled = !canSurrender;
