@@ -71,7 +71,8 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # Capacitor CLI 8 要求 Node >= 22（低于此版本 cap sync 直接 [fatal] 退出）
+          node-version: '22'
 
       # Gradle 8.14 + AGP 8.13 要求 JDK 17~21（本地 Java 27 带不动，别照搬到本机）
       - uses: actions/setup-java@v4

@@ -100,7 +100,7 @@ npm run e2e     # 真浏览器多端 E2E：headless chromium 开两个隔离上�
 
 ## Android APK
 
-APK 由 GitHub Actions 构建，**本机不需要装 Android SDK**。
+APK 由 GitHub Actions 构建，**本机不需要装 Android SDK**。CI 环境固定为 Node 22 + JDK 21（Capacitor CLI 8 要求 Node ≥ 22，Gradle 8.14 带不动比 JDK 21 更新的版本——低配版本会让 `cap sync` 直接 fatal 退出）。
 
 - **正式包**：把 `package.json` 的 `version` 改大并 push（与网页版发版同一个动作）→ 自动打 tag、建 Release，并把签名 APK 一并传到该 Release。
 - **临时包**：Actions → `Auto Tag & Release` → `Run workflow`（只出 APK，不碰 tag / Release）。
