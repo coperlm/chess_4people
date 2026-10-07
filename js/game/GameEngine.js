@@ -146,6 +146,9 @@ class GameEngine {
             // 新开一局：撤销上一局“延迟弹结算面板”的定时器，并允许本局重新结算
             if (this._resultTimer) { clearTimeout(this._resultTimer); this._resultTimer = null; }
             this._endHandled = false;
+            // 重开一局要把计时的“回合键”清掉：新局同为 cp0:turn1，若残留会让 updateTurnTimer 早退
+            // → 倒计时不重置、甚至（上一局已归零过）新局完全不计时
+            this._timerKey = null;
             
             this.gameState.reset();
             

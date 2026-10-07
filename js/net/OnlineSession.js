@@ -515,6 +515,9 @@ class OnlineSession {
             ge.boardRenderer.setPlayerPosition(this.myColors);
         }
         ge.setControlledColors(on ? this.myColors : null);
+        // 进/出联机都会改变“本步倒计时”的启停条件（它只在联机时跑）。
+        // 这里立刻重估一次，否则退出房间后那个 60s 定时器会继续跑到归零。
+        try { if (ge.updateTurnTimer) ge.updateTurnTimer(); } catch (e) { /* 计时失败不影响对局 */ }
     }
 
     // ================= 成员 =================
