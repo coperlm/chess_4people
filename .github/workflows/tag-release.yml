@@ -83,7 +83,7 @@ jobs:
           node-version: '22'
 
       # Gradle 8.14 + AGP 8.13 要求 JDK 17~21（本地 Java 27 带不动，别照搬到本机）
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
