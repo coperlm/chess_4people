@@ -39,7 +39,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
       # TURN 凭据不入库：部署时从 Secret 生成 js/utils/ice-secrets.js（缺失则仅用 STUN）
       - name: 注入 TURN 凭据
         env:
