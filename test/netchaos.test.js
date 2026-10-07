@@ -3,11 +3,12 @@
  * 运行: node test/netchaos.test.js
  *
  * 与 netstress 的分工：netstress 用真实计时器跑“随机操作”的广度；这里用**虚拟时钟**把
- * 「离线 30s 自动跳过」「房主失联 20s 接任」这类需要真实等待的时序场景瞬间步进并穷举，
+ * 「离线跳过」「房主失联接任」这类需要真实等待的时序场景瞬间步进并穷举，
  * 专门抓“时序竞态 / 掉线重连 / 接任选举”这一类最难靠手测复现的 bug。
  */
 const S = require('./_sim');
 const { OnlineSession, fakeEngine, makeRng, advance, settle, boardSig, sig, localInv, legalMoves, mock } = S;
+const SKIP = OnlineSession.OFFLINE_SKIP_MS;   // 离线跳过时限（用它而非硬编码，改时限不必改用例）
 
 let pass = 0, fail = 0; const failures = [];
 function t(name, cond, extra) { if (cond) pass++; else { fail++; failures.push(name + (extra ? '  -> ' + extra : '')); } }
@@ -61,7 +62,7 @@ function makeMove(host, s) {
 }
 
 (async () => {
-  // ===== 1) 离线玩家：30s 到点自动跳过其回合（虚拟时钟瞬间步进）=====
+  // ===== 1) 离线玩家：时限到点自动跳过其回合（虚拟时钟瞬间步进）=====
   {
     const room = newRoom();
     const { host, peers, all } = await setupRoom(4, room);
@@ -74,16 +75,16 @@ function makeMove(host, s) {
     mock.__drop(peers[0].selfId); await settle(4);
     t('[跳过] 掉线后席位标为离线', p1.id === null);
 
-    await advance(29900);
-    t('[跳过] 未到 30s 不跳过', gs.currentPlayer === color, 'cp=' + gs.currentPlayer);
-    await advance(600);
-    t('[跳过] 30s 到点跳过该回合', gs.currentPlayer !== color, 'cp=' + gs.currentPlayer);
+    await advance(SKIP - 100);
+    t('[跳过] 未到时限不跳过', gs.currentPlayer === color, 'cp=' + gs.currentPlayer);
+    await advance(200);
+    t('[跳过] 到点跳过该回合', gs.currentPlayer !== color, 'cp=' + gs.currentPlayer);
     t('[跳过] 跳过只推进回合、不动棋盘', boardSig(gs) === beforeBoard);
     t('[跳过] 被跳过者未出局', !gs.eliminationOrder.includes(color));
     await teardown(all);
   }
 
-  // ===== 2) 离线玩家在 30s 前重连 → 撤销跳过 =====
+  // ===== 2) 离线玩家在时限前重连 → 撤销跳过 =====
   {
     const room = newRoom();
     const { host, peers, all } = await setupRoom(4, room);
@@ -93,11 +94,11 @@ function makeMove(host, s) {
     gs.currentPlayer = color; host._checkOfflineTurn(); await settle(2);
 
     mock.__drop(peers[0].selfId); await settle(4);
-    await advance(25000);
+    await advance(SKIP - 5000);
     const re = newSession(null, 'P1', 'P1');    // 同 token 重连（等价刷新页面）
     re._open(room, false); await settle(3); re._sendHello(); await settle(5);
     t('[重连] 席位恢复在线', host.participants.find(p => p.token === 'P1').id === re.selfId);
-    await advance(10000);   // 累计已越过 30s
+    await advance(10000);   // 累计已越过时限 → 若未撤销就会跳过
     t('[重连] 重连已撤销“自动跳过”', gs.currentPlayer === color, 'cp=' + gs.currentPlayer);
     t('[重连] 重连后局面与房主一致', sig(re) === sig(host));
     await teardown([...all, re]);
@@ -184,7 +185,7 @@ function makeMove(host, s) {
           re._open(room, false); await settle(2); re._sendHello();
           live.add(re); created.push(re);
         } else if (r < 0.90) {
-          await advance(30000);   // 推进到可能的“离线自动跳过”
+          await advance(SKIP + 100);   // 推进到可能的“离线自动跳过”
         } else {
           await advance(500 + Math.floor(rng() * 3000));
         }
@@ -201,7 +202,7 @@ function makeMove(host, s) {
     t('[churn] ' + stats.games + ' 局随机掉线重连无失步/无不变量错误', stats.bad === 0,
       stats.samples.length ? JSON.stringify(stats.samples[0]) : '');
     t('[churn] 累计走了 ' + stats.plies + ' 手', stats.plies > 0);
-    console.log(`(混沌细节：churn ${stats.games} 局 / ${stats.plies} 手，含掉线·重连·30s 时钟跳进)`);
+    console.log(`(混沌细节：churn ${stats.games} 局 / ${stats.plies} 手，含掉线·重连·离线跳过时钟)`);
   }
 
   // ===== 6) 已出局者不能再影响对局（悔棋/求和被拒，且房主端也复核）=====

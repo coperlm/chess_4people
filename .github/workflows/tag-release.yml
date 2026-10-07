@@ -25,6 +25,14 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # 门禁：测试不过就不打 tag、不发 Release（此前没有任何门禁，坏提交照样发版）
+      - name: 回归测试
+        run: npm test
+
       - name: 按 package.json 自动打标签 / 发布
         id: release
         env:
@@ -83,6 +91,10 @@ jobs:
       # --include=dev：Capacitor CLI 在 devDependencies 里；若 CI 环境设了 NODE_ENV=production 会被跳过
       - name: 安装依赖
         run: npm ci --include=dev
+
+      # 门禁：手动触发（workflow_dispatch）也走一遍测试，坏提交不出包
+      - name: 回归测试
+        run: npm test
 
       - name: 注入 TURN 凭据（来自 Secret；未配置则仅用 STUN）
         env:

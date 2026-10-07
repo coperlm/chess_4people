@@ -7,10 +7,13 @@
  * peer”才需要带全量历史供其补齐。本测试锁定三件事：精简广播不丢历史、定向快照能补齐、重连能追平。
  */
 const sim = require('./_sim.js');
-const { OnlineSession, fakeEngine, settle, legalMoves } = sim;
+const { OnlineSession, fakeEngine, settle, legalMoves, makeRng } = sim;
 
 let pass = 0, fail = 0; const fails = [];
 const t = (n, c, extra) => { if (c) pass++; else { fail++; fails.push(n + (extra ? '  -> ' + extra : '')); } };
+
+// 固定种子：走子随机选择必须可复现，否则偶发地在 30 手前分出胜负 → 断言误报（会误挡发布门禁）
+const rng = makeRng(20261007);
 
 const canon = h => JSON.stringify((h || []).map(m => ({
   p: m.player, k: m.piece, f: [m.from.x, m.from.y], t: [m.to.x, m.to.y], turn: m.turn,
@@ -44,7 +47,7 @@ const canon = h => JSON.stringify((h || []).map(m => ({
       if (!s) return;
       const mv = legalMoves(gs, host.gameEngine.ruleValidator);
       if (!mv.length) return;
-      const p = mv[Math.floor(Math.random() * mv.length)];
+      const p = mv[Math.floor(rng() * mv.length)];
       s.requestMove(p[0], p[1], p[2], p[3]);
       await settle(6);
     }

@@ -79,6 +79,9 @@ js/
 vendor/trystero.nostr.iife.js  # 打包后的 Trystero（无需 CDN）
 server.js                  # 局域网静态服务器（可选）
 tools/build-web.js         # 生成 www/（Capacitor 打包用的静态资源暂存，白名单拷贝）
+tools/stage-site.js        # 生成 .site/（Pages 只发布运行需要的文件 + 引用完整性校验）
+tools/inject-ice.js        # 构建时把 TURN 凭据写成 js/utils/ice-secrets.js（不入库）
+tools/build-vendor.js      # 重建 vendor/trystero.nostr.iife.js（需显式指定版本）
 tools/make-android-icons.sh # 由 assets/icons 生成安卓图标与启动图（ImageMagick）
 capacitor.config.json      # Capacitor 配置（appId / webDir）
 android/                   # Capacitor 生成的安卓工程（Gradle 已定制：版本号、签名）
@@ -100,9 +103,12 @@ test/                      # Node 测试（规则/联机协议/回放/随机化�
 ## 测试
 
 ```bash
-npm test        # 节点内 10 套：规则 / 引擎结算 / 联机协议 / 联机加入阶段 / 联机混沌(虚拟时钟) / 回放 / 存档 / 深度 / 压力 / 联机压测
+npm test        # 节点内 11 套：规则 / 引擎结算 / 联机协议 / 联机加入阶段 / 快照瘦身 / 联机混沌(虚拟时钟) / 回放 / 存档 / 深度 / 压力 / 联机压测
 npm run e2e     # 真浏览器多端 E2E：headless chromium 开两个隔离上下文，跑一遍联机全流程（需本机有 chromium）
 ```
+
+其他脚本：`npm run inject:ice`（生成 TURN 凭据文件）、`npm run stage:site`（生成站点产物 `.site/`）、
+`npm run vendor:trystero`（重建 Trystero，需 `TRYSTERO_VERSION`/`ESBUILD_VERSION`）。Node 版本见 `.nvmrc`（>=22）。
 
 - `npm test` 全部在 Node 内运行、**不需要网络与浏览器**，秒级完成（每步都跑不变量 + 多端一致性比对）。
 - `test/netstress.test.js`：2/3/4/5 人随机对局 + 随机操作（悔棋/认输/求和/踢人/掉线重连/重开），查失步。

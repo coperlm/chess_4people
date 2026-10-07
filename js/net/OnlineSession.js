@@ -3,7 +3,7 @@
 // - 玩家：收到走子后，用同一套 RuleValidator 复核再落子；非法则拒绝并要求重同步
 // - 房主刷新：凭本地 token/记录自动重连同房间并续局；房主失联超时则由在线玩家自动接任
 const ONLINE_FAILOVER_MS = 20000;
-const OFFLINE_SKIP_MS = 30000;   // 轮到“离线玩家”后，等待这么久仍未重连就自动跳过其回合
+const OFFLINE_SKIP_MS = 90000;   // 轮到“离线玩家”后，等这么久仍未重连才自动跳过其回合（手机切后台/锁屏很常见，太短会误跳）
 const HOST_WAIT_MS = 12000;      // 非房主加入后，等这么久还没收到房主名册，就判定“找不到房主”并给出提示
 
 class OnlineSession {
@@ -536,7 +536,7 @@ class OnlineSession {
             this._renderRoster();
             this._updateStartBtn();
             this._broadcastRoster();    // 让所有玩家都能互相看到“（离线）”
-            this._checkOfflineTurn();   // 若正好轮到该玩家，30s 后自动跳过
+            this._checkOfflineTurn();   // 若正好轮到该玩家，超时后自动跳过其回合
         } else if (peerId === this.hostId) {
             this._setStatus('房主已离开，正在等待其重连…', 'error');
             this._startFailoverTimer();
@@ -1480,4 +1480,9 @@ class OnlineSession {
     }
 }
 
-if (typeof module !== 'undefined' && module.exports) module.exports = OnlineSession;
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = OnlineSession;
+    // 供测试引用实际时限，别在用例里硬编码（改时限不必改测试）
+    module.exports.OFFLINE_SKIP_MS = OFFLINE_SKIP_MS;
+    module.exports.HOST_WAIT_MS = HOST_WAIT_MS;
+}

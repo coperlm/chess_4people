@@ -397,7 +397,7 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     t('观战者不否决：求和仍成立', s[0].gameEngine.gameState.isDraw === true && s[0].gameEngine.gameState.gamePhase === 'finished', JSON.stringify({ draw: s[0].gameEngine.gameState.isDraw, phase: s[0].gameEngine.gameState.gamePhase }));
   }
 
-  // === 掉线：所有人可见 + 房主 30s 后自动跳过其回合（用直接调用 _skipOfflineTurn 代替等待）===
+  // === 掉线：所有人可见 + 房主超时后自动跳过其回合（用直接调用 _skipOfflineTurn 代替等待）===
   {
     const hE = fakeEngine(), aE = fakeEngine(), bE = fakeEngine();
     const h = new OnlineSession(hE), a = new OnlineSession(aE), b = new OnlineSession(bE);
@@ -425,7 +425,7 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     const aSeat = bSeats.find(s => s.name === '甲');
     t('其他玩家也能看到“甲”离线', !!aSeat && aSeat.online === false, JSON.stringify(bSeats.map(s => ({ n: s.name, on: s.online }))));
 
-    // 轮到甲(蓝=1)：房主应开始 30s 倒计时
+    // 轮到甲(蓝=1)：房主应开始跳过倒计时
     hE.gameState.currentPlayer = 1;
     h._checkOfflineTurn();
     t('轮到离线玩家时房主开始跳过计时', !!h._offlineTimer);
@@ -435,7 +435,7 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     await tick();
     t('离线玩家重连后撤销跳过计时', !h._offlineTimer);
 
-    // 再次离线并到期 → 直接触发跳过（不等待 30s）
+    // 再次离线并到期 → 直接触发跳过（不真实等待）
     h.participants.find(x => x.token === 'A').id = null;
     hE.gameState.currentPlayer = 1;
     h._checkOfflineTurn();
