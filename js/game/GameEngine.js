@@ -384,6 +384,12 @@ class GameEngine {
         this.isGameActive = false;
         if (wasActive && window.sound) window.sound.play('end');
         this.boardRenderer.clearSelection();
+
+        // 终局立刻停掉“本步倒计时”（认输/求和/被将死都经此）：这里不调 updateUI，
+        // 若不停，60s 定时器会继续跑；且 _timerKey 残留会让下一局（同为 0:1）早退、计时不再启动
+        if (this._timerId) { clearInterval(this._timerId); this._timerId = null; }
+        this._timerKey = null;
+        this._renderTurnTimer(-1);
         
         // 禁用相关按钮
         const undoBtn = document.getElementById('undoBtn');
@@ -502,7 +508,7 @@ class GameEngine {
         const gs = this.gameState;
         const online = !!(window.onlineSession && window.onlineSession.active);
         const inReplay = !!(window.replay && window.replay.active);
-        const running = gs.gamePhase === 'playing' && online && !inReplay;
+        const running = gs.gamePhase === 'playing' && !inReplay;   // 本地对局也计时（纯视觉，不催促）
         const key = running ? (gs.currentPlayer + ':' + gs.turn) : 'off';
         if (key === this._timerKey) { this._serverTurnStartedAt = null; return; }
         this._timerKey = key;
@@ -519,8 +525,11 @@ class GameEngine {
             this._renderTurnTimer(remain);
             if (remain <= 0) {
                 clearInterval(this._timerId); this._timerId = null;
-                const p = this.gameState.currentPlayer;
-                Utils.showMessage(`该 ${Config.PLAYER_COLORS[p].name} 走棋了`, 'info');
+                // 只有联机才催促（本地热座是同一个人控四色，催了反而是噪音）
+                if (online) {
+                    const p = this.gameState.currentPlayer;
+                    Utils.showMessage(`该 ${Config.PLAYER_COLORS[p].name} 走棋了`, 'info');
+                }
             }
         }, 1000);
     }
@@ -528,12 +537,22 @@ class GameEngine {
     _renderTurnTimer(sec) {
         const el = document.getElementById('turnTimer');
         const row = document.getElementById('turnTimerRow');
+        const barRow = document.getElementById('turnBarRow');
+        const bar = document.getElementById('turnBar');
         if (sec < 0) {
             if (el) { el.textContent = ''; el.classList.remove('timer--red'); }
             if (row) row.classList.add('hidden');
+            if (barRow) barRow.classList.add('hidden');
+            if (bar) { bar.style.width = '0%'; bar.classList.remove('timer--red'); }
             return;
         }
         if (row) row.classList.remove('hidden');
+        if (barRow) barRow.classList.remove('hidden');
+        if (bar) {
+            // 进度条：剩余秒数 / 60（到点后保持红，与数字同步）
+            bar.style.width = Math.max(0, Math.min(100, (sec / 60) * 100)) + '%';
+            bar.classList.toggle('timer--red', sec <= 10);
+        }
         if (!el) return;
         const m = Math.floor(sec / 60), s = sec % 60;
         el.textContent = `${m}:${String(s).padStart(2, '0')}`;
@@ -566,6 +585,8 @@ class GameEngine {
                 
                 currentPlayerElement.textContent = playerInfo.name;
                 currentPlayerElement.className = playerInfo.color;
+                const pill = document.getElementById('turnPill');
+                if (pill) pill.dataset.p = String(currentPlayer);   // 胶囊按行棋方着色（CSS [data-p]）
                 
             } else {
                 console.warn('⚠️ 找不到 currentPlayer 元素');

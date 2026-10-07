@@ -1505,6 +1505,8 @@ video {
 }
 .online-input--code { flex: 1; min-width: 0; }
 .online-row { display: flex; gap: .5rem; margin-top: .6rem; }
+/* 悔棋/认输/求和：三个等宽（否则 .online-btn--leave 的 width:100% 会让悔棋独占、认输被挤窄） */
+.online-row--acts > .online-btn { flex: 1 1 0; width: auto; margin-top: 0; }
 .online-btn {
   border: 0;
   border-radius: .375rem;
@@ -2040,3 +2042,102 @@ html[data-theme="dark"] .event-banner[data-type="info"]{ color:#8fa2ff; }
   .event-banner--show .event-banner__ring{ animation:none; }
   .event-banner--out{ animation:none; }
 }
+
+/* ============================================================
+   控制区头部：「轮到谁」胶囊 + 状态 + 倒计时（一行拿下，省高度）
+   ============================================================ */
+.ctrl-head{ display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
+.turn-pill{
+  display:inline-flex; align-items:center; gap:.3rem;
+  padding:.22rem .62rem; border-radius:999px; border:2px solid transparent;
+  font-weight:800; font-size:.95rem; line-height:1.25; background:#f3f4f6; color:#374151;
+  transition:background .2s ease, color .2s ease, border-color .2s ease;
+}
+/* 四色胶囊（由 GameEngine.updateCurrentPlayerDisplay 写入 data-p） */
+.turn-pill[data-p="0"]{ background:#fee2e2; color:#b91c1c; border-color:#fca5a5; }
+.turn-pill[data-p="1"]{ background:#dbeafe; color:#1d4ed8; border-color:#93c5fd; }
+.turn-pill[data-p="2"]{ background:#dcfce7; color:#15803d; border-color:#86efac; }
+.turn-pill[data-p="3"]{ background:#e5e7eb; color:#111827; border-color:#9ca3af; }
+.ctrl-status{ font-size:.8rem; color:var(--muted,#6b7280); }
+.turn-timer-wrap{ margin-left:auto; }
+.turn-timer-wrap.hidden{ display:none; }
+
+/* 倒计时进度条（与倒计时同步显隐） */
+.turn-bar-row{ height:4px; border-radius:999px; background:#eceae5; overflow:hidden; margin-top:.5rem; }
+.turn-bar-row.hidden{ display:none; }
+.turn-bar-row > i{ display:block; height:100%; width:100%; border-radius:999px;
+  background:linear-gradient(90deg,#16a34a,#84cc16); transition:width 1s linear; }
+.turn-bar-row > i.timer--red{ background:linear-gradient(90deg,#dc2626,#f97316); }
+
+/* 落点提示：默认仍是原来的「可走=小圆点 / 可吃=红环」（触屏没有 hover，保持原样）。
+   桌面（精确指针）把鼠标悬停在合法落点上时，才在该点显示半透明棋子预览 —— 即"阴影跟着鼠标走"。
+   用伪元素实现：随 class/悬停状态自动显隐，不需要任何 JS 清理。 */
+.chess-cell.possible-move:hover{ --hint-c:#475569; }
+.chess-cell.possible-move:hover[data-hp="0"]{ --hint-c:#b91c1c; }
+.chess-cell.possible-move:hover[data-hp="1"]{ --hint-c:#1d4ed8; }
+.chess-cell.possible-move:hover[data-hp="2"]{ --hint-c:#15803d; }
+.chess-cell.possible-move:hover[data-hp="3"]{ --hint-c:#334155; }
+/* any-* 而非 hover/pointer：触屏笔记本上主指针可能被判为 coarse，用它会导致鼠标悬停也不出预览。
+   纯触屏手机（无鼠标）any-hover 不成立 → 依旧只有小圆点/红环。 */
+@media (any-hover: hover) and (any-pointer: fine){
+  .chess-cell.possible-move:hover::before{
+    content: attr(data-hint);
+    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    width:2.5rem; height:2.5rem; border-radius:50%; box-sizing:border-box;
+    display:flex; align-items:center; justify-content:center;
+    font-family:"KaiTi","STKaiti","Kaiti SC","Noto Serif SC",serif; font-weight:800; font-size:1.25rem;
+    opacity:.42; pointer-events:none; border:2px solid var(--hint-c);
+    background:rgba(255,255,255,.5); color:var(--hint-c);
+    box-shadow:0 4px 10px -4px rgba(0,0,0,.35);
+  }
+  .chess-cell.possible-move:hover::after{ display:none; }   /* 悬停时不再叠小圆点 */
+  html[data-theme="dark"] .chess-cell.possible-move:hover::before{ background:rgba(255,255,255,.14); }
+}
+
+/* ============================================================
+   小屏（≤1023px）：收紧主界面，尽量一屏放下
+   ============================================================ */
+@media (max-width: 1023px){
+  header{ padding-top:6px; padding-bottom:6px; }
+  header h1{ font-size:1.15rem; }
+  header p{ display:none; }                       /* 小屏收起副标题（版本号） */
+  main{ padding-top:8px !important; padding-bottom:8px !important; }
+  main > .flex{ gap:10px !important; }
+
+  .online-btn{ min-height:40px; padding:.45rem .55rem; font-size:.82rem; }
+  .online-row{ gap:.4rem; margin-top:.45rem; }
+  .online-btn--start,
+  .online-btn--copy,
+  .online-btn--leave{ width:auto; margin-top:0; }
+  .online-row--tools .online-btn,
+  .online-btn--leave{ flex:1; }                    /* 一行放三个 / 悔棋不再独占整行 */
+  .online-btn--start{ flex:1; }
+
+  /* 玩家信息：2×2 → 一行四格 */
+  .piece-counts{ grid-template-columns:repeat(4,1fr); gap:.25rem; margin-bottom:.3rem; }
+  .pc{ flex-direction:column; align-items:center; gap:0; padding:.22rem .1rem; font-size:.7rem; }
+
+  /* 移动历史：竖向长列表 → 单行横向滚动条（省高度，仍能看到最近几手） */
+  .move-history{ flex-direction:row; max-height:none; overflow-x:auto; overflow-y:hidden; gap:.3rem; padding-bottom:2px; }
+  .move-history > div{ flex:0 0 auto; }
+  .move-history > p{ white-space:nowrap; }
+  /* 例外：回放走法列表复用同一个 #moveHistory（Replay._renderMoveList），它是带序号的竖列表，
+     必须保持竖向滚动——否则横向条会毁掉回放点选。 */
+  .move-history:has(.replay-move){ flex-direction:column; overflow-x:hidden; overflow-y:auto; max-height:38vh; }
+  .move-history:has(.replay-move) > div{ flex:initial; }
+
+  /* 棋盘外框内边距收小 */
+  #chessBoard{ padding:8px !important; }
+}
+/* 小屏再收紧一档：压缩卡片内边距与标题，不减少任何功能 */
+@media (max-width: 1023px){
+  main .bg-white.rounded-lg.p-4{ padding:.6rem .7rem; }
+  main .bg-white h3{ font-size:.9rem; margin-bottom:.25rem; }
+  main > .flex{ gap:8px !important; }
+  header{ padding-top:4px; padding-bottom:4px; }
+  header h1{ font-size:1.05rem; }
+  .move-history{ margin-top:.15rem; }
+  .captured-tray{ margin-top:.15rem; }
+}
+
+

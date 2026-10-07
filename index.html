@@ -45,28 +45,23 @@
             <!-- 左侧控制面板 -->
             <div class="lg:w-1/4">
                 <div class="bg-white rounded-lg shadow-lg p-4">
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-sm text-gray-600">当前玩家</span>
-                        <span id="currentPlayer" class="text-base font-bold text-red-600">红方</span>
+                    <!-- 头部：轮到谁（胶囊）+ 状态 + 倒计时（一行，省高度） -->
+                    <div class="ctrl-head">
+                        <span id="turnPill" class="turn-pill"><span id="currentPlayer">红方</span></span>
+                        <span id="gameStatus" class="ctrl-status">等待开始</span>
+                        <span id="turnTimerRow" class="turn-timer-wrap hidden"><span id="turnTimer" class="turn-timer"></span></span>
                     </div>
-                    <div class="flex items-center justify-between mb-3">
-                        <span class="text-sm text-gray-600">游戏状态</span>
-                        <span id="gameStatus" class="text-sm">等待开始</span>
-                    </div>
-                    <div id="turnTimerRow" class="flex items-center justify-between mb-3">
-                        <span class="text-sm text-gray-600">本步倒计时</span>
-                        <span id="turnTimer" class="text-sm turn-timer"></span>
-                    </div>
+                    <div id="turnBarRow" class="turn-bar-row hidden" aria-hidden="true"><i id="turnBar"></i></div>
 
                     <div class="online-row">
                         <button id="setupOpenBtn" class="online-btn online-btn--start">新游戏/房间状态</button>
                     </div>
-                    <div class="online-row">
+                    <div class="online-row online-row--acts">
                         <button id="undoBtn" class="online-btn online-btn--leave" disabled>悔棋</button>
                         <button id="surrenderBtn" class="online-btn online-btn--danger" disabled>认输</button>
                         <button id="drawBtn" class="online-btn online-btn--join" disabled>求和</button>
                     </div>
-                    <div class="online-row">
+                    <div class="online-row online-row--tools">
                         <button id="replayOpenBtn" class="online-btn online-btn--copy">对局记录</button>
                         <button id="rulesOpenBtn" class="online-btn online-btn--copy">游戏规则</button>
                         <button id="settingsOpenBtn" class="online-btn online-btn--copy">设置</button>

@@ -957,6 +957,14 @@ class BoardRenderer {
             this.gameState.selectedPiece.y
         );
         
+        // gameState.selectedPiece 是 { x, y, piece } 包装对象（不是棋子本身）
+        const sel = this.gameState.selectedPiece;
+        const selPiece = sel && sel.piece;
+        const selPlayer = (selPiece && selPiece.player != null) ? selPiece.player : null;
+        const selType = selPiece ? selPiece.type : null;
+        const glyph = (selPlayer != null && selType && Config.PIECE_NAMES[selPlayer])
+            ? Config.PIECE_NAMES[selPlayer][selType] : '';
+
         moves.forEach(move => {
             const cell = document.getElementById(CoordinateMapper.positionToId(move.x, move.y));
             if (cell) {
@@ -965,6 +973,12 @@ class BoardRenderer {
                     cell.classList.add('enemy-piece');
                 } else {
                     cell.classList.add('possible-move');
+                    // 空格落点用「半透明棋子预览」代替小圆点（纯 CSS 伪元素渲染，
+                    // 随 class 移除自动消失，不需要额外 DOM 清理）
+                    if (glyph) {
+                        cell.dataset.hint = glyph;
+                        cell.dataset.hp = String(selPlayer);
+                    }
                 }
             }
         });
