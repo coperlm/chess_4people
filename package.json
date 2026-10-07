@@ -4,7 +4,7 @@
   "description": "四人象棋（本地 / 联机）",
   "private": true,
   "scripts": {
-    "test": "node test/logic.test.js && node test/engine.test.js && node test/online.test.js && node test/connect.test.js && node test/netchaos.test.js && node test/replay.test.js && node test/persist.test.js && node test/deep.test.js && node test/stress.test.js && node test/netstress.test.js",
+    "test": "node test/logic.test.js && node test/engine.test.js && node test/online.test.js && node test/connect.test.js && node test/snapshot.test.js && node test/netchaos.test.js && node test/replay.test.js && node test/persist.test.js && node test/deep.test.js && node test/stress.test.js && node test/netstress.test.js",
     "inject:ice": "node tools/inject-ice.js",
     "preserve": "node tools/inject-ice.js",
     "serve": "node server.js",

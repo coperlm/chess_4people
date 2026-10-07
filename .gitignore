@@ -1,16 +1,8 @@
 node_modules/
 tmp/
-
-# Capacitor：www/ 由 tools/build-web.js 生成，不入库（android/ 的产物由 android/.gitignore 管）
 www/
-
-# 签名密钥绝不入库（正常应放在仓库外，这里再挡一道，含其 base64 导出）
 *.jks
 *.keystore
 release.jks*
-
-# 联机 TURN 凭据绝不入库：
-#  - Metered*.txt：控制台给的账号凭据（本地开发用）
-#  - js/utils/ice-secrets.js：由 tools/inject-ice.js 生成、运行时读取（CI 从 GitHub Secret 注入）
 Metered*.txt
 js/utils/ice-secrets.js

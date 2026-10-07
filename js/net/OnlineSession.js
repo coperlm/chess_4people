@@ -568,8 +568,11 @@ class OnlineSession {
     }
     /** 收到房主的任何权威消息（名册/席位/快照）即视为“已找到房主” */
     _hostFound() {
+        const hadIssue = !!this._joinIssue;
         this._clearHostWait();
         this._joinIssue = null;
+        // 之前若报过“找不到房主/连不上”，连上后要把那条红色状态刷掉，别让它一直挂着
+        if (hadIssue) this._refreshStatus();
     }
     /** 加入阶段问题的统一文案（null = 没问题） */
     _joinIssueText() {
@@ -1076,9 +1079,16 @@ class OnlineSession {
     }
 
     // ================= 快照（仅加入/重同步用） =================
-    _snapshot() {
+    /**
+     * @param {{withHistory?: boolean}} [opts] withHistory=false 时不带 moveHistory。
+     * 说明：moveHistory 每手约 155 B、随对局长度线性增长（一局 150 手就 20+ KB），是快照里最大的部分；
+     * 而走子是**逐手广播**的，各端本地已累积了同样的历史 → 常规广播不必再带。
+     * 只有“定向发给某个刚加入/请求重同步的 peer”时才需要带全量历史供其补齐。
+     */
+    _snapshot(opts) {
+        const withHistory = !opts || opts.withHistory !== false;
         const gs = this.gameEngine.gameState;
-        return {
+        const d = {
             seq: this.seq,
             currentPlayer: gs.currentPlayer,
             turn: gs.turn,
@@ -1094,11 +1104,12 @@ class OnlineSession {
             outOfPlay: gs.outOfPlay || [],
             undoLog: gs.undoLog || [],
             pieceCounts: gs.pieceCounts,
-            moveHistory: gs.moveHistory,
             board: gs.board.map(col => col.map(p => p ? { t: p.type, p: p.player, f: p.facing || null } : null))
         };
+        if (withHistory) d.moveHistory = gs.moveHistory;
+        return d;
     }
-    _broadcastState() { this.seq++; this.actState.send(this._snapshot()); }
+    _broadcastState() { this.seq++; this.actState.send(this._snapshot({ withHistory: false })); }
 
     _deserializeHistory(hist) {
         if (!Array.isArray(hist)) return [];
@@ -1141,7 +1152,8 @@ class OnlineSession {
         gs.outOfPlay = Array.isArray(d.outOfPlay) ? d.outOfPlay : [];
         gs.undoLog = Array.isArray(d.undoLog) ? d.undoLog : [];
         gs.pieceCounts = Object.assign({ 0: 0, 1: 0, 2: 0, 3: 0 }, d.pieceCounts);
-        gs.moveHistory = this._deserializeHistory(d.moveHistory);
+        // 广播快照不带历史（各端已逐手累积）；只有定向快照才带来历史 → 没带就别覆盖本地的
+        if (d.moveHistory) gs.moveHistory = this._deserializeHistory(d.moveHistory);
         gs.setRules(this.settings);
         gs.selectedPiece = null;
         gs.possibleMoves = [];
