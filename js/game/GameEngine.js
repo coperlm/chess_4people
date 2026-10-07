@@ -164,6 +164,7 @@ class GameEngine {
             this.gameStartTime = Date.now();
             
             this.updateUI();
+            this.updateMoveHistory();   // 新局必须清掉右侧上一局的走子记录（updateUI 里不含它）
             
             Utils.showMessage('新游戏开始！红方先行', 'success');
             if (window.sound) window.sound.play('start');

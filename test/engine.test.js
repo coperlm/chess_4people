@@ -55,7 +55,7 @@ function makeEngine(rules) {
   ge.gameState = gs;
   ge.pieceManager = pm;
   ge.ruleValidator = rv;
-  ge.boardRenderer = { fadeOutPieces() {}, renderPieces() {}, clearSelection() {} };
+  ge.boardRenderer = { fadeOutPieces() {}, renderPieces() {}, clearSelection() {}, reset() {} };
   ge.notifyKnockout = () => {};       // 通报只是 UI 提示，非本测试关注点
   ge.updateUI = () => {};
   ge.showGameResult = () => { ge._shown = (ge._shown || 0) + 1; };
@@ -171,6 +171,28 @@ async function testDrawConfirm() {
   Utils.confirmModal = origConfirm; Utils.showMessage = origShow;
   cleanup(ge);
 }
+
+// ------------------------------------------------------------------
+// E) 新开一局必须清掉右侧「移动历史」面板（回归 bug）
+//    updateUI() 不含 updateMoveHistory()，所以 startNewGame 必须自己调，
+//    否则新局开始后右侧仍显示上一局的走子记录，直到本局第一步才被覆盖。
+// ------------------------------------------------------------------
+(function testNewGameClearsHistory() {
+  const ge = makeEngine();
+  const gs = ge.gameState;
+  gs.startGame();
+  // 造一条上一局的走子记录，并让面板先渲染出来
+  gs.moveHistory.push({ id: 1, player: 0, piece: 'pawn', from: { x: 0, y: 6 }, to: { x: 0, y: 5 }, captured: null, turn: 1, timestamp: Date.now() });
+  let calls = 0;
+  ge.updateMoveHistory = () => { calls++; };
+  t('[新局] 造数据后历史非空', gs.moveHistory.length === 1);
+
+  ge.startNewGame();
+
+  t('[新局] startNewGame 会刷新移动历史面板', calls >= 1, 'calls=' + calls);
+  t('[新局] 新局的历史已清空', gs.moveHistory.length === 0, 'len=' + gs.moveHistory.length);
+  cleanup(ge);
+})();
 
 (async () => {
   await testDrawConfirm();
