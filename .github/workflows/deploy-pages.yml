@@ -54,4 +54,4 @@ jobs:
           path: '.site'
       - name: 部署到 GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
