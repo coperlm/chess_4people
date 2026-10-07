@@ -139,7 +139,7 @@ jobs:
           ls -lh "$OUT"
 
       - name: 上传为构建产物
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: apk
           path: ${{ steps.apk.outputs.file }}
