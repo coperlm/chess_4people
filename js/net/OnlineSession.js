@@ -4,6 +4,7 @@
 // - 房主刷新：凭本地 token/记录自动重连同房间并续局；房主失联超时则由在线玩家自动接任
 const ONLINE_FAILOVER_MS = 20000;
 const OFFLINE_SKIP_MS = 30000;   // 轮到“离线玩家”后，等待这么久仍未重连就自动跳过其回合
+const HOST_WAIT_MS = 12000;      // 非房主加入后，等这么久还没收到房主名册，就判定“找不到房主”并给出提示
 
 class OnlineSession {
     constructor(gameEngine) {
@@ -31,6 +32,8 @@ class OnlineSession {
         this._resuming = false;
         this._failoverTimer = null;
         this._offlineTimer = null;   // 房主：轮到离线玩家时的“自动跳过”计时器
+        this._hostWaitTimer = null;  // 非房主：加入后等待房主名册的计时器
+        this._joinIssue = null;      // 加入阶段的问题：null | 'no-host' | 'connect-failed'
         this._drawYes = null;   // 求和：已同意的 token 集合
         this.mySeat = null;     // 我在名册中的座位号（非房主用，标注“你”）
         this._chatLog = [];     // 聊天记录（本端）
@@ -55,6 +58,7 @@ class OnlineSession {
             roster: $('onlineRoster'),
             start: $('startOnlineBtn'),
             leave: $('leaveRoomBtn'),
+            retry: $('onlineRetryBtn'),
             chatOpen: $('chatOpenBtn'),
             chatLog: $('chatLog'),
             chatInput: $('chatInput'),
@@ -80,6 +84,7 @@ class OnlineSession {
         if (this.el.copy && window.__CHESS4P_NATIVE__) this.el.copy.textContent = '复制房间号';
         if (this.el.start) this.el.start.addEventListener('click', () => this.startMatch());
         if (this.el.leave) this.el.leave.addEventListener('click', () => this.leave());
+        if (this.el.retry) this.el.retry.addEventListener('click', () => this.retryConnect());
         this._syncSettingsUI();
     }
 
@@ -244,7 +249,13 @@ class OnlineSession {
             // 多连几条公共 nostr 中继做冗余（内置列表 29 条，默认只用 5 条）
             const cfg = { appId: this.appId, password: this.roomId };
             if (Config.RELAY_REDUNDANCY) cfg.relayConfig = { redundancy: Config.RELAY_REDUNDANCY };
-            this.room = Trystero.joinRoom(cfg, this.roomId);
+            // ICE：显式给出 STUN（+ 可选 TURN），否则跨网络（CGNAT/对称 NAT）只能靠内置 Google STUN、常打不通
+            const ice = (Config.iceServers && Config.iceServers()) || null;
+            if (ice && ice.length) cfg.rtcConfig = { iceServers: ice };
+            // 第三个参数是回调对象：建连失败（SDP 交换后仍连不上）时会回调，用于给出明确提示
+            this.room = Trystero.joinRoom(cfg, this.roomId, {
+                onJoinError: (info) => this._onJoinError(info)
+            });
         } catch (e) {
             this.active = false;
             this._setStatus('加入房间失败: ' + (e && e.message), 'error');
@@ -329,6 +340,7 @@ class OnlineSession {
             if (this.el.join) { this.el.join.disabled = true; this.el.join.classList.add('hidden'); }
             show(this.el.joinInput, false);
             show(this.el.start, isHost);
+            show(this.el.retry, !isHost);   // 非房主：给一个“重试连接”入口（找不到房主时用）
         }
         this._syncSettingsUI();
         this._renderRoster();
@@ -336,6 +348,7 @@ class OnlineSession {
         this._refreshStatus();     // 房间号 + 规则 + 角色（房主与非房主都显示）
         this._saveRecord();
         if (!this._resuming) this._sendHello();
+        if (!isHost) this._startHostWait();   // 非房主：起“等待房主”看门狗，超时未收到名册就提示找不到房主
         // 进入房间后：确保在“对局设置”弹窗的联机页
         if (window.gameInterface) {
             window.gameInterface.configured = true;
@@ -365,6 +378,8 @@ class OnlineSession {
         this._drawYes = null;
         this._clearFailoverTimer();
         this._clearOfflineTimer();
+        this._clearHostWait();
+        this._joinIssue = null;
         try { if (this.gameEngine && this.gameEngine.boardRenderer && this.gameEngine.boardRenderer.cancelPremove) this.gameEngine.boardRenderer.cancelPremove(); } catch (e) { /* ignore */ }
         this._applyNetworkMode(false);
         return room;
@@ -381,6 +396,7 @@ class OnlineSession {
             if (this.el.join) { this.el.join.disabled = false; this.el.join.classList.remove('hidden'); }
             if (this.el.joinInput) this.el.joinInput.classList.remove('hidden');
             if (this.el.start) this.el.start.classList.add('hidden');
+            if (this.el.retry) this.el.retry.classList.add('hidden');
         }
         this._syncSettingsUI();
         this._renderRoster();
@@ -462,10 +478,14 @@ class OnlineSession {
     /** 统一刷新“联机状态”行：房间号 + 规则 + 我的角色 + 轮到谁（房主与非房主都显示） */
     _refreshStatus() {
         if (!this.active) return;
+        // 加入阶段出过问题（找不到房主 / 连不上）：状态行持续显示该错误，别被常规刷新覆盖
+        const issue = this._joinIssueText();
+        if (issue && !this.started) { this._setStatus(issue, 'error'); return; }
         const gs = this.gameEngine && this.gameEngine.gameState;
         const role = !this.started ? '待分配'
             : (this.myColors.length ? this.myColors.map(c => Config.PLAYER_COLORS[c].name).join('、') : '观战');
-        let turn = this.started ? '' : '等待房主开始';
+        let turn = this.started ? ''
+            : (this.active && !this.isHost && !this._roster ? '正在寻找房主…' : '等待房主开始');
         if (this.started && gs) {
             if (gs.gamePhase === 'finished') turn = this.isHost ? '对局结束 · 可点「新游戏/房间状态」重开' : '对局结束 · 等待房主重开';
             else {
@@ -531,6 +551,67 @@ class OnlineSession {
     _clearFailoverTimer() {
         if (this._failoverTimer) { clearTimeout(this._failoverTimer); this._failoverTimer = null; }
     }
+
+    // ================= 加入阶段：等待房主 / 连接失败反馈 =================
+    /**
+     * 非房主加入后起一个看门狗：若 HOST_WAIT_MS 内始终没收到房主的任何权威消息，
+     * 说明“房间号对应的房主不在 / 网络打不通”，给出明确提示——而不是让界面一直显示“0 人”。
+     */
+    _startHostWait() {
+        this._clearHostWait();
+        const t = setTimeout(() => { this._hostWaitTimer = null; this._onHostWaitTimeout(); }, HOST_WAIT_MS);
+        if (t && typeof t.unref === 'function') t.unref();   // Node（测试）中不因它拖住进程
+        this._hostWaitTimer = t;
+    }
+    _clearHostWait() {
+        if (this._hostWaitTimer) { clearTimeout(this._hostWaitTimer); this._hostWaitTimer = null; }
+    }
+    /** 收到房主的任何权威消息（名册/席位/快照）即视为“已找到房主” */
+    _hostFound() {
+        this._clearHostWait();
+        this._joinIssue = null;
+    }
+    /** 加入阶段问题的统一文案（null = 没问题） */
+    _joinIssueText() {
+        if (this._joinIssue === 'no-host') {
+            return `找不到房主（房间号 ${this.roomId}）。请确认房主已创建房间并保持在线；若房间号无误，`
+                + `可能是双方网络无法直连——建议双方连接同一 Wi-Fi 后再点「重试连接」。`;
+        }
+        if (this._joinIssue === 'connect-failed') {
+            const hasTurn = Config.hasTurnServer && Config.hasTurnServer();
+            const tail = hasTurn
+                ? '已启用中继仍失败，可能是当前网络限制了 P2P / 中继连接'
+                : '当前未配置 TURN 中继，对称 NAT / 运营商网络下可能无法直连';
+            return `无法连接到房主：${tail}。建议双方连接同一 Wi-Fi，或点「重试连接」。`;
+        }
+        return null;
+    }
+    _onHostWaitTimeout() {
+        if (!this.active || this.isHost || this._roster || this.started) return;   // 已连上房主则忽略
+        if (this._joinIssue === 'connect-failed') return;   // 已有更具体的建连失败提示，不覆盖
+        this._joinIssue = 'no-host';
+        this._setStatus(this._joinIssueText(), 'error');
+        Utils.showMessage('找不到房主：请检查房间号与网络', 'warning');
+        this._renderRoster();   // 刷新大厅提示
+    }
+    /** Trystero 建连失败回调：SDP 交换后仍无法建立 P2P 通道（多为 NAT / 防火墙受限） */
+    _onJoinError(info) {
+        if (!this.active || this.isHost) return;    // 房主侧不需要这类提示
+        if (this._roster || this.started) return;   // 已连上房主，忽略迟到的错误
+        if (info && info.error) console.warn('[online] join error:', info.error, info.peerId || '');
+        this._joinIssue = 'connect-failed';
+        this._setStatus(this._joinIssueText(), 'error');
+        Utils.showMessage('无法连接到房主（网络受限）', 'warning');
+        this._renderRoster();
+    }
+    /** 非房主：重试连接（以同一房间号重新加入） */
+    retryConnect() {
+        if (!this.active || this.isHost || !this.roomId) return;
+        this._joinIssue = null;
+        this._setStatus(`正在重试连接房主…（房间号 ${this.roomId}）`, 'ok');
+        this._open(this.roomId, false);
+    }
+
     _leaderAmong(ids) {
         const uniq = [...new Set((ids || []).filter(Boolean))].sort();
         return uniq[0] || null;
@@ -635,6 +716,7 @@ class OnlineSession {
 
     _onAssign(d) {
         if (this.isHost || !d) return;
+        this._hostFound();
         if (d.hostId) this.hostId = d.hostId;
         // 只记录设置；真正应用以房主广播的局面快照为准（避免局中改设置导致两端规则不一致）
         if (d.settings) this.settings = Object.assign({}, Config.DEFAULT_RULES, d.settings);
@@ -652,6 +734,7 @@ class OnlineSession {
 
     _onRoster(d) {
         this._roster = d;
+        if (d) this._hostFound();   // 名册只有房主会广播：收到即“已找到房主”
         if (d && d.hostId) {
             const changed = this.hostId && this.hostId !== d.hostId;
             this.hostId = d.hostId;
@@ -1036,6 +1119,7 @@ class OnlineSession {
     _onState(d) {
         if (this.isHost || !d) return;
         if (d.seq < this._lastSeq) return;
+        this._hostFound();   // 收到房主快照 = 已找到房主
         this._lastSeq = d.seq;
         if (d.settings) { this.settings = Object.assign({}, Config.DEFAULT_RULES, d.settings); }
 
@@ -1153,6 +1237,8 @@ class OnlineSession {
 
     /** 人数状态提示 */
     _countState() {
+        // 非房主尚未收到房主名册：此时 _playerCount() 恒为 0，别把“还没连上”说成“0 人”
+        if (this.active && !this.isHost && !this.started && !this._roster) return '正在连接房主…';
         const n = this._playerCount();
         const min = this._minPlayers();
         if (this.started) return '对局进行中';
@@ -1178,11 +1264,23 @@ class OnlineSession {
         const code = document.getElementById('lobbyRoomCode');
         if (code) code.textContent = this.active ? (this.roomId || '—') : '—';
         const hint = document.getElementById('lobbyHint');
-        if (hint) {
-            hint.textContent = this.active
-                ? `当前 ${this._playerCount()} 人 · ${this._seatPreview(this._playerCount())} · ${this._countState()}`
-                : '';
+        if (!hint) return;
+        if (!this.active) { hint.textContent = ''; hint.className = 'online-status'; return; }
+        // 非房主尚未收到名册：区分“正在连”与“找不到房主 / 连不上”，别显示误导性的“当前 0 人”
+        const connecting = !this.isHost && !this.started && !this._roster;
+        if (connecting) {
+            if (this._joinIssue) {
+                const what = this._joinIssue === 'no-host' ? '未找到房主' : '无法连接到房主';
+                hint.textContent = `${what}（房间号 ${this.roomId}）· 可点「重试连接」，或确认房间号与网络`;
+                hint.className = 'online-status online-status--error';
+            } else {
+                hint.textContent = `正在连接房主…（房间号 ${this.roomId}）`;
+                hint.className = 'online-status';
+            }
+            return;
         }
+        hint.className = 'online-status';
+        hint.textContent = `当前 ${this._playerCount()} 人 · ${this._seatPreview(this._playerCount())} · ${this._countState()}`;
     }
 
     /** 对局是否正在进行（进行中则禁止会扰动棋局的操作，如交换位置/颜色） */

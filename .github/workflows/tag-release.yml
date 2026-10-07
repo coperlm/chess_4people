@@ -84,6 +84,11 @@ jobs:
       - name: 安装依赖
         run: npm ci --include=dev
 
+      - name: 注入 TURN 凭据（来自 Secret；未配置则仅用 STUN）
+        env:
+          CHESS4P_TURN_JSON: ${{ secrets.CHESS4P_TURN_JSON }}
+        run: node tools/inject-ice.js
+
       - name: 暂存 Web 资源并同步到 android 工程
         run: npm run cap:sync
 

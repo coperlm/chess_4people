@@ -30,6 +30,43 @@ class Config {
     // 联机信令：Trystero nostr 策略的“公共中继冗余条数”。
     // 内置中继列表有 29 条、默认只用前 5 条；多连几条可提高“至少一条可达”的概率（信令被墙/宕时的兜底）。
     static RELAY_REDUNDANCY = 10;
+
+    // 联机 ICE：STUN = 发现本机公网地址、尝试打洞；TURN = 打洞失败时中继转发。
+    // 同一 Wi-Fi 靠 host 候选即可连通；跨网络（尤其手机运营商 CGNAT / 对称 NAT）必须靠 STUN/TURN。
+    // STUN 用公共的即可；国内地址更可靠（Google 的在国内常被干扰）。
+    static ICE_STUN_SERVERS = [
+        { urls: 'stun:stun.qq.com:3478' },
+        { urls: 'stun:stun.miwifi.com:3478' },
+        { urls: 'stun:stun.chat.bilibili.com:3478' },
+        { urls: 'stun:stun.cloudflare.com:3478' },
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+    ];
+
+    // TURN 中继：对称 NAT / 运营商 CGNAT 下唯一可靠的兜底。
+    // **不在源码里写凭据**（本仓库公开）：改为构建/部署时由 tools/inject-ice.js 生成
+    // js/utils/ice-secrets.js（gitignore 掉），运行时经 window.__CHESS4P_TURN__ 合并进来。
+    // 凭据来源：CI = GitHub Secret `CHESS4P_TURN_JSON`；本地 = 仓库根 Metered.txt。详见 README。
+    // 这里保留为空数组，也可手动硬编码（不建议：会入库）。
+    static ICE_TURN_SERVERS = [];
+
+    /** 运行时注入的 TURN 凭据（由 tools/inject-ice.js 生成 js/utils/ice-secrets.js；仓库里不含凭据） */
+    static _injectedTurn() {
+        return (typeof window !== 'undefined' && Array.isArray(window.__CHESS4P_TURN__)) ? window.__CHESS4P_TURN__ : [];
+    }
+
+    /** 供 Trystero rtcConfig.iceServers 使用的完整 ICE 列表（内置 STUN + 手填 TURN + 注入的 TURN）。 */
+    static iceServers() {
+        return [...Config.ICE_STUN_SERVERS, ...Config.ICE_TURN_SERVERS, ...Config._injectedTurn()];
+    }
+
+    /** 是否配置了 TURN（用于区分“无法直连”与“中继也不通”的提示文案）。 */
+    static hasTurnServer() {
+        return [...Config.ICE_TURN_SERVERS, ...Config._injectedTurn()].some(s => {
+            const urls = Array.isArray(s.urls) ? s.urls : [s.urls];
+            return urls.some(u => /^turns?:/i.test(u || ''));
+        });
+    }
     
     // 玩家颜色配置
     static PLAYER_COLORS = {

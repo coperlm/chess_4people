@@ -36,7 +36,15 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
       - uses: actions/configure-pages@v5
+      # TURN 凭据不入库：部署时从 Secret 生成 js/utils/ice-secrets.js 再上传（缺失则仅用 STUN）
+      - name: 注入 TURN 凭据
+        env:
+          CHESS4P_TURN_JSON: ${{ secrets.CHESS4P_TURN_JSON }}
+        run: node tools/inject-ice.js
       - name: 上传静态站点
         uses: actions/upload-pages-artifact@v3
         with:

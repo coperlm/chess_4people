@@ -40,7 +40,18 @@
 - 房主校验每手并广播"走子"，其他端用同一套规则复核后再落子；非法走子会被拒绝并请求重同步。没有中立后端，无法从根本上阻止房主改自己浏览器；本作为朋友局定位。
 - 身份使用用本机 `localStorage` 中的 token 识别（故换设备/清缓存等于新身份）。
 - 房主状态随时存本地，刷新后自动重连同一房间续局；失联超时由在线玩家中 `selfId` 最小者接任。
-- 联机信令走公共网络，个别网络环境下可能连不上；无 TURN 时少数 NAT 打不通。
+- 信令经公共 nostr 中继（多连几条做冗余）。**同一 Wi-Fi** 靠 host 候选即可直连；**跨网络**（手机 5G / 运营商 CGNAT / 对称 NAT）需要 STUN 打洞，必要时 TURN 中继。
+
+### 跨网络联机（STUN / TURN）
+- STUN 在 `js/utils/Config.js` 的 `ICE_STUN_SERVERS`：默认已含**国内可达**地址（腾讯/小米/bilibili），可见性优于 Google 的（国内常被干扰）。
+- **TURN 必需但不能入库**。GitHub Pages 是纯静态站、没有服务端，凭据最终必须出现在发布的 JS 里，所以做法是"**源码里不放，构建/部署时注入**"：
+  - 源码只留空占位；凭据来自 `tools/inject-ice.js`，它生成 `js/utils/ice-secrets.js`（**已在 `.gitignore`**，不会被提交）。
+  - **CI（GitHub Pages / APK）**：在仓库 `Settings → Secrets and variables → Actions` 新建 Secret **`CHESS4P_TURN_JSON`**，值为 Metered 给的数组字面量（从 `[` 到 `]`，即 `Metered.txt` 里 `const iceServers = ` 后面那一段）。两个 workflow 都会在构建前调用注入。
+  - **本地开发**：把 Metered 控制台的 RTCConfiguration snippet 原样存成仓库根的 `Metered.txt`（已 gitignore）即可；`npm run serve / e2e / build:web` 会自动前置注入。
+  - 手动执行：`npm run inject:ice`（读 `CHESS4P_TURN_JSON` → 否则读 `Metered.txt` → 都没有则保留/生成空占位）。
+- ⚠️ **这只保证"不进 git"，不保证"保密"**：产物里的凭据任何人都能从网页 JS 里读出来，可能被他人用掉你的额度（Metered 免费 20 GB/月；凭据是长期的，需替换时到控制台**重新生成**并同步更新 Secret）。想要真正保密需改用**临时凭据**（由一台无服务器函数持 API Key 现签，见下）。
+- 未配置 TURN 时，对称 NAT / 运营商网络下可能无法直连——界面会明确提示，并给出「重试连接」。
+- 加入房间后若 12 秒内始终收不到房主信息，会提示**"找不到房主"**（而不是一直显示"0 人"），并引导检查房间号 / 改连同一 Wi-Fi。
 
 ## 对局回放
 
@@ -89,7 +100,7 @@ test/                      # Node 测试（规则/联机协议/回放/随机化�
 ## 测试
 
 ```bash
-npm test        # 节点内 9 套：规则 / 引擎结算 / 联机协议 / 联机混沌(虚拟时钟) / 回放 / 存档 / 深度 / 压力 / 联机压测
+npm test        # 节点内 10 套：规则 / 引擎结算 / 联机协议 / 联机加入阶段 / 联机混沌(虚拟时钟) / 回放 / 存档 / 深度 / 压力 / 联机压测
 npm run e2e     # 真浏览器多端 E2E：headless chromium 开两个隔离上下文，跑一遍联机全流程（需本机有 chromium）
 ```
 

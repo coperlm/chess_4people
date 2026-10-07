@@ -187,6 +187,7 @@
                 </div>
                 <div class="online-row">
                     <button id="startOnlineBtn" class="online-btn online-btn--start hidden" disabled>开始 / 重开（房主）</button>
+                    <button id="onlineRetryBtn" class="online-btn online-btn--join hidden">重试连接</button>
                     <button id="leaveRoomBtn" class="online-btn online-btn--leave hidden">离开房间</button>
                 </div>
             </div>
@@ -377,6 +378,8 @@
     </div>
 
     <!-- JavaScript模块 -->
+    <!-- TURN 凭据（由 tools/inject-ice.js 生成，**不入库**；缺失时窗口全局为空 → 仅用 STUN） -->
+    <script src="js/utils/ice-secrets.js"></script>
     <script src="js/utils/Config.js"></script>
     <script src="js/utils/Utils.js"></script>
     <script src="js/utils/Sound.js"></script>
