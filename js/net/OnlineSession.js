@@ -846,14 +846,15 @@ class OnlineSession {
         const ge = this.gameEngine, gs = ge.gameState;
         ge.boardRenderer.clearSelection();
         ge.boardRenderer.renderPieces(move);
-        ge.updateUI();
         if (ge.updateMoveHistory) ge.updateMoveHistory();
         if (ge.boardRenderer.highlightLastMove) ge.boardRenderer.highlightLastMove();
         if (ge.autoSave) ge.autoSave();
         // 与房主用同一套结算：淘汰被吃/困毙 + 必要时推进 currentPlayer + 结束。
         // 若只调 checkGameEnd，会出现“轮到被吃方”时房主已 nextPlayer、客户端没推进 → 回合/当前方漂移。
+        // 注意：resolveAfterMove 末尾会 updateUI，这里不要再单独刷一遍（避免每手重复渲染两次）。
         if (ge.resolveAfterMove) ge.resolveAfterMove();
         else if (gs.checkGameEnd()) ge.endGame();
+        else ge.updateUI();
     }
 
     /** 自己控制的颜色是否已全部出局（将/帅被吃或困毙）——已出局者不应再影响对局 */
@@ -1185,6 +1186,7 @@ class OnlineSession {
         if (this.gameEngine && this.gameEngine.persistence) this.gameEngine.persistence.clearSavedState();
         this._syncSettingsUI();   // 对局结束 → 解锁设置，便于为下一局调整
         this._renderRoster();     // 结束 → 房主管理里的“交换”按钮恢复
+        this._refreshStatus();    // 状态行要立刻从“轮到 X”变成“对局结束”（否则房主侧会停在旧文案）
         if (this.isHost) this._broadcastState();
     }
 

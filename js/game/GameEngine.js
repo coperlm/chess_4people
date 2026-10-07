@@ -394,12 +394,9 @@ class GameEngine {
         this._timerKey = null;
         this._renderTurnTimer(-1);
         
-        // 禁用相关按钮
-        const undoBtn = document.getElementById('undoBtn');
-        const surrenderBtn = document.getElementById('surrenderBtn');
-        
-        if (undoBtn) undoBtn.disabled = true;
-        if (surrenderBtn) surrenderBtn.disabled = true;
+        // 终局刷新全部派生状态：状态文字、三个按钮（含“求和”）、棋盘禁用、被将高亮、倒计时。
+        // 认输/求和这两条路径此前不走 updateUI → 棋盘仍可点、求和按钮仍亮、状态停在“第N回合”。
+        this.updateUI();
         
         // 稍作停顿再弹结算面板，让“淘汰淡出”动画看得清；重复调用只保留最后一次
         if (this._resultTimer) clearTimeout(this._resultTimer);
