@@ -508,7 +508,7 @@ class GameEngine {
         const gs = this.gameState;
         const online = !!(window.onlineSession && window.onlineSession.active);
         const inReplay = !!(window.replay && window.replay.active);
-        const running = gs.gamePhase === 'playing' && !inReplay;   // 本地对局也计时（纯视觉，不催促）
+        const running = gs.gamePhase === 'playing' && online && !inReplay;   // 只在联机时计时（本地热座不计）
         const key = running ? (gs.currentPlayer + ':' + gs.turn) : 'off';
         if (key === this._timerKey) { this._serverTurnStartedAt = null; return; }
         this._timerKey = key;
@@ -525,11 +525,8 @@ class GameEngine {
             this._renderTurnTimer(remain);
             if (remain <= 0) {
                 clearInterval(this._timerId); this._timerId = null;
-                // 只有联机才催促（本地热座是同一个人控四色，催了反而是噪音）
-                if (online) {
-                    const p = this.gameState.currentPlayer;
-                    Utils.showMessage(`该 ${Config.PLAYER_COLORS[p].name} 走棋了`, 'info');
-                }
+                const p = this.gameState.currentPlayer;
+                Utils.showMessage(`该 ${Config.PLAYER_COLORS[p].name} 走棋了`, 'info');
             }
         }, 1000);
     }
