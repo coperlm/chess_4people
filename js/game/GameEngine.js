@@ -508,7 +508,10 @@ class GameEngine {
         const gs = this.gameState;
         const online = !!(window.onlineSession && window.onlineSession.active);
         const inReplay = !!(window.replay && window.replay.active);
-        const running = gs.gamePhase === 'playing' && online && !inReplay;   // 只在联机时计时（本地热座不计）
+        // 当前玩家离线（房主已起 90s 跳过计时）期间暂停本步倒计时：人不在，计时与催促都没意义
+        const curOffline = online && window.onlineSession.isColorOffline
+            && window.onlineSession.isColorOffline(gs.currentPlayer);
+        const running = gs.gamePhase === 'playing' && online && !inReplay && !curOffline;   // 只在联机时计时（本地热座不计）
         const key = running ? (gs.currentPlayer + ':' + gs.turn) : 'off';
         if (key === this._timerKey) { this._serverTurnStartedAt = null; return; }
         this._timerKey = key;

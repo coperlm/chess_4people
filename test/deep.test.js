@@ -151,6 +151,107 @@ for (let i = 0; i < 300; i++) {
   }
 }
 
+// ============ 2b. 马/象/士/将/兵 的“独立参考实现”差分校验 ============
+// 参考实现只用 Config 的区域表 + 自己写的方向向量推导，**刻意不复用** Utils/CoordinateMapper，
+// 这样与 RuleValidator 是两条独立路径，才真正起到差分测试（differential testing）的作用。
+const refInArea = (x, y, p) => { const a = Config.PLAYABLE_AREAS[p]; return x >= a.x[0] && x <= a.x[1] && y >= a.y[0] && y <= a.y[1]; };
+const refInPalace = (x, y, p) => { const a = Config.PALACE_AREAS[p]; return x >= a.x[0] && x <= a.x[1] && y >= a.y[0] && y <= a.y[1]; };
+const refOccupied = (gs, x, y) => x >= 0 && x < 10 && y >= 0 && y < 10 && gs.getPiece(x, y) !== null;
+
+function referenceHorse(gs, fx, fy, tx, ty) {
+  const dx = tx - fx, dy = ty - fy, ax = Math.abs(dx), ay = Math.abs(dy);
+  if (!((ax === 2 && ay === 1) || (ax === 1 && ay === 2))) return false;
+  const legX = ax === 2 ? fx + dx / 2 : fx;   // 马腿：沿走两格的那个方向、紧邻出发点的格
+  const legY = ay === 2 ? fy + dy / 2 : fy;
+  return !refOccupied(gs, legX, legY);
+}
+function referenceElephant(gs, fx, fy, tx, ty, p) {
+  if (!refInArea(tx, ty, p)) return false;                       // 不过河（目标须在本方象限）
+  const dx = tx - fx, dy = ty - fy;
+  if (Math.abs(dx) !== 2 || Math.abs(dy) !== 2) return false;    // 走田
+  return !refOccupied(gs, fx + dx / 2, fy + dy / 2);             // 象眼
+}
+const referenceAdvisor = (fx, fy, tx, ty, p) => refInPalace(tx, ty, p) && Math.abs(tx - fx) === 1 && Math.abs(ty - fy) === 1;
+const referenceKing = (fx, fy, tx, ty, p) => refInPalace(tx, ty, p) && (Math.abs(tx - fx) + Math.abs(ty - fy)) === 1;
+const REF_STEP = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+function referencePawn(fx, fy, tx, ty, p, facing) {
+  const step = REF_STEP[facing];
+  if (!step) return false;
+  const side = (facing === 'left' || facing === 'right') ? [REF_STEP.up, REF_STEP.down] : [REF_STEP.left, REF_STEP.right];
+  const dirs = refInArea(fx, fy, p) ? [step] : [step, ...side];   // 过河(离开本方象限)后才可横走
+  return dirs.some(d => fx + d[0] === tx && fy + d[1] === ty);
+}
+
+let diffChecks = 0;
+for (let i = 0; i < 150; i++) {
+  const { gs, rv } = makeGame();
+  for (let n = 0; n < 15; n++) {
+    const x = Math.floor(Math.random() * 10), y = Math.floor(Math.random() * 10);
+    const type = ['horse', 'elephant', 'advisor', 'king', 'pawn'][n % 5];
+    const player = n % 4;
+    const facing = ['up', 'down', 'left', 'right'][n % 4];
+    if (!gs.getPiece(x, y)) gs.board[x][y] = new ChessPiece(type, player, x, y, facing);
+  }
+  for (let fx = 0; fx < 10; fx++) for (let fy = 0; fy < 10; fy++) {
+    const pc = gs.board[fx][fy];
+    if (!pc) continue;
+    for (let tx = 0; tx < 10; tx++) for (let ty = 0; ty < 10; ty++) {
+      if (tx === fx && ty === fy) continue;
+      let mine, ref;
+      if (pc.type === 'horse') { mine = rv.validateHorseMove(fx, fy, tx, ty); ref = referenceHorse(gs, fx, fy, tx, ty); }
+      else if (pc.type === 'elephant') { mine = rv.validateElephantMove(fx, fy, tx, ty, pc.player); ref = referenceElephant(gs, fx, fy, tx, ty, pc.player); }
+      else if (pc.type === 'advisor') { mine = rv.validateAdvisorMove(fx, fy, tx, ty, pc.player); ref = referenceAdvisor(fx, fy, tx, ty, pc.player); }
+      else if (pc.type === 'king') { mine = rv.validateKingMove(fx, fy, tx, ty, pc.player); ref = referenceKing(fx, fy, tx, ty, pc.player); }
+      else if (pc.type === 'pawn') { mine = rv.validatePawnMove(pc, fx, fy, tx, ty); ref = referencePawn(fx, fy, tx, ty, pc.player, pc.facing); }
+      else continue;
+      diffChecks++;
+      t(pc.type + ' 与参考实现一致', mine === ref, `${fx},${fy}->${tx},${ty} P${pc.player}`);
+    }
+  }
+}
+
+// ============ 2c. 士/将/兵 的确定性边界（补上差分测试不易随机命中的点） ============
+{
+  { // 士：斜一格且不出九宫
+    const { gs, rv } = makeGame(); emptyBoard(gs);
+    gs.board[1][8] = new ChessPiece('advisor', 0, 1, 8);
+    t('士斜一格(九宫内)可走', rv.validateAdvisorMove(1, 8, 0, 7, 0) === true);
+    t('士不能直走', rv.validateAdvisorMove(1, 8, 2, 8, 0) === false);
+    t('士不能出九宫', rv.validateAdvisorMove(2, 7, 3, 8, 0) === false);
+  }
+  { // 将：直一格且不出九宫
+    const { gs, rv } = makeGame(); emptyBoard(gs);
+    gs.board[1][8] = new ChessPiece('king', 0, 1, 8);
+    t('将直走一格(九宫内)可走', rv.validateKingMove(1, 8, 1, 7, 0) === true);
+    t('将不能走两格', rv.validateKingMove(1, 8, 1, 6, 0) === false);
+    t('将不能斜走', rv.validateKingMove(1, 8, 0, 7, 0) === false);
+  }
+  { // 兵/卒：未过河只能沿朝向前进
+    const { gs, rv } = makeGame(); emptyBoard(gs);
+    const pw = new ChessPiece('pawn', 3, 2, 3, 'down');   // 黑方象限 x0-4,y0-4，(2,3) 未过河
+    gs.board[2][3] = pw;
+    t('兵未过河可前进', rv.validatePawnMove(pw, 2, 3, 2, 4) === true);
+    t('兵未过河不能横走', rv.validatePawnMove(pw, 2, 3, 3, 3) === false);
+    t('兵未过河不能后退', rv.validatePawnMove(pw, 2, 3, 2, 2) === false);
+  }
+  { // 兵/卒：过河后可前进 + 两侧横走，但永不后退
+    const { gs, rv } = makeGame(); emptyBoard(gs);
+    const pw = new ChessPiece('pawn', 3, 6, 6, 'down');   // (6,6) 已在黑方象限之外 = 过河
+    gs.board[6][6] = pw;
+    t('兵过河可前进', rv.validatePawnMove(pw, 6, 6, 6, 7) === true);
+    t('兵过河可横走(右)', rv.validatePawnMove(pw, 6, 6, 7, 6) === true);
+    t('兵过河可横走(左)', rv.validatePawnMove(pw, 6, 6, 5, 6) === true);
+    t('兵过河也不能后退', rv.validatePawnMove(pw, 6, 6, 6, 5) === false);
+  }
+  { // 马：纵向走日也要判纵向马腿
+    const { gs, rv } = makeGame(); emptyBoard(gs);
+    gs.board[5][5] = new ChessPiece('horse', 0, 5, 5);
+    t('马纵走日(腿空)可走', rv.validateHorseMove(5, 5, 4, 7) === true);
+    gs.board[5][6] = new ChessPiece('rook', 0, 5, 6);
+    t('马纵走日(腿被占)不可走', rv.validateHorseMove(5, 5, 4, 7) === false);
+  }
+}
+
 // ============ 3. 象 / 马 阻挡规则（确定性） ============
 {
   { // 象走田，象眼空
@@ -250,6 +351,6 @@ for (let g = 0; g < 10; g++) {
 
 // ============ 汇总 ============
 console.log(`\n深度测试: ${pass} 通过, ${fail} 失败`);
-console.log(`覆盖：${games} 局 / ${totalPlies} 手；走完的对局 ${finishedGames}；兵卒校验 ${pawnChecks}；被将军次数 ${mateChecks}；车/炮路径 ${pathChecks}；回放往返 ${replayChecks}`);
+console.log(`覆盖：${games} 局 / ${totalPlies} 手；走完的对局 ${finishedGames}；兵卒校验 ${pawnChecks}；被将军次数 ${mateChecks}；车/炮路径 ${pathChecks}；马/象/士/将/兵 差分 ${diffChecks}；回放往返 ${replayChecks}`);
 if (fail) { console.log('\n失败样例:'); failures.forEach(f => console.log('  ✗ ' + f)); process.exit(1); }
 console.log('✅ 全部通过');

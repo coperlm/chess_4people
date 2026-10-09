@@ -36,9 +36,24 @@ const mimeTypes = {
 };
 
 const server = http.createServer((req, res) => {
-    // 处理根路径
-    let filePath = req.url === '/' ? '/index.html' : req.url;
-    filePath = path.join(__dirname, filePath);
+    // 只取路径部分：以前把 req.url（含 ?query）直接拼进路径，导致
+    // /index.html?room=xxxx（本地测邀请链接）一律 404。
+    let pathname;
+    try {
+        pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
+    } catch (e) {
+        pathname = '/';
+    }
+    if (pathname === '/' || pathname === '') pathname = '/index.html';
+
+    const filePath = path.join(__dirname, pathname);
+
+    // 目录穿越防护：解析后必须仍在仓库目录内（path.join 会把 .. 归一化）
+    if (filePath !== __dirname && !filePath.startsWith(__dirname + path.sep)) {
+        res.writeHead(403, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end('<h1>403 - 禁止访问</h1>', 'utf-8');
+        return;
+    }
 
     // 获取文件扩展名
     const ext = path.extname(filePath).toLowerCase();
@@ -47,7 +62,7 @@ const server = http.createServer((req, res) => {
     // 读取并返回文件
     fs.readFile(filePath, (err, content) => {
         if (err) {
-            if (err.code === 'ENOENT') {
+            if (err.code === 'ENOENT' || err.code === 'EISDIR') {
                 res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
                 res.end('<h1>404 - 文件未找到</h1>', 'utf-8');
             } else {

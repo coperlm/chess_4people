@@ -1237,6 +1237,23 @@ class OnlineSession {
         return (this._roster && typeof this._roster.count === 'number') ? this._roster.count : 0;
     }
 
+    /**
+     * 某个颜色对应的玩家是否“离线”（用于暂停本步倒计时：人不在，催促/计时都没意义）。
+     * 房主看 participants 的 id；非房主看名册里的 online 标记。房主自己永远算在线。
+     */
+    isColorOffline(color) {
+        if (!this.active) return false;
+        if (this.isHost) {
+            const p = this.participants.find(x => (x.colors || []).includes(color));
+            if (!p || p.token === this.token) return false;
+            return p.id == null;
+        }
+        const seats = (this._roster && this._roster.seats) || null;
+        if (!seats) return false;
+        const s = seats.find(x => (x.colors || []).includes(color));
+        return !!(s && s.online === false);
+    }
+
     /** 按当前人数+模式预览座位分配（与 _groupsFor 一致） */
     _seatPreview(n) {
         const N = { 0: '红', 1: '蓝', 2: '绿', 3: '黑' };
@@ -1273,6 +1290,8 @@ class OnlineSession {
         this._renderAdmin();
         this._renderLobby();
         this._syncSettingsUI();   // 开局/结束/换人等时机刷新“设置是否锁定”
+        // 名册变化也意味着“当前玩家在线/离线”可能变了 → 立刻重估本步倒计时（离线期间它应暂停）
+        try { if (this.gameEngine && this.gameEngine.updateTurnTimer) this.gameEngine.updateTurnTimer(); } catch (e) { /* 计时不影响对局 */ }
     }
 
     /** 大厅头部：房间号 + 人数/座位预览提示 */
